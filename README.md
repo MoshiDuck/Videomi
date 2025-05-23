@@ -1,5 +1,13 @@
 # Videomi
+
+---
+
+## Lien : 
 https://github.com/MoshiDuck/Videomi
+
+---
+
+## Description : 
 Videomi est une application Python développée pour gérer et naviguer facilement dans une bibliothèque vidéo personnalisée.
 
 ---
@@ -17,19 +25,19 @@ Videomi est une application Python développée pour gérer et naviguer facileme
 
 ## GIT
 
-1. Cloner le dépôt :
-   ```bash
-   git clone https://github.com/MoshiDuck/Videomi.git
-   cd Videomi
-
-2. Ou pour ajouter un fichier spécifique :
+1. Ou pour ajouter un fichier spécifique :
    ```bash
    git add .
 
-3. Mettre à jour la branche distante
+2. Mettre à jour la branche distante
    ```bash
    git commit -m "Message décrivant les modifications"
 
-4. Remplace main par le nom de ta branche si besoin.
+3. Remplace main par le nom de ta branche si besoin.
    ```bash
    git push origin main
+   
+4. Cloner le dépôt :
+   ```bash
+   git clone https://github.com/MoshiDuck/Videomi.git
+   cd Videomi
