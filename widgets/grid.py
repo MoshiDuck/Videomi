@@ -25,7 +25,7 @@ class AspectRatioWidget(QWidget):
         return QSize(w, h)
 
 class GridItem(QWidget):
-    def __init__(self, title: str, duration: str = "00:00:00", thumbnail_path: str = None):
+    def __init__(self, title: str, duration: str = "00:00:00", thumbnail_path: str = None, ratio=16/9):
         super().__init__()
         layout = QVBoxLayout()
         layout.setSpacing(5)
@@ -41,7 +41,7 @@ class GridItem(QWidget):
         self.set_thumbnail(thumbnail_path)
 
         # Wrapper to enforce 16:9
-        self.aspect_wrapper = AspectRatioWidget()
+        self.aspect_wrapper = AspectRatioWidget(ratio)
         wrapper_layout = QVBoxLayout(self.aspect_wrapper)
         wrapper_layout.setContentsMargins(0, 0, 0, 0)
         wrapper_layout.addWidget(self.thumbnail)

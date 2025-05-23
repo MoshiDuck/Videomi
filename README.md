@@ -1,5 +1,5 @@
 # Videomi
-
+https://github.com/MoshiDuck/Videomi
 Videomi est une application Python développée pour gérer et naviguer facilement dans une bibliothèque vidéo personnalisée.
 
 ---

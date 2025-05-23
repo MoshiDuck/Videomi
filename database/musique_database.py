@@ -111,23 +111,42 @@ class MusicDataBase:
 
 def extract_album_art_ffmpeg(audio_path, output_image_path):
     """
-    Extrait pochette intégrée (si présente) avec ffmpeg.
+    Extrait la pochette intégrée (si présente) avec ffmpeg
+    et la convertit en image carrée (1:1).
     """
-    cmd = [
+    tmp_output = output_image_path + ".tmp.png"  # image brute extraite
+
+    # Étape 1 : extraction sans audio
+    extract_cmd = [
         FFMPEG_PATH,
         "-y",
         "-i", audio_path,
         "-an",
         "-vcodec", "copy",
+        tmp_output
+    ]
+    result = subprocess.run(extract_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    if result.returncode != 0 or not os.path.exists(tmp_output):
+        if os.path.exists(tmp_output):
+            os.remove(tmp_output)
+        return False
+
+    # Étape 2 : redimensionnement en carré 512x512 (ou adapte)
+    scale_cmd = [
+        FFMPEG_PATH,
+        "-y",
+        "-i", tmp_output,
+        "-vf", "scale='min(512,iw)':'min(512,ih)',pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black",
+        "-frames:v", "1",
         output_image_path
     ]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode == 0 and os.path.exists(output_image_path):
-        return True
-    else:
-        if os.path.exists(output_image_path):
-            os.remove(output_image_path)
-        return False
+    scale_result = subprocess.run(scale_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    os.remove(tmp_output)
+
+    return scale_result.returncode == 0 and os.path.exists(output_image_path)
+
 
 
 def process_music(file_path, db: MusicDataBase):

@@ -1,6 +1,6 @@
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Chemins vers exécutables
 FFMPEG_PATH = os.path.join(BASE_DIR, "Ressource", "ffmpeg", "bin", "ffmpeg.exe")
@@ -21,16 +21,27 @@ VIDEO_EXTENSIONS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm")
 AUDIO_EXTENSIONS = (".mp3", ".flac", ".wav", ".aac", ".ogg", ".m4a")
 
 def verify_paths():
-    missing = []
+    missing_files = []
+    required_dirs = [
+        THUMBNAIL_VIDEO_DIR,
+        THUMBNAIL_MUSIC_DIR,
+        os.path.dirname(FOLDER_DB_PATH),
+        VLC_DIR
+    ]
+
+    # Création des dossiers requis
+    for d in required_dirs:
+        if not os.path.exists(d):
+            print(f"[Création dossier] {d}")
+            os.makedirs(d, exist_ok=True)
+
+    # Vérification des exécutables uniquement
     for name, path in {
         "ffmpeg": FFMPEG_PATH,
         "ffprobe": FFPROBE_PATH,
-        "folder DB": FOLDER_DB_PATH,
-        "video thumbnails": THUMBNAIL_VIDEO_DIR,
-        "music thumbnails": THUMBNAIL_MUSIC_DIR,
-        "vlc": VLC_DIR,
     }.items():
         if not os.path.exists(path):
-            missing.append(f"❌ {name} introuvable : {path}")
-    if missing:
-        raise FileNotFoundError("\n".join(missing))
+            missing_files.append(f"❌ {name} introuvable : {path}")
+
+    if missing_files:
+        raise FileNotFoundError("\n".join(missing_files))

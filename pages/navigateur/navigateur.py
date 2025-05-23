@@ -2,10 +2,9 @@ import os
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 from config.colors import DARK_BG, TEXT_COLOR_LIGHT
-from config.config import THUMBNAIL_VIDEO_DIR
 from indexer.musique_indexer import musique_indexer
 from indexer.thumbnail_indexer import ThumbnailIndexer
-from indexer.video_indexer import  video_indexer
+from indexer.video_indexer import video_indexer
 from widgets.grid import Grid, GridItem
 from pages.navigateur.widgets.bar.bar_widget_nav import BarWidgetNav
 from pages.navigateur.widgets.sous_bar.sous_bar_widget import SousBarWidgetNav
@@ -67,12 +66,10 @@ class NavigateurWindow(QMainWindow):
             duration=entry['duration'],
             thumbnail_path=entry.get('thumbnail_path')
         )
-        # Stocker mapping path->item
         item.video_path = entry['path']
         self.grid_video.add_item(item)
 
     def _on_thumbnail_ready(self, video_name: str, thumb_path: str):
-        # Trouver l'item dont le nom correspond
         for item in self.grid_video.items:
             name = os.path.splitext(os.path.basename(item.video_path))[0]
             if name == video_name:
@@ -81,6 +78,7 @@ class NavigateurWindow(QMainWindow):
 
     def _on_new_music(self, entry: dict):
         item = GridItem(
+            ratio=1/1,
             title=entry['title'],
             duration=entry['duration'],
             thumbnail_path=entry.get('thumbnail_path')

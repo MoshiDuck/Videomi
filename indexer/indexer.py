@@ -17,13 +17,14 @@ class Indexer(QThread):
         self.process_func = process_func
 
     def run(self):
+
+
         emitted = set()
         display_entries = self.display_func()
 
         for entry in display_entries:
             self.new.emit(entry)
             emitted.add(entry['path'])
-
         folder_db = FolderDatabase(db_path=FOLDER_DB_PATH)
         for folder in folder_db.get_all_folders():
             for root, _, files in os.walk(folder):

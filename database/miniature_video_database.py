@@ -45,6 +45,27 @@ class MiniatureVideoDataBase:
         try:
             meta = metadata_utils.get_metadata(video_path)
             duration = float(meta.get('format', {}).get('duration', 0))
+            width = int(meta.get('streams', [{}])[0].get('width', 0))
+            height = int(meta.get('streams', [{}])[0].get('height', 0))
+
+            if width == 0 or height == 0:
+                print(f"[Miniature] Résolution inconnue, génération sans crop 16:9 pour {video_path}")
+                crop_filter = None
+            else:
+                target_ratio = 16 / 9
+                video_ratio = width / height
+
+                if video_ratio > target_ratio:
+                    # trop large, on crop largeur
+                    new_width = int(height * target_ratio)
+                    x = (width - new_width) // 2
+                    crop_filter = f"crop={new_width}:{height}:{x}:0"
+                else:
+                    # trop haute, on crop hauteur
+                    new_height = int(width / target_ratio)
+                    y = (height - new_height) // 2
+                    crop_filter = f"crop={width}:{new_height}:0:{y}"
+
             timestamp = duration * 0.15
             ts_str = f"{int(timestamp // 3600):02d}:{int((timestamp % 3600) // 60):02d}:{int(timestamp % 60):02d}"
 
@@ -52,12 +73,20 @@ class MiniatureVideoDataBase:
                 FFMPEG_PATH,
                 "-ss", ts_str,
                 "-i", video_path,
-                "-frames:v", "1",
+                "-frames:v", "1"
+            ]
+
+            if crop_filter:
+                cmd += ["-vf", crop_filter]
+
+            cmd += [
                 "-q:v", "2",
                 "-y",
                 output_path
             ]
+
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"[Miniature] Générée à {ts_str} -> {output_path}")
+            print(f"[Miniature] Générée à {ts_str} avec crop 16:9 -> {output_path}")
+
         except Exception as e:
             print(f"[Erreur] Échec génération miniature {video_path} : {e}")
