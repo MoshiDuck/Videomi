@@ -1,17 +1,21 @@
 # Videomi
 
-Application de gestion et visualisation de vidéos développée pour un usage personnel.
+Videomi est une application Python développée pour gérer et naviguer facilement dans une bibliothèque vidéo personnalisée.
 
 ---
 
-## Description
+## Fonctionnalités principales
 
-Videomi permet d’indexer, visualiser et gérer des vidéos avec leurs métadonnées (miniatures, durée, pistes audio/sous-titres).  
-L’interface graphique est conçue avec PySide6.  
+- Indexation automatique des vidéos à partir d’un dossier choisi  
+- Extraction des métadonnées (titre, durée, pistes audio et sous-titres) avec `ffprobe`  
+- Génération de miniatures pour chaque vidéo  
+- Interface graphique intuitive réalisée avec PySide6  
+- Gestion simple des fichiers vidéo et miniatures  
+- Possibilité d’ajouter la musique (fonctionnalité en cours)
 
 ---
 
-## Installation (pour le développement)
+## GIT
 
 1. Cloner le dépôt :
    ```bash
@@ -22,14 +26,10 @@ L’interface graphique est conçue avec PySide6.
    ```bash
    git add .
 
-3. Valider les modifications avec un message clair :
-   ```bash
-   git add chemin/vers/fichier
-
-4. Mettre à jour la branche distante
+3. Mettre à jour la branche distante
    ```bash
    git commit -m "Message décrivant les modifications"
 
-5. Remplace main par le nom de ta branche si besoin.
+4. Remplace main par le nom de ta branche si besoin.
    ```bash
    git push origin main
