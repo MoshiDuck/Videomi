@@ -1,14 +1,5 @@
 __pycache__/
-*.py[cod]
-*$py.class
-
-
-
-
-
-*.log
-
-
-
-Ressource
+Ressource/ffmpeg/bin/ffplay.exe
+Ressource/ffmpeg/bin/ffmpeg.exe
+Ressource/ffmpeg/bin/ffprobe.exe
 
