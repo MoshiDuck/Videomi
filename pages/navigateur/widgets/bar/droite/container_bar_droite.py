@@ -16,7 +16,7 @@ class ContainerBarDroite(QWidget):
         layout.setSpacing(5)
         layout.setAlignment(Qt.AlignVCenter)
 
-        self.icon_search = IconPerso(icon_true_name='mdi.magnify',bool_color=True)
+        self.icon_search = IconPerso(icon_only_name='mdi.magnify')
 
         layout.addWidget(self.icon_search)
 

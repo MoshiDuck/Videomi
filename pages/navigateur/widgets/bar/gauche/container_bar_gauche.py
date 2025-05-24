@@ -17,12 +17,3 @@ class ContainerBarGauche(QWidget):
         layout.addWidget(self.icon_toggle)
         layout.addWidget(self.sortAZ_toggle)
         layout.addWidget(self.sortTime_toggle)
-
-    def get_icon_toggle_state(self):
-        return self.icon_toggle.get_state()
-
-    def get_sort_az_toggle_state(self):
-        return self.sortAZ_toggle.get_state()
-
-    def get_sort_time_toggle_state(self):
-        return self.sortTime_toggle.get_state()

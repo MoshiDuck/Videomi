@@ -54,6 +54,7 @@ QScrollBar::sub-page:horizontal {
 """
 
 def main():
+
     app = QApplication(sys.argv)
     app.setStyleSheet(SCROLLBAR_STYLE)
 

@@ -2,12 +2,15 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import (
     QComboBox, QSizePolicy, QHBoxLayout, QLabel, QWidget, QLineEdit
 )
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, Signal
 import qtawesome as qta
 
 from config.colors import DARK_ICON, PRIMARY_COLOR
 
+
 class BoxChoix(QComboBox):
+    stateChanged = Signal()
+
     def __init__(self, icon_text: str = None):
         super().__init__()
         self.setModel(QStandardItemModel(self))
@@ -103,6 +106,7 @@ class BoxChoix(QComboBox):
             self.model().item(0).setCheckState(Qt.Checked if all_checked else Qt.Unchecked)
 
         self.update_text()
+        self.stateChanged.emit()
 
     def update_text(self):
         checked_items = [
@@ -117,9 +121,19 @@ class BoxChoix(QComboBox):
             self.line_edit.setText("Tous")
         elif checked_items:
             self.line_edit.setText(", ".join(checked_items))
+        else:
+            self.line_edit.setText("")
 
     def eventFilter(self, obj, event):
         if obj == self.line_edit and event.type() == QEvent.MouseButtonPress:
             self.showPopup()
             return True
         return super().eventFilter(obj, event)
+
+    def get_checked_items(self):
+        """Retourne la liste des items cochés (hors 'Tous')."""
+        return [
+            self.model().item(i).text()
+            for i in range(1, self.model().rowCount())
+            if self.model().item(i).checkState() == Qt.Checked
+        ]

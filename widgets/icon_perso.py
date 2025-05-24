@@ -10,13 +10,13 @@ class IconPerso(QPushButton):
     def __init__(
         self,
         initial_state: bool = False,
+        icon_only_name: str = "",
         icon_true_name: str = "",
         icon_false_name: str = "",
-        bool_color: bool = False,
         parent=None
     ):
         super().__init__(parent)
-        self.bool_color = bool_color
+        self.icon_only = icon_only_name
         self.state = initial_state
 
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -33,8 +33,8 @@ class IconPerso(QPushButton):
         layout.addWidget(self.icon_label)
 
         # Icônes
-        if self.bool_color:
-            self.icon_name = icon_true_name  # nom de l’icône unique
+        if self.icon_only:
+            self.icon_name = self.icon_only
         else:
             self.icon_true = qta.icon(icon_true_name, color=DARK_ICON)
             self.icon_false = qta.icon(icon_false_name, color=DARK_ICON)
@@ -46,7 +46,7 @@ class IconPerso(QPushButton):
         self.set_state(not self.state)
 
     def update_icon(self):
-        if self.bool_color:
+        if self.icon_only:
             color = PRIMARY_COLOR if self.state else DARK_ICON
             icon = qta.icon(self.icon_name, color=color)
         else:
@@ -62,5 +62,4 @@ class IconPerso(QPushButton):
         self.state = state
         self.setChecked(state)
         self.update_icon()
-        if self.bool_color:
-            self.state_changed.emit(state)
+        self.state_changed.emit(state)

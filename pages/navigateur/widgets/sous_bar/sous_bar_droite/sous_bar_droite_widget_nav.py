@@ -17,11 +17,11 @@ class SousBarDroiteWidgetNav(Row):
         self.setFixedHeight(40)
 
         self.slide = SlideTime()
-        self.box1 = BoxChoix(icon_text="mdi.volume-high")
-        self.box2 = BoxChoix(icon_text="mdi.closed-caption")
+        self.box_audio = BoxChoix(icon_text="mdi.volume-high")
+        self.box_sub = BoxChoix(icon_text="mdi.closed-caption")
 
         self.add_widget(self.slide)
-        self.add_widget(self.box1)
-        self.add_widget(self.box2)
+        self.add_widget(self.box_audio)
+        self.add_widget(self.box_sub)
 
 

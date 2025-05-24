@@ -1,9 +1,10 @@
 from PySide6.QtWidgets import QWidget, QLabel, QHBoxLayout, QSlider, QSizePolicy
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from config.colors import PRIMARY_COLOR, TEXT_COLOR_LIGHT
 
 class SlideTime(QWidget):
+    valueChanged = Signal(int)
     def __init__(self, max_hours=2):
         super().__init__()
         self.step_minutes = 30
@@ -50,6 +51,7 @@ class SlideTime(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.slider)
         self.setLayout(layout)
+        self.slider.valueChanged.connect(self.on_slider_value_changed)
 
     def align_to_step(self, value):
         nearest_step = round(value / self.step_minutes) * self.step_minutes
@@ -64,4 +66,8 @@ class SlideTime(QWidget):
         m = value % 60
         s = 0
         self.label.setText(f"{h:02d}:{m:02d}:{s:02d}")
+
+    def on_slider_value_changed(self, value):
+        self.align_to_step(value)
+        self.valueChanged.emit(value)
 
