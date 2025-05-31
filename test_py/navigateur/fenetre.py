@@ -9,10 +9,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
 from database.musique_manager import MusiqueManager
 from database.musique_thumbnail_manager import MusiqueThumbnailManager
+from database.videos import normaliser_langue
 from test_py.configuration.gestionnaire import GestionnaireConfiguration
 from test_py.navigateur.navigation import GestionnaireNavigation
-
-# Imports des managers vidéo et musique
 from database.video_thumbnail_manager import VideoThumbnailManager
 from database.video_manager           import VideoManager
 
@@ -73,7 +72,7 @@ class NavigateurVideos(QtWidgets.QMainWindow):
         # Création de l’interface graphique
         self._creer_interface()
         self._verifier_ffmpeg()
-
+        self.showMaximized()
         # Timer pour le filtrage différé (300 ms)
         self.filtre_timer = QtCore.QTimer(self)
         self.filtre_timer.setSingleShot(True)
@@ -102,6 +101,9 @@ class NavigateurVideos(QtWidgets.QMainWindow):
 
         # Slider de durée dans la sous-barre
         sous_right.slide.valueChanged.connect(self._demarrer_filtre_timer)
+
+        sous_right.box_audio.stateChanged.connect(self._demarrer_filtre_timer)
+        sous_right.box_sub.stateChanged.connect(self._demarrer_filtre_timer)
 
         # Basculer entre vidéo/musique (carte du milieu)
         middle.card.state_changed.connect(self._toggle_type_media)
@@ -134,6 +136,7 @@ class NavigateurVideos(QtWidgets.QMainWindow):
 
         # 1) Barre + sous-barre
         main_layout.addWidget(self.bar)
+        main_layout.addSpacing(10)
         main_layout.addWidget(self.sous_bar)
 
         # 2) QStackedWidget pour 4 “pages”
@@ -359,23 +362,38 @@ class NavigateurVideos(QtWidgets.QMainWindow):
             medias = self.music_manager.charger_musiques()
 
         # Valeurs des filtres (slider + texte)
-        max_duree       = self.sous_bar.sous_bar_droite.slide.value()
         texte_recherche = self.sous_bar.sous_bar_gauche.bar_search.text()
+        max_duree = self.sous_bar.sous_bar_droite.slide.value()
+        audio = self.sous_bar.sous_bar_droite.box_audio.value()
+        st = self.sous_bar.sous_bar_droite.box_sub.value()
+
+        if "Tous" in audio:
+            audio = None
+        else:
+            audio = [normaliser_langue(l) for l in audio]
+
+        if "Tous" in st:
+            st = None
+        else:
+            st = [normaliser_langue(l) for l in st]
+
 
         # Filtre avancé selon le type de média
         if self.show_video:
             filtered = self.video_manager.advanced_filter(
                 videos=medias,
                 texte_recherche=texte_recherche,
-                max_duree=max_duree
+                max_duree=max_duree,
+                audio=audio,
+                st=st
             )
         else:
             filtered = self.music_manager.advanced_filter(
                 musiques=medias,
                 artiste=None,
                 album=None,
-                max_duree=max_duree / 60,  # convertir en minutes (durée musique)
-                texte_recherche=texte_recherche
+                max_duree=max_duree,  # convertir en minutes (durée musique)
+                texte_recherche=texte_recherche,
             )
 
         # Afficher les éléments filtrés

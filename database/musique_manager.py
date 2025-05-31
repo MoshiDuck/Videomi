@@ -136,16 +136,31 @@ class MusiqueManager:
 
     @staticmethod
     def advanced_filter(musiques, artiste=None, album=None, max_duree=None, texte_recherche=None):
-        max_duree_sec = max_duree * 60 if max_duree is not None else None  # en secondes
+        """
+        Filtre la liste de musiques selon :
+         - artiste         : filtrer par nom d'artiste (ex. 'Daft Punk')
+         - album           : filtrer par nom d'album
+         - max_duree       : durée maximale en secondes (assumée déjà en s)
+         - texte_recherche : sous‐chaîne à chercher dans 'titre'
+        """
         result = []
         for m in musiques:
-            if max_duree_sec is not None and m.get('duree', 0) > max_duree_sec:
+            # 1) Durée en secondes
+            if max_duree is not None and m.get('duree', 0) > max_duree:
                 continue
+
+            # 2) Filtre sur artiste
             if artiste and m.get('artiste', '').lower() != artiste.lower():
                 continue
+
+            # 3) Filtre sur album
             if album and m.get('album', '').lower() != album.lower():
                 continue
+
+            # 4) Filtre texte
             if texte_recherche and texte_recherche.lower() not in m.get('titre', '').lower():
                 continue
+
             result.append(m)
+
         return result

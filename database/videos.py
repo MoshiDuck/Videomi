@@ -16,15 +16,22 @@ logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
 def normaliser_langue(lang: str) -> str:
     """
-    Convertit une étiquette de langue (fr, fre, français, en, eng, anglais, etc.)
-    en code standard ISO 639-2 (fra, eng).
+    Convertit une étiquette de langue (fr, fre, français, en, eng, anglais, esp, etc.)
+    en code standard ISO 639-2 (fra, eng, spa).
     """
     lang = lang.lower().strip()
     mapping = {
-        "fr": "fra", "fre": "fra", "français": "fra",
-        "en": "eng", "eng": "eng", "anglais": "eng"
+        # Français
+        "fr": "fra", "fre": "fra", "français": "fra", "francais": "fra",
+
+        # Anglais
+        "en": "eng", "eng": "eng", "anglais": "eng",
+
+        # Espagnol
+        "es": "spa", "esp": "spa", "espagnol": "spa", "español": "spa",
     }
     return mapping.get(lang, lang)
+
 
 
 def obtenir_videos(video_info: dict) -> tuple[list[dict], dict]:

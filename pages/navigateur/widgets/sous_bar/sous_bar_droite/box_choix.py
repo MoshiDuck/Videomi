@@ -1,23 +1,15 @@
 import qtawesome as qta
-
 from PyQt6.QtCore import Qt, QEvent, pyqtSignal
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtWidgets import (
-    QComboBox,
-    QSizePolicy,
-    QHBoxLayout,
-    QLabel,
-    QWidget,
-    QLineEdit
+    QComboBox, QSizePolicy, QHBoxLayout, QLabel,
+    QWidget, QLineEdit
 )
-
 from config.colors import DARK_ICON, PRIMARY_COLOR
 
 
 class BoxChoix(QComboBox):
-    # Utilise pyqtSignal à la place de Signal
     stateChanged = pyqtSignal()
-
 
     def __init__(self, icon_text: str = None):
         super().__init__()
@@ -26,20 +18,20 @@ class BoxChoix(QComboBox):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setEditable(True)
 
-        # Création du conteneur personnalisé (icône + lineEdit)
+        # Conteneur personnalisé (icône + texte affiché)
         self.container = QWidget(self)
         layout = QHBoxLayout(self.container)
         layout.setContentsMargins(6, 0, 6, 0)
         layout.setSpacing(6)
 
+        # Icône à gauche (optionnelle)
         self.icon_label = QLabel()
         if icon_text:
             icon = qta.icon(icon_text, color=DARK_ICON)
-            pixmap = icon.pixmap(24, 24)  # tu peux changer la taille ici
-            self.icon_label.setPixmap(pixmap)
+            self.icon_label.setPixmap(icon.pixmap(24, 24))
+        layout.addWidget(self.icon_label, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        layout.addWidget(self.icon_label, alignment=Qt.AlignVCenter)
-
+        # Zone de texte
         self.line_edit = QLineEdit()
         self.line_edit.setReadOnly(True)
         self.line_edit.setFrame(False)
@@ -53,16 +45,15 @@ class BoxChoix(QComboBox):
         """)
         layout.addWidget(self.line_edit)
 
-        self.container.setStyleSheet("""
-            background-color: transparent;
-        """)
+        self.container.setStyleSheet("background-color: transparent;")
 
-        self.setLineEdit(QLineEdit())  # obligatoire mais caché
+        # LineEdit caché obligatoire pour QComboBox
+        self.setLineEdit(QLineEdit())
         self.lineEdit().hide()
         self.container.setParent(self)
         self.container.show()
 
-        # Style sombre de la ComboBox (popup, bordure, etc.)
+        # Style général
         self.setStyleSheet(f"""
             QComboBox {{
                 border: 1px solid {PRIMARY_COLOR};
@@ -81,67 +72,75 @@ class BoxChoix(QComboBox):
             QComboBox::drop-down {{ width: 0px; border: none; }}
         """)
 
-        # Données
+        # Items de sélection avec cases à cocher
         self.items = ["Tous", "Français", "Anglais", "Espagnol"]
         for text in self.items:
             item = QStandardItem(text)
-            item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            item.setData(Qt.Checked, Qt.CheckStateRole)
+            item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            item.setData(Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
             self.model().appendRow(item)
 
         self.update_text()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self.container:
-            self.container.setGeometry(self.lineEdit().geometry())
+        self.container.setGeometry(self.lineEdit().geometry())
 
     def handle_item_pressed(self, index):
         item = self.model().itemFromIndex(index)
         current_state = item.checkState()
 
         if item.text() == "Tous":
-            new_state = Qt.Checked if current_state == Qt.Unchecked else Qt.Unchecked
+            # Basculer tous les éléments selon l’état de "Tous"
+            new_state = Qt.CheckState.Checked if current_state == Qt.CheckState.Unchecked else Qt.CheckState.Unchecked
             for i in range(1, self.model().rowCount()):
                 self.model().item(i).setCheckState(new_state)
             item.setCheckState(new_state)
         else:
-            item.setCheckState(Qt.Unchecked if current_state == Qt.Checked else Qt.Checked)
+            # Basculer l’état individuel
+            item.setCheckState(Qt.CheckState.Unchecked if current_state == Qt.CheckState.Checked else Qt.CheckState.Checked)
+
+            # Synchroniser l’état de "Tous"
             all_checked = all(
-                self.model().item(i).checkState() == Qt.Checked
+                self.model().item(i).checkState() == Qt.CheckState.Checked
                 for i in range(1, self.model().rowCount())
             )
-            self.model().item(0).setCheckState(Qt.Checked if all_checked else Qt.Unchecked)
+            self.model().item(0).setCheckState(Qt.CheckState.Checked if all_checked else Qt.CheckState.Unchecked)
 
         self.update_text()
         self.stateChanged.emit()
 
     def update_text(self):
+        """Met à jour le texte visible en fonction des sélections."""
         checked_items = [
             self.model().item(i).text()
             for i in range(1, self.model().rowCount())
-            if self.model().item(i).checkState() == Qt.Checked
+            if self.model().item(i).checkState() == Qt.CheckState.Checked
         ]
 
-        all_checked = self.model().item(0).checkState() == Qt.Checked
-
-        if all_checked or len(checked_items) == self.model().rowCount() - 1:
+        # Si "Tous" est coché ou tous les autres cochés, afficher "Tous"
+        if self.model().item(0).checkState() == Qt.CheckState.Checked or len(checked_items) == len(self.items) - 1:
             self.line_edit.setText("Tous")
         elif checked_items:
             self.line_edit.setText(", ".join(checked_items))
         else:
             self.line_edit.setText("")
 
-    def eventFilter(self, obj, event):
-        if obj == self.line_edit and event.type() == QEvent.MouseButtonPress:
-            self.showPopup()
-            return True
-        return super().eventFilter(obj, event)
-
-    def get_checked_items(self):
-        """Retourne la liste des items cochés (hors 'Tous')."""
+    def value(self):
+        """
+        Renvoie la liste des langues sélectionnées.
+        Si "Tous" est coché, renvoie ["Tous"].
+        """
+        if self.model().item(0).checkState() == Qt.CheckState.Checked:
+            return ["Tous"]
         return [
             self.model().item(i).text()
             for i in range(1, self.model().rowCount())
-            if self.model().item(i).checkState() == Qt.Checked
+            if self.model().item(i).checkState() == Qt.CheckState.Checked
         ]
+
+    def eventFilter(self, obj, event):
+        if obj == self.line_edit and event.type() == QEvent.Type.MouseButtonPress:
+            self.showPopup()
+            return True
+        return super().eventFilter(obj, event)

@@ -127,19 +127,39 @@ class VideoManager:
             print("[SORT_VIDEOS] Cache utilisé")
         return sorted_videos
 
+        # ==== database/video_manager.py ====
+
     @staticmethod
     def advanced_filter(videos, texte_recherche=None, max_duree=None, audio=None, st=None):
-        max_duree_sec = max_duree * 3600 if max_duree is not None else None
+        """
+        Filtre la liste de vidéos selon :
+         - texte_recherche : sous‐chaîne à chercher dans 'nom'
+         - max_duree       : durée MAXIMALE en secondes
+         - audio           : liste de langues audio normalisées (fra, eng, spa)
+         - st              : liste de langues sous‐titre normalisées
+        """
         result = []
         for v in videos:
-            if max_duree_sec is not None and v.get('duree', 0) > max_duree_sec:
+            # 1) Filtre par durée
+            if max_duree is not None and v.get('duree', 0) > max_duree:
                 continue
-            if audio is not None and v.get('audio_langue') != audio:
-                continue
-            if st is not None and v.get('sous_titre_langue') != st:
-                continue
+
+            # 2) Filtre audio
+            if audio is not None:
+                video_langs = [lang.lower() for lang in (v.get('audio_langues') or [])]
+                if not any(lang in video_langs for lang in audio):
+                    continue
+
+            # 3) Filtre sous-titres
+            if st is not None:
+                st_langs = [lang.lower() for lang in (v.get('sous_titres_langues') or [])]
+                if not any(lang in st_langs for lang in st):
+                    continue
+
+            # 4) Filtre texte
             if texte_recherche and texte_recherche.lower() not in v.get('nom', '').lower():
                 continue
+
             result.append(v)
 
         return result

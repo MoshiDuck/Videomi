@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.2.5
+0.0.2.6
 
 ---
 
@@ -50,7 +50,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ## PROCHAINE CHOSE À FAIRE :
 
-Gerer les filtres
+Mettre une indication de temps pour slide
 
 ## GIT
 
@@ -63,6 +63,6 @@ Gerer les filtres
 2. (Re)ajoute tous les fichiers présents + Commit + Lier au dépôt distant GitHub + Force le push
    ```bash
    git push --force origin main
-   git commit -m "[FAIT] gerer sqlite musique"
+   git commit -m "[FAIT] Gerer les filtres"
    git add .
    git remote add origin https://github.com/MoshiDuck/Videomi
