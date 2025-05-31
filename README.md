@@ -50,7 +50,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ## PROCHAINE CHOSE À FAIRE :
 
-gerer sqlite musique
+Gerer les filtres
 
 ## GIT
 
@@ -63,6 +63,6 @@ gerer sqlite musique
 2. (Re)ajoute tous les fichiers présents + Commit + Lier au dépôt distant GitHub + Force le push
    ```bash
    git push --force origin main
-   git commit -m "[FAIT] gerer sqlite thumb"
+   git commit -m "[FAIT] gerer sqlite musique"
    git add .
    git remote add origin https://github.com/MoshiDuck/Videomi

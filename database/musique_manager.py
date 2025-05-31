@@ -7,7 +7,7 @@ from test_py.navigateur.cache import SortCache, SearchCache
 
 class MusiqueManager:
     def __init__(self, music_info, thumbnail_manager, thumbnail_dir):
-        print("[INIT] Initialisation du MusicManager")
+        print("[INIT] Initialisation du MusiqueManager")
         self.music_info = music_info
         self.thumbnail_manager = thumbnail_manager
         self.thumbnail_dir = thumbnail_dir
@@ -19,6 +19,19 @@ class MusiqueManager:
         try:
             conn = sqlite3.connect(MUSIQUES_DB_PATH)
             c = conn.cursor()
+
+            # Création de la table si elle n'existe pas
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS music_info (
+                    chemin  TEXT PRIMARY KEY,
+                    titre   TEXT,
+                    artiste TEXT,
+                    album   TEXT,
+                    duree   REAL
+                )
+            """)
+            conn.commit()
+
             c.execute("SELECT chemin, titre, artiste, album, duree FROM music_info")
             rows = c.fetchall()
             self.music_info = {}
@@ -41,6 +54,19 @@ class MusiqueManager:
         import sqlite3
         conn = sqlite3.connect(MUSIQUES_DB_PATH)
         c = conn.cursor()
+
+        # Création de la table si elle n'existe pas
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS music_info (
+                chemin  TEXT PRIMARY KEY,
+                titre   TEXT,
+                artiste TEXT,
+                album   TEXT,
+                duree   REAL
+            )
+        """)
+        conn.commit()
+
         for chemin, info in self.music_info.items():
             titre = info.get('titre', os.path.splitext(os.path.basename(chemin))[0])
             artiste = info.get('artiste', 'Inconnu')
@@ -80,7 +106,10 @@ class MusiqueManager:
         if search_text:
             filtered = self.search_cache.object(search_text)
             if filtered is None:
-                filtered = [music for music in musiques if search_text in music['titre'].lower()]
+                filtered = [
+                    music for music in musiques
+                    if search_text in music.get('titre', '').lower()
+                ]
                 self.search_cache.insert(search_text, filtered)
             else:
                 print("[FILTER_MUSICS] Cache utilisé")
@@ -95,7 +124,11 @@ class MusiqueManager:
         sorted_musics = self.sort_cache.object(cache_key)
         if sorted_musics is None:
             print("[SORT_MUSICS] Cache manquant, tri en cours")
-            sorted_musics = sorted(musiques, key=lambda x: x.get(key, ''), reverse=not ascending)
+            sorted_musics = sorted(
+                musiques,
+                key=lambda x: x.get(key, ''),
+                reverse=not ascending
+            )
             self.sort_cache.insert(cache_key, sorted_musics)
         else:
             print("[SORT_MUSICS] Cache utilisé")
