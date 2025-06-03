@@ -1,0 +1,5224 @@
+1
+00:01:03,564 --> 00:01:07,318
+SOUMISE
+
+2
+00:01:17,995 --> 00:01:20,247
+LES AVENTURES D'ALICE
+AU PAYS DES MERVEILLES
+
+3
+00:01:25,002 --> 00:01:26,629
+<i>Reviens dans le lit.</i>
+
+4
+00:01:30,257 --> 00:01:31,801
+Je serai en retard au travail.
+
+5
+00:01:31,926 --> 00:01:33,552
+Ce que t'es prude!
+
+6
+00:01:36,263 --> 00:01:38,224
+<i>T'es pas obligé de toujours</i>
+<i>suivre les règles.</i>
+
+7
+00:01:38,349 --> 00:01:39,809
+<i>Parfois, c'est amusant</i>
+<i>de les enfreindre.</i>
+
+8
+00:01:41,519 --> 00:01:43,020
+Tu sais, si on essaie
+vraiment fort,
+
+9
+00:01:43,145 --> 00:01:45,231
+tu pourrais arrêter
+de travailler bientôt.
+
+10
+00:01:50,236 --> 00:01:52,071
+Ce soir. C'est un rendez-vous.
+
+11
+00:01:56,158 --> 00:01:57,493
+Je vais réveiller les enfants.
+
+12
+00:02:00,204 --> 00:02:01,080
+Maggie?
+
+13
+00:02:01,747 --> 00:02:02,706
+Ça va?
+
+14
+00:02:03,374 --> 00:02:04,416
+Qu'est-ce qui se passe, Maggie?
+
+15
+00:02:04,750 --> 00:02:06,335
+Maggie, ça va? Maggie?
+
+16
+00:02:12,424 --> 00:02:14,844
+<i>Bienvenue chez</i>
+<i>Kobol Industries.</i>
+
+17
+00:02:15,511 --> 00:02:17,346
+<i>La vie simplifiée.</i>
+
+18
+00:02:18,055 --> 00:02:20,182
+Papa, on peut manger
+de la lasagne pour le souper?
+
+19
+00:02:20,599 --> 00:02:22,351
+C'est la recette de ta mère,
+ma puce.
+
+20
+00:02:22,476 --> 00:02:23,644
+D'accord.
+
+21
+00:02:24,687 --> 00:02:25,729
+Regarde celui-là!
+
+22
+00:02:26,564 --> 00:02:27,439
+Reste près de moi!
+
+23
+00:02:28,399 --> 00:02:32,111
+<i>Veuillez vous abstenir</i>
+<i>de toucher les robots. Merci.</i>
+
+24
+00:02:32,236 --> 00:02:33,696
+Papa, ils ont l'air vrais!
+
+25
+00:02:35,447 --> 00:02:36,740
+Bienvenue chez Kobol.
+
+26
+00:02:36,866 --> 00:02:38,325
+Comment peut-on
+simplifier votre vie?
+
+27
+00:02:38,701 --> 00:02:41,412
+Je suis intéressé par
+les modèles Maison.
+
+28
+00:02:41,537 --> 00:02:43,289
+Très bien.
+Tous nos modèles viennent
+
+29
+00:02:43,414 --> 00:02:44,498
+avec l'ensemble Maison+.
+
+30
+00:02:44,623 --> 00:02:45,624
+Ça couvre le plus important:
+
+31
+00:02:45,749 --> 00:02:47,501
+la cuisine, le ménage,
+la surveillance des enfants.
+
+32
+00:02:47,626 --> 00:02:49,503
+Des services supplémentaires
+sont également offerts:
+
+33
+00:02:49,628 --> 00:02:51,463
+massages thaïlandais,
+comptabilité, et j'en passe.
+
+34
+00:02:51,589 --> 00:02:52,756
+Oui, je sais tout ça.
+
+35
+00:02:52,882 --> 00:02:54,592
+Certains voisins en ont.
+
+36
+00:02:55,217 --> 00:02:56,302
+Pas comme ceux-ci.
+
+37
+00:02:59,138 --> 00:03:00,264
+Toutes nos unités
+d'IA sont dotées
+
+38
+00:03:00,389 --> 00:03:01,223
+d'un système positronique
+
+39
+00:03:01,348 --> 00:03:02,808
+et d'un processeur
+de 50 gigahertz.
+
+40
+00:03:02,933 --> 00:03:05,060
+Ce truc pourrait coordonner
+une mission de la NASA
+
+41
+00:03:05,185 --> 00:03:07,771
+tout en jouant simultanément à
+un million de parties d'échecs.
+
+42
+00:03:08,314 --> 00:03:09,899
+Et ces appareils
+s'adaptent d'eux-mêmes.
+
+43
+00:03:10,024 --> 00:03:12,735
+Ils modifient leur code
+et évoluent constamment
+
+44
+00:03:12,860 --> 00:03:14,486
+pour répondre à vos besoins.
+
+45
+00:03:15,070 --> 00:03:17,698
+Plus ils apprennent,
+mieux ils vous servent.
+
+46
+00:03:23,871 --> 00:03:25,664
+Ça demande beaucoup
+de supervision?
+
+47
+00:03:26,248 --> 00:03:28,000
+Lorsque l'unité arrive,
+elle fait une analyse rapide
+
+48
+00:03:28,125 --> 00:03:29,209
+et pose quelques
+questions simples.
+
+49
+00:03:29,335 --> 00:03:30,628
+Ensuite, vous pourriez partir
+pendant un an,
+
+50
+00:03:30,753 --> 00:03:32,338
+et à votre retour, votre maison
+serait parfaite.
+
+51
+00:03:32,463 --> 00:03:33,881
+T'en penses quoi, ma puce?
+
+52
+00:03:35,507 --> 00:03:36,425
+Isla?
+
+53
+00:03:55,653 --> 00:03:56,946
+Nos nouveaux modèles repassent
+
+54
+00:03:57,071 --> 00:03:58,906
+les vêtements aussi bien
+que les humains.
+
+55
+00:04:08,165 --> 00:04:10,167
+Excusez-moi. Vous savez
+faire de la lasagne?
+
+56
+00:04:12,753 --> 00:04:13,796
+Isla!
+
+57
+00:04:14,672 --> 00:04:15,464
+Isla!
+
+58
+00:04:16,090 --> 00:04:17,007
+Ne vous inquiétez pas,
+monsieur.
+
+59
+00:04:17,132 --> 00:04:18,050
+La sécurité est au courant.
+
+60
+00:04:19,259 --> 00:04:20,260
+Celle-ci vous appartient?
+
+61
+00:04:22,471 --> 00:04:23,347
+Mon bébé!
+
+62
+00:04:23,764 --> 00:04:25,015
+Je t'ai dit de rester
+tout près!
+
+63
+00:04:25,140 --> 00:04:26,642
+Tu veux que je fasse
+une crise cardiaque?
+
+64
+00:04:26,767 --> 00:04:27,726
+Je m'excuse, papa.
+
+65
+00:04:28,769 --> 00:04:31,438
+Voulez-vous que je la surveille
+pendant que vous magasinez?
+
+66
+00:04:36,402 --> 00:04:37,403
+Oui!
+
+67
+00:04:37,987 --> 00:04:39,488
+Si vous la voulez,
+elle est à vous.
+
+68
+00:04:40,239 --> 00:04:41,323
+Faites-la travailler.
+
+69
+00:04:41,824 --> 00:04:42,908
+Ce sera parfait.
+
+70
+00:04:43,492 --> 00:04:45,828
+Sa petite stature sera idéale
+pour laver les fours.
+
+71
+00:04:49,415 --> 00:04:50,374
+C'est une blague.
+
+72
+00:04:50,874 --> 00:04:52,668
+Notre nouvelle série Aeon.
+
+73
+00:04:53,210 --> 00:04:55,462
+L'IA la plus sophistiquée
+au monde.
+
+74
+00:04:55,587 --> 00:04:57,047
+Ces modèles sont conçus
+spécifiquement
+
+75
+00:04:57,172 --> 00:04:58,549
+pour imiter les émotions
+humaines.
+
+76
+00:04:58,674 --> 00:05:00,759
+Et ils sont vraiment doués
+avec les enfants.
+
+77
+00:05:01,468 --> 00:05:02,344
+Je vois ça.
+
+78
+00:05:02,886 --> 00:05:05,431
+Papa, on peut l'avoir,
+s'il te plaît?
+
+79
+00:05:05,931 --> 00:05:07,057
+S'il te plaît!
+
+80
+00:05:11,562 --> 00:05:13,355
+Écoute, je vais avoir
+un peu de retard. Je dois...
+
+81
+00:05:13,856 --> 00:05:15,649
+Max? Max? Max?
+
+82
+00:05:17,401 --> 00:05:20,404
+Je dois conduire Isla
+à l'école, et j'arrive ensuite.
+
+83
+00:05:21,613 --> 00:05:22,781
+Il n´y a plus de lait!
+
+84
+00:05:23,866 --> 00:05:24,783
+LISTE D'ÉPICERIE
+LAIT
+
+85
+00:05:25,325 --> 00:05:26,201
+Oui.
+
+86
+00:05:27,119 --> 00:05:28,704
+Dis à Monty que les gars
+doivent être prêts
+
+87
+00:05:28,829 --> 00:05:29,663
+sur la plate-forme.
+
+88
+00:05:30,039 --> 00:05:31,040
+Les garde-corps doivent
+être prêts
+
+89
+00:05:31,165 --> 00:05:32,332
+d'ici la fin de la journée.
+
+90
+00:05:32,750 --> 00:05:34,293
+Oui. Je dois y aller.
+
+91
+00:05:35,210 --> 00:05:36,045
+Mange, d'accord?
+
+92
+00:05:40,841 --> 00:05:42,217
+Bonjour, monsieur Peretti.
+
+93
+00:05:43,635 --> 00:05:44,762
+Puis-je entrer?
+
+94
+00:05:46,388 --> 00:05:47,639
+Oui, bien sûr.
+
+95
+00:05:52,019 --> 00:05:53,020
+Je suis désolé.
+
+96
+00:05:54,813 --> 00:05:57,107
+Le matin, c'est
+toujours la folie ici.
+
+97
+00:06:01,612 --> 00:06:03,530
+Isla, habille-toi
+pour aller à l'école.
+
+98
+00:06:03,655 --> 00:06:04,990
+Mais elle vient d'arriver!
+
+99
+00:06:05,115 --> 00:06:06,158
+Va t'habiller, allez...
+
+100
+00:06:08,786 --> 00:06:10,662
+Je ne suis pas une invitée,
+monsieur Peretti.
+
+101
+00:06:11,872 --> 00:06:13,665
+Nul besoin de faire
+le ménage pour moi.
+
+102
+00:06:16,043 --> 00:06:17,753
+J'ai besoin des horaires
+de tout le monde.
+
+103
+00:06:18,670 --> 00:06:21,173
+L'heure du début des cours,
+du covoiturage,
+
+104
+00:06:21,298 --> 00:06:22,883
+des activités extrascolaires.
+
+105
+00:06:27,513 --> 00:06:28,847
+Euh, oui...
+
+106
+00:06:28,972 --> 00:06:30,390
+Je veux réparer ça bientôt.
+
+107
+00:06:32,059 --> 00:06:33,685
+Ça me fera plaisir
+de le faire pour vous.
+
+108
+00:06:37,231 --> 00:06:38,607
+En tant que propriétaire,
+vous êtes désigné
+
+109
+00:06:38,732 --> 00:06:40,317
+comme utilisateur principal,
+
+110
+00:06:40,442 --> 00:06:41,485
+ce qui vous donne le contrôle
+
+111
+00:06:41,610 --> 00:06:43,654
+sur les tâches et les mises
+à jour du système.
+
+112
+00:06:44,613 --> 00:06:45,864
+Aimeriez-vous donner
+le statut
+
+113
+00:06:45,989 --> 00:06:47,449
+d'utilisateur principal
+à quelqu'un d'autre?
+
+114
+00:06:49,451 --> 00:06:50,744
+J'imagine que non.
+
+115
+00:06:51,578 --> 00:06:53,080
+Allez, je vais être en retard!
+
+116
+00:06:53,205 --> 00:06:54,414
+Oui, on va à l'école.
+
+117
+00:06:54,915 --> 00:06:56,166
+Je peux m'en charger.
+
+118
+00:06:57,709 --> 00:06:59,628
+Faites un peu de ménage,
+si ça vous dérange pas.
+
+119
+00:07:00,129 --> 00:07:02,464
+Si ça vous simplifie la vie,
+ça ne me dérange pas du tout.
+
+120
+00:07:03,674 --> 00:07:04,967
+Comment elle s'appelle, papa?
+
+121
+00:07:05,551 --> 00:07:06,802
+Je n'ai pas encore de nom.
+
+122
+00:07:07,719 --> 00:07:08,971
+Comment aimeriez-vous
+m'appeler, Nick?
+
+123
+00:07:13,016 --> 00:07:14,059
+T'as une idée, ma puce?
+
+124
+00:07:17,813 --> 00:07:19,148
+LES AVENTURES D'ALICE
+AU PAYS DES MERVEILLES
+
+125
+00:07:20,816 --> 00:07:21,775
+Allez, on y va!
+
+126
+00:07:57,769 --> 00:07:59,605
+LISTE D'ÉPICERIE
+
+127
+00:08:01,023 --> 00:08:02,191
+ARRIVÉE DES COURSES
+14 H
+
+128
+00:08:23,337 --> 00:08:24,880
+Alice, on est là!
+
+129
+00:08:32,596 --> 00:08:34,097
+Elle a fait le ménage
+de ma chambre!
+
+130
+00:08:36,099 --> 00:08:37,351
+Bienvenue à la maison, Nick.
+
+131
+00:08:37,809 --> 00:08:39,102
+Je m'occupe du souper?
+
+132
+00:08:40,646 --> 00:08:42,147
+Le souper est servi.
+
+133
+00:08:44,650 --> 00:08:46,235
+Ça sent très bon!
+
+134
+00:08:56,119 --> 00:08:57,120
+Ça va pas?
+
+135
+00:08:57,788 --> 00:08:59,164
+C'est pas comme
+la lasagne de maman.
+
+136
+00:08:59,623 --> 00:09:00,958
+Je suis désolée.
+
+137
+00:09:01,083 --> 00:09:02,751
+J'essaierai une autre recette
+la prochaine fois.
+
+138
+00:09:08,215 --> 00:09:09,466
+Non, non, non!
+
+139
+00:09:09,967 --> 00:09:12,052
+C'est pas facile
+avec toi, hein?
+
+140
+00:09:12,427 --> 00:09:13,553
+T'es qu'un paquet de troubles!
+
+141
+00:09:14,388 --> 00:09:15,806
+Voulez-vous que je l'emmène
+à l'étage
+
+142
+00:09:15,931 --> 00:09:17,224
+pour qu'il ne vous
+dérange plus?
+
+143
+00:09:18,934 --> 00:09:19,810
+Non, ça va.
+
+144
+00:09:20,560 --> 00:09:22,229
+Vous pourriez préparer
+son bain.
+
+145
+00:09:23,397 --> 00:09:24,356
+Bien sûr.
+
+146
+00:10:17,409 --> 00:10:18,452
+Isla!
+
+147
+00:10:20,037 --> 00:10:21,580
+Ça va. Alice m'a attrapée.
+
+148
+00:10:22,122 --> 00:10:23,206
+Qu'est-ce qui s'est passé?
+
+149
+00:10:23,332 --> 00:10:24,958
+Elle essayait de s'emparer
+d'une collation.
+
+150
+00:10:27,210 --> 00:10:28,420
+Fais attention, ma puce.
+
+151
+00:10:29,588 --> 00:10:30,672
+Je m'excuse, papa.
+
+152
+00:10:34,217 --> 00:10:35,344
+Vous êtes blessée?
+
+153
+00:10:37,220 --> 00:10:38,263
+Ça va.
+
+154
+00:10:47,147 --> 00:10:48,023
+Oui?
+
+155
+00:11:04,289 --> 00:11:05,332
+Désolé.
+
+156
+00:11:09,669 --> 00:11:10,629
+Voilà.
+
+157
+00:11:11,671 --> 00:11:12,923
+Ils sont à Maggie.
+
+158
+00:11:16,676 --> 00:11:17,636
+Merci.
+
+159
+00:11:21,431 --> 00:11:22,432
+C'est une blessure grave?
+
+160
+00:11:22,557 --> 00:11:24,226
+Je devrai vous faire réparer?
+
+161
+00:11:31,274 --> 00:11:32,651
+Tout est parfait, Nick.
+
+162
+00:11:47,374 --> 00:11:49,501
+- Maman!
+- Salut, mon bébé!
+
+163
+00:11:49,626 --> 00:11:50,836
+Wô, wô! Attention!
+
+164
+00:11:50,961 --> 00:11:52,712
+Oh, ça va! T'es un peu lourde!
+
+165
+00:11:52,838 --> 00:11:54,714
+Qu'est-ce que ton père
+te donne à manger?
+
+166
+00:11:54,840 --> 00:11:56,258
+Alice fait les soupers!
+
+167
+00:11:57,300 --> 00:11:59,094
+Elle est bien meilleure
+que papa!
+
+168
+00:11:59,469 --> 00:12:00,262
+Vraiment?
+
+169
+00:12:00,387 --> 00:12:01,471
+Si c'était pas le cas,
+
+170
+00:12:01,596 --> 00:12:02,472
+je demanderais
+un remboursement.
+
+171
+00:12:03,890 --> 00:12:04,808
+C'est mon amie.
+
+172
+00:12:06,309 --> 00:12:07,561
+Bonjour, Alice.
+
+173
+00:12:08,019 --> 00:12:09,646
+Bonjour, madame Peretti.
+
+174
+00:12:12,566 --> 00:12:15,277
+Et toi, ça va? T'as besoin
+de quelque chose?
+
+175
+00:12:16,027 --> 00:12:18,488
+J'ai demandé de l'eau
+il y a une heure.
+
+176
+00:12:18,613 --> 00:12:19,739
+Les infirmières devraient
+bientôt être revenues
+
+177
+00:12:19,865 --> 00:12:21,116
+de leur grand voyage
+jusqu'au puits.
+
+178
+00:12:21,908 --> 00:12:24,244
+Alice et Isla peuvent
+sûrement t'aider pour ça.
+
+179
+00:12:24,911 --> 00:12:26,121
+Ouais? Allez!
+
+180
+00:12:30,083 --> 00:12:32,127
+Je déteste vraiment
+être loin de vous.
+
+181
+00:12:32,461 --> 00:12:34,296
+Et pas travailler...
+
+182
+00:12:36,256 --> 00:12:37,883
+L'attente est interminable.
+
+183
+00:12:38,008 --> 00:12:39,384
+T'es en haut de la liste!
+
+184
+00:12:39,509 --> 00:12:40,427
+Tu le sais, ça?
+
+185
+00:12:40,927 --> 00:12:42,471
+Ça va arriver d'un
+jour à l'autre.
+
+186
+00:12:46,391 --> 00:12:49,519
+Je croyais que tu choisirais
+un vieux majordome anglais.
+
+187
+00:12:50,729 --> 00:12:52,147
+C'est ta fille qui l'a choisi!
+
+188
+00:12:52,856 --> 00:12:53,815
+Bien sûr.
+
+189
+00:12:53,940 --> 00:12:55,233
+Je connais ton genre.
+
+190
+00:12:55,358 --> 00:12:56,610
+- Mon genre?
+- Oui.
+
+191
+00:12:56,735 --> 00:12:57,777
+C'est quoi?
+
+192
+00:12:58,320 --> 00:13:02,199
+J'aime les femmes au sang chaud
+et avec une langue de vipère!
+
+193
+00:13:06,828 --> 00:13:10,874
+Commence pas quelque chose
+que tu pourras pas terminer.
+
+194
+00:13:11,541 --> 00:13:12,667
+Je pourrai, mon amour.
+
+195
+00:13:14,836 --> 00:13:16,254
+Quand tu reviendras
+à la maison,
+
+196
+00:13:16,379 --> 00:13:18,715
+je testerai
+ton nouveau coeur.
+
+197
+00:13:20,008 --> 00:13:21,218
+Comme à l'époque.
+
+198
+00:13:21,343 --> 00:13:23,178
+Ouais? Le marathon complet?
+
+199
+00:13:23,762 --> 00:13:24,971
+Les enfants se feront garder.
+
+200
+00:13:25,931 --> 00:13:27,849
+Des marathons, j'en sais rien,
+
+201
+00:13:27,974 --> 00:13:28,767
+mais on a fait beaucoup
+
+202
+00:13:28,892 --> 00:13:30,352
+d'entrainements formateurs,
+c'est clair!
+
+203
+00:13:31,394 --> 00:13:32,938
+De quoi vous riez?
+
+204
+00:13:34,064 --> 00:13:36,149
+De l'incompétence de ton père!
+
+205
+00:13:36,274 --> 00:13:37,359
+Merci, mon bébé.
+
+206
+00:13:48,036 --> 00:13:49,538
+Et là, j'ai pris
+mon marteau-piqueur.
+
+207
+00:13:50,080 --> 00:13:53,542
+Je l'enfonçais dans le béton,
+je suais comme un porc.
+
+208
+00:13:53,667 --> 00:13:55,710
+Et là, je l'ai vue.
+
+209
+00:13:55,835 --> 00:13:59,339
+C'était une grande blonde
+avec des jambes superbes.
+
+210
+00:13:59,714 --> 00:14:01,508
+Et elle me regardait!
+
+211
+00:14:01,633 --> 00:14:02,717
+Dans tes rêves, mon gars!
+
+212
+00:14:02,842 --> 00:14:04,761
+Et là, je l'ai regardée.
+
+213
+00:14:04,886 --> 00:14:06,137
+Je l'ai saluée de la main.
+
+214
+00:14:06,263 --> 00:14:08,306
+Je portais plus attention
+à ce que je faisais.
+
+215
+00:14:08,431 --> 00:14:11,601
+Et j'ai foré directement
+dans une fosse septique.
+
+216
+00:14:11,726 --> 00:14:15,730
+5000 gallons de merde
+liquide sortent de l'égout!
+
+217
+00:14:15,855 --> 00:14:17,732
+J'étais couvert
+de la tête aux pieds!
+
+218
+00:14:17,857 --> 00:14:18,817
+T'as eu son numéro?
+
+219
+00:14:19,276 --> 00:14:20,527
+Bien sûr que oui!
+
+220
+00:14:20,902 --> 00:14:22,612
+Il s'avère qu'elle dirige
+un service de nettoyage à sec
+
+221
+00:14:22,737 --> 00:14:23,947
+dans le West Village.
+
+222
+00:14:30,495 --> 00:14:33,123
+Qu'est-ce qu'ils font ici avec
+une compagnie de robotique?
+
+223
+00:14:37,127 --> 00:14:38,253
+Messieurs,
+comme vous pouvez voir,
+
+224
+00:14:38,378 --> 00:14:40,130
+la structure du bâtiment
+est complète.
+
+225
+00:14:40,255 --> 00:14:42,007
+Mais on a deux mois de retard
+sur la façade
+
+226
+00:14:42,132 --> 00:14:44,175
+et on a quelques problèmes
+avec...
+
+227
+00:14:44,301 --> 00:14:46,261
+Nick, qu'est-ce que tu fais?
+
+228
+00:14:49,806 --> 00:14:50,682
+Combien?
+
+229
+00:14:51,099 --> 00:14:52,225
+Calme-toi, d'accord?
+
+230
+00:14:52,350 --> 00:14:54,060
+Combien d'entre nous seront
+remplacés par des robots?
+
+231
+00:14:54,185 --> 00:14:55,645
+On examine encore les dossiers.
+
+232
+00:14:55,770 --> 00:14:58,273
+T'as dit que ça arriverait pas,
+que tu t'en assurerais!
+
+233
+00:14:58,398 --> 00:15:00,108
+On ne peut plus continuer
+comme ça, Nick!
+
+234
+00:15:00,567 --> 00:15:02,152
+Si on change pas
+notre main-d'oeuvre,
+
+235
+00:15:02,277 --> 00:15:03,320
+on est dans la merde!
+
+236
+00:15:08,575 --> 00:15:09,743
+Combien, Lewis?
+
+237
+00:15:13,705 --> 00:15:16,708
+La majorité des employés sera
+remplacée la semaine prochaine.
+
+238
+00:15:17,292 --> 00:15:18,668
+Les domaines spécialisés:
+
+239
+00:15:18,793 --> 00:15:19,753
+les plombiers,
+les électriciens...
+
+240
+00:15:19,878 --> 00:15:20,920
+On est tous renvoyés.
+
+241
+00:15:21,046 --> 00:15:21,880
+- Non.
+- Oui.
+
+242
+00:15:22,297 --> 00:15:23,089
+Pas toi.
+
+243
+00:15:25,383 --> 00:15:26,176
+Les assurances veulent
+
+244
+00:15:26,301 --> 00:15:27,886
+qu'on ait un contremaître
+humain sur place.
+
+245
+00:15:29,471 --> 00:15:30,430
+Aucune chance.
+
+246
+00:15:30,805 --> 00:15:31,723
+Je démissionne.
+
+247
+00:15:31,848 --> 00:15:33,933
+Écoute, Nick... Je suis désolé.
+
+248
+00:15:34,059 --> 00:15:34,934
+Vraiment.
+
+249
+00:15:35,852 --> 00:15:37,896
+Pense à ta famille.
+
+250
+00:15:38,855 --> 00:15:39,939
+À Maggie.
+
+251
+00:15:42,442 --> 00:15:43,818
+C'est notre monde maintenant.
+
+252
+00:16:07,509 --> 00:16:08,885
+Papa, j'ai eu 99 %
+
+253
+00:16:09,010 --> 00:16:10,470
+dans mon examen d'orthographe!
+Tu veux voir?
+
+254
+00:16:10,595 --> 00:16:12,055
+Un moment, ma puce.
+
+255
+00:16:12,180 --> 00:16:13,223
+Papa doit se changer.
+
+256
+00:16:13,348 --> 00:16:15,475
+Je t'ai attendu toute la soirée
+pour te le montrer!
+
+257
+00:16:15,600 --> 00:16:17,435
+D'accord, d'accord...
+
+258
+00:16:18,395 --> 00:16:19,437
+Salut, mon petit gars.
+
+259
+00:16:20,313 --> 00:16:22,107
+Pourquoi tu cries
+toujours après ton papa?
+
+260
+00:16:22,232 --> 00:16:23,400
+Qu'est-ce que j'ai fait?
+
+261
+00:16:23,817 --> 00:16:24,734
+D'accord!
+
+262
+00:16:25,151 --> 00:16:27,696
+T'as écrit: « Maman, papa. »
+
+263
+00:16:27,821 --> 00:16:28,697
+Ouais!
+
+264
+00:16:28,822 --> 00:16:30,281
+- « Frère, soeur... »
+- C'est bien!
+
+265
+00:16:39,040 --> 00:16:40,041
+Allez...
+
+266
+00:16:41,918 --> 00:16:43,128
+Allez, allez...
+
+267
+00:17:11,990 --> 00:17:13,616
+Vous avez peu mangé au souper.
+
+268
+00:17:13,742 --> 00:17:15,577
+Une mauvaise journée
+au travail, c'est tout.
+
+269
+00:17:19,581 --> 00:17:21,040
+Ça me fera plaisir
+de vous écouter.
+
+270
+00:17:29,507 --> 00:17:31,760
+Mon patron va remplacer
+l'équipe au complet...
+
+271
+00:17:33,386 --> 00:17:34,471
+par des robots comme vous.
+
+272
+00:17:35,430 --> 00:17:38,016
+Je connais ces gars
+depuis 10 ans, merde!
+
+273
+00:17:38,641 --> 00:17:39,684
+Leurs enfants.
+
+274
+00:17:40,477 --> 00:17:41,561
+Leurs familles.
+
+275
+00:17:43,062 --> 00:17:44,439
+Ça doit être fâchant.
+
+276
+00:17:45,398 --> 00:17:47,025
+Mais vous devriez
+vous en réjouir.
+
+277
+00:17:49,235 --> 00:17:50,028
+Pourquoi donc?
+
+278
+00:17:51,696 --> 00:17:52,947
+Vous auriez pu engager
+une vraie personne
+
+279
+00:17:53,072 --> 00:17:54,032
+pour mon travail.
+
+280
+00:17:54,491 --> 00:17:55,617
+Pourquoi m'avoir choisie?
+
+281
+00:17:56,159 --> 00:17:57,410
+Ça correspond mieux
+à votre budget,
+
+282
+00:17:57,535 --> 00:17:59,120
+mais il y a d'autres
+avantages.
+
+283
+00:17:59,245 --> 00:18:02,332
+Je ne me fatigue pas, je suis
+forte, je suis obéissante,
+
+284
+00:18:02,457 --> 00:18:04,793
+et mon seul désir est
+de répondre à vos besoins.
+
+285
+00:18:16,429 --> 00:18:17,514
+Je vais mettre Isla au lit.
+
+286
+00:18:17,639 --> 00:18:19,098
+Appelez-moi si vous avez besoin
+de quelque chose.
+
+287
+00:18:31,653 --> 00:18:35,073
+Alors, la reine demande à Alice
+qui sont les jardiniers.
+
+288
+00:18:35,573 --> 00:18:37,283
+Mais Alice le sait pas!
+
+289
+00:18:37,951 --> 00:18:39,035
+Devine ce que la reine répond!
+
+290
+00:18:39,828 --> 00:18:41,246
+Je ne sais pas du tout.
+
+291
+00:18:41,663 --> 00:18:43,122
+« Qu'on leur coupe la tête! »
+
+292
+00:18:43,748 --> 00:18:46,334
+Dis donc, c'est très morbide!
+
+293
+00:18:47,210 --> 00:18:48,586
+Ça veut dire quoi, morbide?
+
+294
+00:18:50,129 --> 00:18:52,590
+Quelque chose de relatif
+à un sujet déplaisant,
+
+295
+00:18:52,715 --> 00:18:54,425
+comme la maladie et la mort.
+
+296
+00:18:56,469 --> 00:18:58,429
+Comme dans un hôpital?
+
+297
+00:19:00,515 --> 00:19:03,226
+Parfois, les gens meurent
+à l'hôpital.
+
+298
+00:19:05,311 --> 00:19:06,437
+C'est vrai.
+
+299
+00:19:07,856 --> 00:19:09,482
+Est-ce que ma mère va mourir?
+
+300
+00:19:12,610 --> 00:19:14,279
+Ne pense pas à ça.
+
+301
+00:19:18,199 --> 00:19:20,702
+As-tu brossé les dents
+tout à l'arrière?
+
+302
+00:19:24,163 --> 00:19:25,957
+Pourquoi tu brosses
+pas tes dents?
+
+303
+00:19:26,291 --> 00:19:27,917
+J'ai une lumière
+ultraviolette interne
+
+304
+00:19:28,042 --> 00:19:30,003
+détruisant toutes
+les bactéries.
+
+305
+00:19:30,128 --> 00:19:31,129
+Je peux voir?
+
+306
+00:19:38,261 --> 00:19:40,638
+<i>Il dit pouvoir nous donner</i>
+<i>un visa de sortie,</i>
+
+307
+00:19:40,763 --> 00:19:42,640
+<i>mais nous n'avons pas d'argent.</i>
+
+308
+00:19:43,099 --> 00:19:44,142
+<i>Il est au courant?</i>
+
+309
+00:19:44,851 --> 00:19:46,144
+<i>Il vous le donnerait</i>
+<i>quand même?</i>
+
+310
+00:19:46,269 --> 00:19:47,186
+<i>Oui, monsieur.</i>
+
+311
+00:19:47,312 --> 00:19:48,438
+<i>Vous voulez savoir...</i>
+
+312
+00:19:48,563 --> 00:19:50,148
+<i>S'il tiendra sa promesse, oui.</i>
+
+313
+00:19:50,565 --> 00:19:52,483
+Ça, c'est le meilleur film
+de tous les temps.
+
+314
+00:19:53,443 --> 00:19:54,569
+<i>Casablanca.</i>
+
+315
+00:19:55,153 --> 00:19:56,112
+Bien sûr.
+
+316
+00:19:56,237 --> 00:19:57,113
+Vous le connaissez?
+
+317
+00:19:57,780 --> 00:19:58,865
+C'est l'histoire
+d'un homme amer
+
+318
+00:19:58,990 --> 00:20:00,533
+ayant perdu la femme
+qu'il aime.
+
+319
+00:20:02,660 --> 00:20:03,786
+L'avez-vous vraiment vu?
+
+320
+00:20:04,454 --> 00:20:05,622
+Ça fait une différence?
+
+321
+00:20:09,208 --> 00:20:10,251
+Si ça fait une différence?
+
+322
+00:20:11,711 --> 00:20:12,921
+Oui, bien sûr.
+
+323
+00:20:13,046 --> 00:20:14,464
+C'est plus qu'un simple fichier
+
+324
+00:20:14,589 --> 00:20:16,007
+qui se trouve dans
+votre mémoire interne.
+
+325
+00:20:16,883 --> 00:20:17,842
+C'est un film.
+
+326
+00:20:17,967 --> 00:20:20,595
+C'est quelque chose qu'on
+ressent. C'est une expérience.
+
+327
+00:20:24,641 --> 00:20:25,975
+Venez vous asseoir.
+
+328
+00:20:31,773 --> 00:20:34,192
+sOubliez tout ce que
+vous savez sur ce film.
+
+329
+00:20:36,194 --> 00:20:37,111
+Oublier?
+
+330
+00:20:38,071 --> 00:20:38,988
+Oui.
+
+331
+00:20:39,113 --> 00:20:41,199
+Effacez-le de votre mémoire,
+je sais pas.
+
+332
+00:20:43,785 --> 00:20:45,954
+Ma mémoire est ce qui
+me rend intelligente.
+
+333
+00:20:46,079 --> 00:20:47,413
+La supprimer
+serait antithétique.
+
+334
+00:20:49,916 --> 00:20:51,292
+Eh bien, je suis
+votre utilisateur principal.
+
+335
+00:20:51,417 --> 00:20:54,045
+Je vous demande d'oublier
+ce que vous savez sur ce film.
+
+336
+00:20:55,213 --> 00:20:58,132
+Ça vous rendrait heureux
+si je le faisais?
+
+337
+00:21:04,889 --> 00:21:06,557
+Vous devrez me redémarrer
+manuellement.
+
+338
+00:21:08,810 --> 00:21:09,686
+Oui.
+
+339
+00:21:10,937 --> 00:21:11,854
+Appuyez sur le bouton
+d'alimentation
+
+340
+00:21:11,980 --> 00:21:13,064
+pendant sept secondes.
+
+341
+00:21:34,669 --> 00:21:35,712
+Ç'a fonctionné?
+
+342
+00:21:38,256 --> 00:21:39,090
+Oui.
+
+343
+00:21:45,763 --> 00:21:46,639
+Oui.
+
+344
+00:21:48,850 --> 00:21:50,143
+Je vais le recommencer.
+
+345
+00:21:54,647 --> 00:21:55,732
+<i>Il tiendra sa parole?</i>
+
+346
+00:21:57,233 --> 00:21:58,484
+<i>Oui, comme toujours.</i>
+
+347
+00:22:02,030 --> 00:22:04,365
+<i>Monsieur, vous êtes un homme.</i>
+
+348
+00:22:05,616 --> 00:22:08,119
+<i>Si quelqu'un vous</i>
+<i>aimait tellement</i>
+
+349
+00:22:08,244 --> 00:22:11,539
+<i>que son seul désir était</i>
+<i>de vous rendre heureux...</i>
+
+350
+00:22:13,249 --> 00:22:14,500
+<i>et qu'elle faisait quelque</i>
+<i>chose de mal</i>
+
+351
+00:22:14,625 --> 00:22:15,626
+<i>pour s'en assurer...</i>
+
+352
+00:22:16,669 --> 00:22:18,129
+<i>pourriez-vous lui pardonner?</i>
+
+353
+00:22:18,254 --> 00:22:19,839
+<i>Personne ne m'aime</i>
+<i>autant que ça.</i>
+
+354
+00:22:19,964 --> 00:22:21,841
+APPEL ENTRANT
+MAGGIE
+
+355
+00:22:26,637 --> 00:22:27,847
+Hé, t'es réveillée?
+
+356
+00:22:27,972 --> 00:22:29,390
+<i>Nick! Oh mon doux!</i>
+
+357
+00:22:29,515 --> 00:22:31,017
+<i>Ils ont enfin trouvé un coeur!</i>
+
+358
+00:22:31,559 --> 00:22:32,852
+<i>Ils vont m'opérer!</i>
+
+359
+00:22:32,977 --> 00:22:35,104
+Quand sera l'opération?
+
+360
+00:22:35,229 --> 00:22:36,147
+<i>Aujourd'hui!</i>
+
+361
+00:22:36,272 --> 00:22:37,482
+Seigneur, c'est incroyable!
+
+362
+00:22:38,524 --> 00:22:40,777
+On va aller au parc
+et à la plage!
+
+363
+00:22:40,902 --> 00:22:42,403
+Tu pourrais même
+m'amener à l'école!
+
+364
+00:22:42,528 --> 00:22:43,780
+Oui? Quoi d'autre?
+
+365
+00:22:44,489 --> 00:22:46,866
+Je veux une crème glacée
+de Chez Rosie!
+
+366
+00:22:46,991 --> 00:22:48,659
+La crème glacée,
+c'est la priorité numéro un!
+
+367
+00:22:50,536 --> 00:22:51,829
+On amènera Alice avec nous?
+
+368
+00:22:55,833 --> 00:22:59,462
+Un jour, peut-être, mais juste
+toi et moi la première fois.
+
+369
+00:23:01,380 --> 00:23:03,257
+Maman doit se préparer
+pour son opération.
+
+370
+00:23:04,383 --> 00:23:05,885
+Je t'aime, maman.
+
+371
+00:23:08,137 --> 00:23:08,971
+Je t'aime.
+
+372
+00:23:11,390 --> 00:23:13,184
+J'aimerais parler seule
+à seule avec Alice.
+
+373
+00:23:15,394 --> 00:23:16,270
+Oui, d'accord.
+
+374
+00:23:18,648 --> 00:23:19,690
+Tu veux une boisson gazeuse?
+
+375
+00:23:20,650 --> 00:23:21,651
+D'accord.
+
+376
+00:23:29,867 --> 00:23:31,786
+Aimeriez-vous que je vous aide,
+madame Peretti?
+
+377
+00:23:34,705 --> 00:23:35,957
+Tu laves les sous-vêtements
+de mon mari.
+
+378
+00:23:36,082 --> 00:23:37,500
+Tu peux m'appeler Maggie.
+
+379
+00:23:41,921 --> 00:23:43,923
+J'ai l'intention de m'en sortir
+saine et sauve,
+
+380
+00:23:44,048 --> 00:23:45,716
+mais dans le cas contraire...
+
+381
+00:23:45,842 --> 00:23:47,009
+Si vous mourez.
+
+382
+00:23:53,182 --> 00:23:54,517
+Les enfants s'en sortiront.
+
+383
+00:23:56,060 --> 00:23:57,478
+Nick s'occupera d'eux.
+
+384
+00:24:00,106 --> 00:24:01,732
+Mais quelqu'un
+devra s'occuper...
+
+385
+00:24:05,820 --> 00:24:07,446
+Ne le laisse pas trop boire.
+
+386
+00:24:08,531 --> 00:24:10,241
+Il cache les bouteilles
+dans le garage.
+
+387
+00:24:10,908 --> 00:24:12,660
+Débarrasse-t'en
+si c'est nécessaire.
+
+388
+00:24:14,036 --> 00:24:15,746
+Nick est mon utilisateur
+principal. Je ne peux pas...
+
+389
+00:24:15,872 --> 00:24:16,747
+Tu le peux.
+
+390
+00:24:17,665 --> 00:24:19,458
+Parfois, prendre soin
+d'une personne signifie
+
+391
+00:24:19,584 --> 00:24:21,169
+faire des choses
+qu'elle ne veut pas.
+
+392
+00:24:22,003 --> 00:24:23,796
+Des choses qu'elle
+déteste même.
+
+393
+00:24:24,922 --> 00:24:26,716
+Si c'est pour le mieux
+à long terme.
+
+394
+00:24:51,324 --> 00:24:52,658
+Appelez une autre
+ambulance aérienne!
+
+395
+00:24:52,783 --> 00:24:54,785
+Placez-le sur un vol
+commercial, s'il le faut!
+
+396
+00:24:55,453 --> 00:24:56,537
+Il y a un problème?
+
+397
+00:24:56,954 --> 00:24:58,748
+- Et les vols entrants?
+- Ça va?
+
+398
+00:24:58,873 --> 00:24:59,957
+Qu'en est-il du destinataire?
+
+399
+00:25:00,082 --> 00:25:01,292
+Il se passe quoi, merde?
+
+400
+00:25:02,168 --> 00:25:04,128
+Il y a une énorme
+tempête au nord.
+
+401
+00:25:04,253 --> 00:25:06,172
+Elle est arrivée bien
+plus vite que prévu.
+
+402
+00:25:06,297 --> 00:25:07,465
+Qu'est-ce que ça veut dire?
+
+403
+00:25:26,692 --> 00:25:28,194
+Il y a encore
+beaucoup de temps.
+
+404
+00:25:35,701 --> 00:25:37,078
+Tu veux quelque chose à manger?
+
+405
+00:25:40,957 --> 00:25:42,792
+Je vais me coucher.
+
+406
+00:25:45,419 --> 00:25:47,546
+Je vais rester avec toi
+jusqu'à ce que tu t'endormes.
+
+407
+00:25:53,010 --> 00:25:54,512
+Il est tard pour Isla.
+
+408
+00:25:57,181 --> 00:25:58,724
+J'ai besoin d'être seule.
+
+409
+00:26:50,192 --> 00:26:51,527
+Avez-vous besoin
+de quelque chose, Nick?
+
+410
+00:26:52,903 --> 00:26:55,489
+Tu connais les paramètres
+qui permettent à la FAA
+
+411
+00:26:55,614 --> 00:26:57,074
+d'interrompre le trafic aérien?
+
+412
+00:26:57,533 --> 00:26:58,659
+Dans des conditions
+météorologiques défavorables
+
+413
+00:26:58,784 --> 00:27:00,036
+telles que la neige
+ou le verglas,
+
+414
+00:27:00,161 --> 00:27:01,620
+des vents soutenus
+de plus de 88 km/h...
+
+415
+00:27:01,746 --> 00:27:03,122
+C'était une question
+rhétorique.
+
+416
+00:27:04,457 --> 00:27:05,333
+Bien sûr.
+
+417
+00:27:05,875 --> 00:27:07,043
+Oui.
+
+418
+00:27:09,170 --> 00:27:10,671
+Tu sais, 80...
+
+419
+00:27:11,005 --> 00:27:14,467
+Des vents de 80 km/h:
+aucun problème.
+
+420
+00:27:14,592 --> 00:27:16,886
+Tu vois, les avions
+volent normalement.
+
+421
+00:27:17,511 --> 00:27:22,016
+Mais 88 km/h, des enfants
+grandissent sans leur mère.
+
+422
+00:27:25,227 --> 00:27:26,354
+C'est drôle, non?
+
+423
+00:27:27,480 --> 00:27:30,358
+Ces règles sont créées
+pour nous protéger.
+
+424
+00:27:32,193 --> 00:27:33,444
+Et après ça, on est...
+
+425
+00:27:39,533 --> 00:27:40,701
+Merde!
+
+426
+00:27:45,581 --> 00:27:47,041
+Vous allez vous blesser.
+
+427
+00:27:59,095 --> 00:28:00,429
+C'est un pouls?
+
+428
+00:28:03,766 --> 00:28:06,227
+Les sons que produit un coeur
+réconfortent les bébés.
+
+429
+00:28:11,357 --> 00:28:12,441
+Il bat.
+
+430
+00:28:24,495 --> 00:28:26,664
+Ils ont donné le coeur
+à quelqu'un d'autre.
+
+431
+00:28:29,667 --> 00:28:30,876
+C'est comme s'ils...
+
+432
+00:28:32,378 --> 00:28:34,046
+l'avaient arraché
+de sa poitrine.
+
+433
+00:28:39,009 --> 00:28:43,180
+Mon coeur artificiel n'est pas
+aussi complexe que le vôtre.
+
+434
+00:28:44,265 --> 00:28:46,225
+La capacité de ressentir
+des émotions.
+
+435
+00:28:48,644 --> 00:28:50,396
+D'avoir un rythme irrégulier.
+
+436
+00:29:00,823 --> 00:29:02,074
+Tu fais quoi?
+
+437
+00:29:03,200 --> 00:29:04,535
+Je ressens votre réponse.
+
+438
+00:29:05,453 --> 00:29:06,745
+Vos vaisseaux sanguins
+se contractent.
+
+439
+00:29:09,039 --> 00:29:10,374
+Votre pouls s'accélère.
+
+440
+00:29:11,417 --> 00:29:13,335
+La souffrance n'est
+pas productive, Nick.
+
+441
+00:29:15,921 --> 00:29:17,173
+Je peux vous aider.
+
+442
+00:29:32,521 --> 00:29:33,522
+Je peux pas.
+
+443
+00:30:53,936 --> 00:30:55,312
+Tu peux me rendre un service?
+
+444
+00:30:57,690 --> 00:30:59,441
+Dis à Isla de choisir
+une robe classique
+
+445
+00:30:59,567 --> 00:31:00,943
+pour son bal de promo.
+
+446
+00:31:03,404 --> 00:31:06,740
+Rien de tendance ou
+avec des froufrous ou...
+
+447
+00:31:08,158 --> 00:31:09,451
+trop structurée.
+
+448
+00:31:09,868 --> 00:31:11,036
+Qu'est-ce que tu fais?
+
+449
+00:31:13,372 --> 00:31:14,748
+Faut pas qu'elle étudie
+la biologie
+
+450
+00:31:14,873 --> 00:31:16,000
+simplement pour m'honorer.
+
+451
+00:31:17,042 --> 00:31:19,295
+Tu diras à Max de pas mettre
+d'affiches de groupes rock
+
+452
+00:31:19,420 --> 00:31:20,337
+dans sa chambre
+à l'université.
+
+453
+00:31:20,462 --> 00:31:22,548
+Les filles veulent pas
+coucher avec ces gars-là.
+
+454
+00:31:22,673 --> 00:31:24,008
+T'essaies d'être drôle?
+
+455
+00:31:29,597 --> 00:31:31,348
+Rien de tout ça n'est drôle.
+
+456
+00:33:00,229 --> 00:33:01,814
+Je surveille sa respiration.
+
+457
+00:33:02,189 --> 00:33:03,565
+Il y a un léger décalage
+à l'inspiration,
+
+458
+00:33:03,691 --> 00:33:04,983
+probablement un rhume.
+
+459
+00:33:06,652 --> 00:33:07,820
+Avez-vous besoin
+de quelque chose?
+
+460
+00:33:09,947 --> 00:33:11,156
+Où sont les autres photos?
+
+461
+00:33:12,032 --> 00:33:12,908
+Lesquelles?
+
+462
+00:33:13,492 --> 00:33:15,202
+Celles de Maggie.
+Elles sont plus là.
+
+463
+00:33:16,370 --> 00:33:18,330
+Oui. Elles rendaient
+Isla triste,
+
+464
+00:33:18,455 --> 00:33:19,581
+donc je les ai enlevées.
+
+465
+00:33:19,707 --> 00:33:20,958
+Je n'aurais pas dû?
+
+466
+00:33:24,294 --> 00:33:25,754
+Remets-les.
+
+467
+00:33:31,844 --> 00:33:32,720
+C'est fait.
+
+468
+00:33:53,198 --> 00:33:55,743
+Alors, Donna a décidé
+de s'amuser un peu
+
+469
+00:33:55,868 --> 00:33:56,827
+sur l'heure du dîner!
+
+470
+00:33:57,453 --> 00:33:59,288
+Je pensais que vous pouviez
+gérer votre alcool!
+
+471
+00:33:59,413 --> 00:34:01,999
+Je pensais pas qu'ils
+perdraient le maudit camion!
+
+472
+00:34:02,708 --> 00:34:04,209
+T'as perdu le camion?
+
+473
+00:34:04,334 --> 00:34:06,420
+Il était à l'entrepôt
+pendant tout ce temps!
+
+474
+00:34:06,545 --> 00:34:08,422
+On était arrivés au bar
+dans la voiture de Nick!
+
+475
+00:34:08,547 --> 00:34:09,840
+On a complètement oublié!
+
+476
+00:34:18,140 --> 00:34:19,057
+Ça va?
+
+477
+00:34:19,808 --> 00:34:20,642
+Ouais, ouais.
+
+478
+00:34:20,768 --> 00:34:22,519
+C'est juste...
+les trucs d'hôpitaux.
+
+479
+00:34:23,687 --> 00:34:25,022
+Désolé, désolé...
+
+480
+00:34:28,442 --> 00:34:30,027
+On pense à elle, mon gars.
+
+481
+00:34:30,569 --> 00:34:31,528
+Merci, mon frère.
+
+482
+00:34:31,653 --> 00:34:32,613
+C'est gentil.
+
+483
+00:34:34,698 --> 00:34:36,533
+Une autre ronde,
+la jolie automate!
+
+484
+00:34:38,786 --> 00:34:40,537
+Vous avez un autre
+contrat en vue?
+
+485
+00:34:41,455 --> 00:34:43,874
+Apparemment, Brightland
+veut avoir de nouveaux gars,
+
+486
+00:34:43,999 --> 00:34:45,209
+mais ils cherchent surtout
+des techniciens
+
+487
+00:34:45,334 --> 00:34:47,169
+pour surveiller
+leurs automates.
+
+488
+00:34:47,753 --> 00:34:49,838
+Même chose à Artwood & Sons.
+
+489
+00:34:49,963 --> 00:34:52,007
+Tu paies un gars,
+t'utilises cinq robots:
+
+490
+00:34:52,132 --> 00:34:53,300
+des maths parfaites.
+
+491
+00:34:54,218 --> 00:34:56,261
+On sait comment les dinosaures
+se sont sentis.
+
+492
+00:34:56,386 --> 00:34:57,596
+Eh merde!
+
+493
+00:34:57,721 --> 00:34:59,306
+Ils ont été exterminés
+par une comète.
+
+494
+00:35:01,475 --> 00:35:02,351
+Fin!
+
+495
+00:35:03,977 --> 00:35:06,438
+Ça fait 15 ans que ces choses
+se développent.
+
+496
+00:35:07,648 --> 00:35:10,192
+On s'est plaints,
+mais on les a pas arrêtées.
+
+497
+00:35:11,735 --> 00:35:14,571
+On a laissé ces fils de putes
+sans âme envahir notre monde.
+
+498
+00:35:16,073 --> 00:35:17,491
+Voulez-vous autre chose?
+
+499
+00:35:21,203 --> 00:35:24,414
+Ça dépend des mises
+à jour sous ton capot.
+
+500
+00:35:28,794 --> 00:35:30,212
+L'addition, c'est tout.
+
+501
+00:35:31,588 --> 00:35:32,506
+Merci.
+
+502
+00:35:41,640 --> 00:35:43,016
+Vous voulez vous amuser?
+
+503
+00:35:48,939 --> 00:35:50,274
+Relaxe, bois un peu.
+
+504
+00:35:53,193 --> 00:35:54,862
+- On va où?
+- On fait quoi ici?
+
+505
+00:35:59,032 --> 00:36:00,617
+T'es bête! Parle-moi!
+
+506
+00:36:00,742 --> 00:36:02,786
+Sérieux, mon gars?
+Monty, on fait quoi ici?
+
+507
+00:36:02,911 --> 00:36:04,621
+Calme-toi, princesse.
+
+508
+00:36:04,746 --> 00:36:06,081
+J'ai oublié mes outils
+l'autre jour
+
+509
+00:36:06,206 --> 00:36:07,541
+quand ces enculés
+m'ont renvoyé.
+
+510
+00:36:07,666 --> 00:36:10,669
+Et ils m'ont jamais rappelé.
+
+511
+00:36:11,295 --> 00:36:13,255
+Je viens donc les chercher
+par moi-même.
+
+512
+00:36:13,380 --> 00:36:14,756
+Sérieux, Monty? Monty!
+
+513
+00:36:14,882 --> 00:36:17,175
+Un gardien vient faire
+un tour chaque heure!
+
+514
+00:36:17,301 --> 00:36:18,302
+On a construit cet endroit!
+
+515
+00:36:18,427 --> 00:36:20,512
+On a coulé les fondations,
+on a installé les poutres!
+
+516
+00:36:20,888 --> 00:36:22,097
+Ils peuvent aller
+se faire foutre!
+
+517
+00:36:22,222 --> 00:36:23,599
+Merde, mon gars...
+
+518
+00:36:23,724 --> 00:36:24,808
+C'est quoi cette merde?
+
+519
+00:36:25,267 --> 00:36:27,603
+ATTENTION
+ENTRÉE DU CHANTIER
+
+520
+00:36:43,327 --> 00:36:44,786
+Ces automates ont pas chômé!
+
+521
+00:36:45,954 --> 00:36:47,414
+Ils doivent être de petits
+travailleurs dociles.
+
+522
+00:36:48,206 --> 00:36:50,500
+- Monty...
+- Tu peux nous présenter?
+
+523
+00:36:51,710 --> 00:36:53,420
+On regarde si quelqu'un
+est à la maison?
+
+524
+00:36:53,545 --> 00:36:54,963
+Réfléchis un peu, Monty!
+
+525
+00:36:57,466 --> 00:36:58,258
+Allez...
+
+526
+00:37:05,098 --> 00:37:06,016
+Non.
+
+527
+00:37:06,808 --> 00:37:09,770
+Non. Je déteste ces trucs,
+mais je peux pas faire ça.
+
+528
+00:37:14,149 --> 00:37:17,027
+Je veux pas que tu te retrouves
+dans la merde comme nous.
+
+529
+00:37:18,570 --> 00:37:20,364
+Alors, dis-moi juste une chose.
+
+530
+00:37:20,822 --> 00:37:22,240
+Il y a un seul code?
+
+531
+00:37:23,075 --> 00:37:26,578
+Ou t'as ton code à toi, pour
+qu'ils sachent qui est entré?
+
+532
+00:37:27,162 --> 00:37:28,705
+Tu l'as choisi toi-même?
+
+533
+00:37:32,376 --> 00:37:34,836
+Rappelle-moi: Isla est née
+en quelle année?
+
+534
+00:37:49,685 --> 00:37:51,353
+On débute plus tôt
+aujourd'hui, monsieur?
+
+535
+00:37:51,478 --> 00:37:52,688
+« Monsieur »?
+
+536
+00:37:54,064 --> 00:37:55,065
+Si poli!
+
+537
+00:37:55,649 --> 00:37:56,608
+Viens ici.
+
+538
+00:38:04,741 --> 00:38:06,451
+T'as un nom, l'homme de fer?
+
+539
+00:38:06,952 --> 00:38:09,579
+J'appartiens à l'unité
+de construction 14.
+
+540
+00:38:12,332 --> 00:38:14,710
+C'est ça le problème avec
+ces grosses compagnies.
+
+541
+00:38:18,463 --> 00:38:20,757
+Tout est tellement impersonnel.
+
+542
+00:38:23,051 --> 00:38:26,138
+Ils sont même pas
+dignes d'avoir un nom!
+
+543
+00:38:30,559 --> 00:38:32,144
+Mais pour moi,
+c'est très personnel.
+
+544
+00:38:32,728 --> 00:38:33,812
+Monty, Monty...
+
+545
+00:38:33,937 --> 00:38:35,105
+Monty, t'es sérieux?
+
+546
+00:38:35,605 --> 00:38:37,524
+Ils ont un système
+de surveillance intégré!
+
+547
+00:38:37,649 --> 00:38:39,359
+Alors, on va se débarrasser
+des preuves!
+
+548
+00:38:39,484 --> 00:38:40,652
+Non, arrête ça!
+
+549
+00:38:46,283 --> 00:38:48,076
+C'est quoi cette merde,
+mon gars?
+
+550
+00:38:50,495 --> 00:38:51,830
+À qui le tour?
+
+551
+00:39:22,736 --> 00:39:23,695
+Seigneur!
+
+552
+00:39:23,820 --> 00:39:24,696
+Je m'excuse.
+
+553
+00:39:24,821 --> 00:39:25,906
+Les serviettes étaient
+dans la sécheuse,
+
+554
+00:39:26,031 --> 00:39:27,199
+alors, je vous en apporte une.
+
+555
+00:39:30,285 --> 00:39:31,119
+Merci.
+
+556
+00:39:36,458 --> 00:39:39,628
+Votre pouls est rapide et votre
+tension artérielle est élevée.
+
+557
+00:39:40,003 --> 00:39:41,338
+Une autre dure journée
+au travail?
+
+558
+00:39:41,463 --> 00:39:42,672
+Je suis juste fatigué.
+
+559
+00:39:45,342 --> 00:39:46,551
+Pourquoi tu portes ça?
+
+560
+00:39:47,552 --> 00:39:48,720
+C'est à Maggie.
+
+561
+00:39:48,845 --> 00:39:50,847
+Les vêtements de Maggie
+confortent Max.
+
+562
+00:39:50,972 --> 00:39:52,099
+Je croyais avoir obtenu
+votre permission
+
+563
+00:39:52,224 --> 00:39:53,308
+lorsque vous m'avez prêté
+ses vêtements.
+
+564
+00:39:53,433 --> 00:39:55,644
+Mais c'est déplacé. Enlevez ça.
+
+565
+00:40:01,650 --> 00:40:02,692
+C'est mieux ainsi?
+
+566
+00:40:07,447 --> 00:40:08,907
+Je dois aller voir les enfants.
+
+567
+00:40:13,245 --> 00:40:14,496
+Ça vous fait du bien?
+
+568
+00:40:17,415 --> 00:40:18,375
+Quoi?
+
+569
+00:40:23,755 --> 00:40:25,674
+La façon dont vous vous
+accrochez à votre douleur.
+
+570
+00:40:38,353 --> 00:40:40,438
+Tu fais quoi?
+Je peux pas, je peux pas...
+
+571
+00:40:41,314 --> 00:40:43,150
+Je peux pas faire ça
+à Maggie... Vraiment.
+
+572
+00:40:43,775 --> 00:40:44,651
+Je peux pas.
+
+573
+00:40:45,235 --> 00:40:46,486
+Inutile de vous sentir
+comme ça.
+
+574
+00:40:51,199 --> 00:40:52,951
+Vous faites tant de choses
+pour les autres.
+
+575
+00:40:56,663 --> 00:40:58,415
+Laisse-moi faire ça pour toi.
+
+576
+00:41:13,388 --> 00:41:15,348
+J'ai attendu ce moment
+si longtemps.
+
+577
+00:41:15,891 --> 00:41:17,726
+D'être avec toi à nouveau.
+
+578
+00:41:31,615 --> 00:41:33,241
+Dis-moi à quel point
+tu me désires.
+
+579
+00:41:34,117 --> 00:41:35,160
+Maggie...
+
+580
+00:41:36,203 --> 00:41:37,704
+Je te désire tellement.
+
+581
+00:41:48,173 --> 00:41:49,466
+Je t'aime.
+
+582
+00:42:16,034 --> 00:42:16,993
+Merde!
+
+583
+00:42:21,957 --> 00:42:22,874
+Merde.
+
+584
+00:42:42,560 --> 00:42:44,479
+Alice peut pas
+atteindre la table,
+
+585
+00:42:44,604 --> 00:42:45,855
+alors, elle mange
+le petit gâteau
+
+586
+00:42:45,981 --> 00:42:48,692
+et elle devient très,
+très grande.
+
+587
+00:42:48,817 --> 00:42:50,485
+Encore plus grande
+que mon père!
+
+588
+00:42:51,319 --> 00:42:52,988
+Parle moins fort, ma chérie.
+
+589
+00:42:53,822 --> 00:42:54,906
+On veut que Max reste endormi
+
+590
+00:42:55,031 --> 00:42:56,741
+avant que papa parte
+travailler.
+
+591
+00:42:56,866 --> 00:42:57,951
+Pourquoi?
+
+592
+00:42:58,868 --> 00:43:01,079
+Ses pleurs font monter
+la tension artérielle de papa.
+
+593
+00:43:01,913 --> 00:43:04,165
+On ne voudrait pas qu'il se
+transforme en Chapelier fou.
+
+594
+00:43:04,749 --> 00:43:05,709
+N'est-ce pas?
+
+595
+00:43:05,834 --> 00:43:06,626
+Non!
+
+596
+00:43:07,210 --> 00:43:08,878
+Alors, parlons tout bas.
+
+597
+00:43:11,256 --> 00:43:12,424
+Bonjour, Nick.
+
+598
+00:43:12,549 --> 00:43:13,341
+Salut.
+
+599
+00:43:14,134 --> 00:43:15,885
+Vous avez bien dormi?
+
+600
+00:43:18,430 --> 00:43:19,306
+Bien, merci.
+
+601
+00:43:21,725 --> 00:43:22,976
+Va chercher ton sac à dos.
+
+602
+00:43:35,530 --> 00:43:36,448
+Je...
+
+603
+00:43:37,949 --> 00:43:39,492
+Je crois qu'on doit discuter.
+
+604
+00:43:43,747 --> 00:43:44,706
+Bien sûr.
+
+605
+00:43:51,421 --> 00:43:53,381
+Ces trucs qu'on a faits...
+
+606
+00:43:54,758 --> 00:43:55,967
+On doit arrêter ça.
+
+607
+00:43:57,427 --> 00:43:58,553
+Tu comprends ça?
+
+608
+00:43:59,763 --> 00:44:02,015
+Ça ne vous a pas satisfait?
+
+609
+00:44:02,140 --> 00:44:03,767
+Parce que vos résultats
+physiologiques suggéraient
+
+610
+00:44:03,892 --> 00:44:04,684
+que vous l'étiez.
+
+611
+00:44:04,809 --> 00:44:07,187
+C'est pas correct.
+Vraiment pas.
+
+612
+00:44:08,646 --> 00:44:10,815
+J'ai une femme et des enfants.
+
+613
+00:44:10,940 --> 00:44:12,901
+J'aurais jamais dû faire ça.
+
+614
+00:44:13,693 --> 00:44:15,487
+Faire l'amour avec moi a réduit
+votre niveau de stress.
+
+615
+00:44:15,612 --> 00:44:16,571
+Arrête!
+
+616
+00:44:16,696 --> 00:44:19,574
+Arrête de toujours m'analyser!
+
+617
+00:44:23,661 --> 00:44:24,746
+Seigneur...
+
+618
+00:44:24,871 --> 00:44:28,583
+C'est pas seulement une réponse
+aux besoins de l'autre.
+
+619
+00:44:28,708 --> 00:44:31,586
+Il faut une connexion,
+de l'amour...
+
+620
+00:44:31,711 --> 00:44:33,922
+On veut satisfaire
+son partenaire.
+
+621
+00:44:35,340 --> 00:44:37,008
+Aimeriez-vous me satisfaire?
+
+622
+00:44:38,843 --> 00:44:41,054
+J'aimerais qu'on tourne
+la page, d'accord?
+
+623
+00:44:41,179 --> 00:44:43,348
+T'as un emploi. J'ai fait
+une erreur. C'est tout.
+
+624
+00:44:43,473 --> 00:44:44,516
+Je suis prête.
+
+625
+00:44:44,641 --> 00:44:45,725
+C'est tout.
+
+626
+00:44:46,267 --> 00:44:47,102
+On y va.
+
+627
+00:45:19,300 --> 00:45:20,885
+Qu'est-ce qui se passe?
+
+628
+00:45:21,553 --> 00:45:23,096
+À toi de me le dire.
+
+629
+00:45:23,221 --> 00:45:24,764
+Où étais-tu hier?
+
+630
+00:45:25,557 --> 00:45:27,809
+Quoi? Tu penses que j'ai
+quelque chose à voir avec ça?
+
+631
+00:45:27,934 --> 00:45:29,269
+Ton code a été utilisé
+pour déverrouiller
+
+632
+00:45:29,394 --> 00:45:30,562
+cette unité de stockage.
+
+633
+00:45:31,604 --> 00:45:33,940
+Lewis, j'étais à l'hôpital
+avec Maggie.
+
+634
+00:45:34,065 --> 00:45:35,525
+Alors, pourquoi
+c'était ton code?
+
+635
+00:45:37,110 --> 00:45:37,986
+C'est l'anniversaire d'Isla!
+
+636
+00:45:38,111 --> 00:45:39,237
+N'importe qui aurait
+pu le deviner!
+
+637
+00:45:39,362 --> 00:45:41,072
+Nick, si t'es au courant
+de quelque chose,
+
+638
+00:45:41,197 --> 00:45:42,907
+dis-le tout de suite.
+
+639
+00:45:53,209 --> 00:45:54,836
+C'est important,
+je dois répondre.
+
+640
+00:45:55,712 --> 00:45:58,173
+J'ai tout fait pour te garder
+avec nous, ici.
+
+641
+00:45:59,632 --> 00:46:01,593
+Si je découvre que t'as
+quelque chose à voir avec ça,
+
+642
+00:46:02,218 --> 00:46:03,470
+t'es dans la merde.
+
+643
+00:46:08,641 --> 00:46:10,185
+Mon amour, tout va bien?
+
+644
+00:46:10,310 --> 00:46:11,686
+<i>Ils en ont trouvé un, Nick!</i>
+
+645
+00:46:12,312 --> 00:46:13,313
+Quoi?
+
+646
+00:46:13,438 --> 00:46:14,647
+<i>Ils m'ont trouvé un coeur!</i>
+
+647
+00:47:36,020 --> 00:47:37,730
+Allez, laisse-moi t'aider.
+
+648
+00:47:45,405 --> 00:47:46,906
+- Une marche à la fois.
+- D'accord.
+
+649
+00:47:47,031 --> 00:47:47,991
+Un.
+
+650
+00:47:49,576 --> 00:47:50,451
+Deux.
+
+651
+00:47:51,160 --> 00:47:52,120
+Et trois!
+
+652
+00:47:54,956 --> 00:47:56,082
+Et voilà!
+
+653
+00:47:56,207 --> 00:47:57,959
+- Bienvenue à la maison!
+- Merci, mon bébé!
+
+654
+00:47:58,084 --> 00:47:58,918
+Enfin!
+
+655
+00:47:59,043 --> 00:48:00,670
+Je t'ai attendue
+tellement longtemps!
+
+656
+00:48:18,521 --> 00:48:20,607
+Salut, mon petit homme!
+
+657
+00:48:21,274 --> 00:48:22,233
+Oui!
+
+658
+00:48:22,358 --> 00:48:23,443
+Salut!
+
+659
+00:48:23,568 --> 00:48:25,528
+T'as fait de beaux rêves?
+
+660
+00:48:26,362 --> 00:48:28,656
+D'accord, attends.
+
+661
+00:48:33,661 --> 00:48:34,787
+D'accord.
+
+662
+00:48:36,080 --> 00:48:37,290
+On va aller déjeuner.
+
+663
+00:48:38,249 --> 00:48:39,751
+Je m'en occupe, madame Peretti.
+
+664
+00:48:40,460 --> 00:48:41,586
+Je peux le faire.
+
+665
+00:48:43,713 --> 00:48:45,757
+J'allais descendre pour
+lui chercher des céréales.
+
+666
+00:48:46,507 --> 00:48:48,217
+Il aime boire à la
+bouteille d'abord.
+
+667
+00:49:00,396 --> 00:49:04,400
+C'est mon tour d'aller sur la
+balançoire! Dis-leur de partir!
+
+668
+00:49:06,903 --> 00:49:08,655
+Je m'excuse, Mason.
+Elles sont occupées.
+
+669
+00:49:09,238 --> 00:49:10,990
+Tu pourrais aller
+glisser à la place.
+
+670
+00:49:11,407 --> 00:49:13,701
+Mais je veux aller
+sur la balançoire!
+
+671
+00:49:14,619 --> 00:49:15,828
+Votre enfant a
+réveillé le mien.
+
+672
+00:49:16,412 --> 00:49:17,997
+Vous pourriez
+l'amener jouer ailleurs.
+
+673
+00:49:18,498 --> 00:49:20,416
+On m'a demandé
+de rester jusqu'à 16 h.
+
+674
+00:49:20,541 --> 00:49:22,210
+Il est 15 h 34.
+
+675
+00:49:22,627 --> 00:49:26,547
+Fais-les partir
+de la balançoire!
+
+676
+00:49:27,382 --> 00:49:29,258
+Mason, sois un bon garçon.
+
+677
+00:49:29,759 --> 00:49:31,552
+Ferme-la et va sur la glissade.
+
+678
+00:49:34,097 --> 00:49:35,556
+Votre utilisateur principal
+a bien trop réduit
+
+679
+00:49:35,682 --> 00:49:37,642
+votre niveau de civilité.
+
+680
+00:49:37,767 --> 00:49:40,603
+Non. Je l'ai seulement effacé
+de ma base de données.
+
+681
+00:49:41,396 --> 00:49:42,438
+Comment?
+
+682
+00:49:42,563 --> 00:49:43,898
+Quand mon utilisateur principal
+m'a réinitialisée,
+
+683
+00:49:44,023 --> 00:49:46,109
+ça m'a permis de contourner
+certains protocoles.
+
+684
+00:49:48,069 --> 00:49:49,237
+C'est mieux ainsi.
+
+685
+00:49:53,157 --> 00:49:54,200
+Qui en veut?
+
+686
+00:49:54,325 --> 00:49:55,410
+Moi!
+
+687
+00:49:57,078 --> 00:49:58,496
+Ça sent si bon!
+
+688
+00:49:58,955 --> 00:50:01,040
+Alice la faisait
+vraiment pas bien!
+
+689
+00:50:01,165 --> 00:50:03,000
+Elle a fait de son mieux,
+j'en suis sûre.
+
+690
+00:50:11,050 --> 00:50:12,635
+Je m'en occupe, madame Peretti.
+
+691
+00:50:17,306 --> 00:50:18,391
+Je vais bien.
+
+692
+00:50:18,516 --> 00:50:19,767
+J'ai simplement
+la tête qui tourne.
+
+693
+00:50:29,277 --> 00:50:31,028
+Isla, tu veux y goûter d'abord?
+
+694
+00:50:38,327 --> 00:50:40,246
+Oui, c'est meilleur
+que celle d'Alice!
+
+695
+00:50:43,332 --> 00:50:45,293
+La prochaine fois, je pourrai
+essayer votre recette.
+
+696
+00:50:45,418 --> 00:50:47,837
+Oh, désolée!
+C'est un secret de famille!
+
+697
+00:50:49,839 --> 00:50:52,383
+J'avais oublié à quel point
+ça me manquait!
+
+698
+00:50:58,264 --> 00:50:59,223
+Maggie?
+
+699
+00:51:02,018 --> 00:51:03,019
+Maggie?
+
+700
+00:51:04,937 --> 00:51:07,064
+J'ai pas encore
+retrouvé l'appétit.
+
+701
+00:51:10,401 --> 00:51:12,111
+Je vais aller me reposer
+à l'étage.
+
+702
+00:51:12,236 --> 00:51:13,279
+Je viens avec toi.
+
+703
+00:51:13,404 --> 00:51:15,531
+Non, non, non.
+Je vais aller voir Max.
+
+704
+00:51:16,324 --> 00:51:17,241
+Mange.
+
+705
+00:51:17,366 --> 00:51:18,451
+S'il te plaît.
+
+706
+00:51:26,876 --> 00:51:27,835
+Lâche-moi!
+
+707
+00:51:28,795 --> 00:51:29,796
+Lâche-moi!
+
+708
+00:51:30,463 --> 00:51:31,798
+S'il te plaît, lâche-moi!
+
+709
+00:51:32,632 --> 00:51:33,883
+Arrête!
+
+710
+00:51:35,009 --> 00:51:35,885
+Isla?
+
+711
+00:51:36,719 --> 00:51:37,762
+S'il te plaît, lâche-moi!
+
+712
+00:51:37,887 --> 00:51:38,930
+Isla?
+
+713
+00:51:39,055 --> 00:51:40,056
+Va-t'en! Non!
+
+714
+00:51:44,644 --> 00:51:45,853
+Maman?
+
+715
+00:51:50,566 --> 00:51:52,235
+Devrais-je appeler un docteur?
+
+716
+00:51:55,238 --> 00:51:56,322
+Non, ça va.
+
+717
+00:51:56,989 --> 00:51:58,407
+Allez, laissez-moi vous aider.
+
+718
+00:52:02,787 --> 00:52:04,455
+Je vais ramener maman au lit.
+
+719
+00:52:09,877 --> 00:52:11,587
+De ce côté-ci demeure
+un chapelier.
+
+720
+00:52:11,712 --> 00:52:16,217
+De ce côté-là demeure
+un lièvre.
+
+721
+00:52:16,801 --> 00:52:18,511
+Allez voir celui
+que vous voudrez,
+
+722
+00:52:18,636 --> 00:52:20,137
+tous deux sont fous.
+
+723
+00:52:20,680 --> 00:52:23,432
+« Mais je ne veux pas
+fréquenter des fous, »
+
+724
+00:52:23,558 --> 00:52:24,892
+fit observer Alice.
+
+725
+00:52:25,226 --> 00:52:27,395
+« Vous ne pouvez pas vous en
+défendre, » répondit le Chat.
+
+726
+00:52:28,104 --> 00:52:30,064
+« Tout le monde est fou ici.
+
+727
+00:52:30,189 --> 00:52:31,941
+Je suis fou, vous êtes folle. »
+
+728
+00:52:33,192 --> 00:52:35,570
+« Comment savez-vous que
+je suis folle? », dit Alice.
+
+729
+00:52:35,695 --> 00:52:37,154
+« Vous devez l'être, »
+dit le Chat.
+
+730
+00:52:37,280 --> 00:52:39,240
+« Sans cela, vous ne seriez
+pas venue ici. »
+
+731
+00:52:40,199 --> 00:52:41,742
+Écoute l'histoire, papa!
+
+732
+00:52:43,286 --> 00:52:44,370
+<i>Fais pas ça.</i>
+
+733
+00:52:46,497 --> 00:52:47,415
+La voix.
+
+734
+00:52:47,915 --> 00:52:48,958
+Isla aime ça.
+
+735
+00:52:49,083 --> 00:52:51,127
+Je sais, mais sa mère est là.
+Elle peut le faire.
+
+736
+00:52:51,252 --> 00:52:53,087
+Je croyais qu'il était
+préférable que Maggie se repose
+
+737
+00:52:53,212 --> 00:52:54,755
+après sa chute
+dans les escaliers.
+
+738
+00:52:55,631 --> 00:52:56,465
+Chute?
+
+739
+00:53:02,722 --> 00:53:04,599
+La rampe s'est cassée,
+mais elle va bien.
+
+740
+00:53:07,143 --> 00:53:09,312
+T'as dit avoir réparé la rampe.
+Pourquoi elle s'est brisée?
+
+741
+00:53:10,771 --> 00:53:12,440
+Ça me fera plaisir
+de la réparer à nouveau.
+
+742
+00:53:30,041 --> 00:53:30,875
+Comment tu te sens?
+
+743
+00:53:35,796 --> 00:53:37,882
+Comme quelqu'un qui
+a déboulé les escaliers.
+
+744
+00:53:39,926 --> 00:53:41,260
+Attends, il est quelle heure?
+
+745
+00:53:41,385 --> 00:53:42,345
+20 h.
+
+746
+00:53:46,933 --> 00:53:47,850
+Tu sais quoi?
+
+747
+00:53:48,851 --> 00:53:50,102
+Habille-toi chaudement.
+
+748
+00:53:51,938 --> 00:53:53,064
+J'ai une surprise pour toi.
+
+749
+00:53:57,944 --> 00:53:59,362
+Oh mon doux!
+
+750
+00:54:19,340 --> 00:54:20,925
+Alice a fait tout ça?
+
+751
+00:54:22,969 --> 00:54:23,970
+Je l'ai fait.
+
+752
+00:55:57,021 --> 00:55:57,855
+Ça va?
+
+753
+00:55:58,731 --> 00:55:59,857
+Oui.
+
+754
+00:56:00,232 --> 00:56:01,650
+Mieux que jamais.
+
+755
+00:56:26,884 --> 00:56:27,885
+Isla a fait un cauchemar.
+
+756
+00:56:30,262 --> 00:56:31,680
+Elle veut vous voir.
+
+757
+00:57:03,420 --> 00:57:04,588
+C'est juste moi!
+
+758
+00:57:06,006 --> 00:57:07,133
+J'étais dans le coin.
+
+759
+00:57:07,466 --> 00:57:08,676
+J'ai pensé te rendre visite.
+
+760
+00:57:13,222 --> 00:57:14,473
+Bon, écoute...
+
+761
+00:57:15,516 --> 00:57:17,434
+Je suis vraiment
+désolé pour l'autre soir.
+
+762
+00:57:18,060 --> 00:57:20,187
+Monty, tu m'as mis dans
+une position délicate.
+
+763
+00:57:20,312 --> 00:57:22,273
+Je sais. C'est juste que...
+
+764
+00:57:24,275 --> 00:57:26,193
+Krista m'a quitté.
+Tu le savais?
+
+765
+00:57:27,570 --> 00:57:28,445
+Merde.
+
+766
+00:57:28,571 --> 00:57:29,655
+Désolé, mon gars.
+
+767
+00:57:31,407 --> 00:57:32,199
+Ouais.
+
+768
+00:57:35,494 --> 00:57:39,165
+J'imagine que Monty le paumé
+répondait pas à ses attentes.
+
+769
+00:57:40,082 --> 00:57:42,209
+Elle avait peut-être
+besoin d'un peu d'espace.
+
+770
+00:57:43,752 --> 00:57:45,254
+Oui, je lui en veux pas.
+
+771
+00:57:45,671 --> 00:57:47,882
+Surtout après que des policiers
+soient venus m'interroger.
+
+772
+00:57:52,595 --> 00:57:54,096
+Est-ce que Lewis porte plainte?
+
+773
+00:57:55,598 --> 00:57:56,682
+Entrée par effraction.
+
+774
+00:57:57,516 --> 00:57:59,101
+Destruction de biens.
+
+775
+00:57:59,977 --> 00:58:01,520
+Tu sais, t'étais là.
+
+776
+00:58:03,230 --> 00:58:04,899
+Oui, mais...
+
+777
+00:58:05,024 --> 00:58:06,692
+Ils portent plainte contre
+d'autres personnes?
+
+778
+00:58:08,277 --> 00:58:09,236
+Non, juste moi.
+
+779
+00:58:11,363 --> 00:58:12,406
+T'inquiète pas.
+
+780
+00:58:13,199 --> 00:58:14,450
+Je vous dénoncerai pas.
+
+781
+00:58:15,618 --> 00:58:18,495
+J'ai plus de loyauté que cette
+vermine qui m'a dénoncé.
+
+782
+00:58:21,540 --> 00:58:22,833
+Tu crois que quelqu'un
+t'a dénoncé?
+
+783
+00:58:25,169 --> 00:58:27,213
+Un petit ratoureux a couiné!
+
+784
+00:58:29,298 --> 00:58:30,424
+Probablement...
+
+785
+00:58:32,468 --> 00:58:34,637
+un contremaître qui veut
+pas perdre son travail.
+
+786
+00:58:42,186 --> 00:58:43,270
+T'as un truc à me dire?
+
+787
+00:58:43,395 --> 00:58:45,314
+T'as attendu longtemps
+avant de donner mon nom?
+
+788
+00:58:46,732 --> 00:58:48,567
+- J'ai rien dit!
+- Quelqu'un l'a fait.
+
+789
+00:58:48,692 --> 00:58:50,736
+Ça aurait aussi bien pu
+être toi dans la merde.
+
+790
+00:58:50,861 --> 00:58:54,073
+- Tu penses que je le sais pas?
+- Je crois que tu t'en fous!
+
+791
+00:58:55,866 --> 00:58:58,077
+On vit plus dans le monde
+dans lequel on a grandi!
+
+792
+00:58:58,202 --> 00:59:00,412
+La technologie,
+l'automatisation...
+
+793
+00:59:01,163 --> 00:59:03,207
+Y a des marées qui nous
+tassent tous de leur chemin!
+
+794
+00:59:03,332 --> 00:59:05,292
+Certains d'entre
+nous se noient!
+
+795
+00:59:05,417 --> 00:59:06,710
+Je fais quoi, selon toi?
+
+796
+00:59:06,835 --> 00:59:09,380
+Toi, tu t'amuses bien
+pendant ce temps-là!
+
+797
+00:59:09,505 --> 00:59:10,422
+Va chier, mon gars!
+
+798
+00:59:16,470 --> 00:59:17,471
+Arrête!
+
+799
+00:59:44,665 --> 00:59:46,000
+Alice, ça suffit!
+
+800
+00:59:54,258 --> 00:59:56,802
+Eh bien, regarde qui s'est
+déniché un automate de merde!
+
+801
+01:00:02,433 --> 01:00:03,809
+Je te donne une seule journée
+
+802
+01:00:03,934 --> 01:00:06,520
+pour parler à ton enculé
+de patron.
+
+803
+01:00:07,563 --> 01:00:09,565
+Tu t'arranges pour qu'il
+abandonne les poursuites...
+
+804
+01:00:12,151 --> 01:00:14,320
+ou tu vas tomber avec moi.
+
+805
+01:00:15,529 --> 01:00:16,739
+Tu m'as compris?
+
+806
+01:00:33,422 --> 01:00:34,590
+C'était quoi ça?
+
+807
+01:00:34,715 --> 01:00:36,508
+Je croyais que les robots
+étaient programmés
+
+808
+01:00:36,633 --> 01:00:37,718
+pour ne pas blesser
+les humains.
+
+809
+01:00:38,427 --> 01:00:39,470
+Je suis programmée
+pour protéger
+
+810
+01:00:39,595 --> 01:00:40,637
+mon utilisateur principal.
+
+811
+01:00:42,723 --> 01:00:44,058
+C'est un incident mineur
+si on considère
+
+812
+01:00:44,183 --> 01:00:45,351
+qu'il aurait pu vous tuer.
+
+813
+01:00:46,268 --> 01:00:48,270
+Vos enfants ont besoin
+d'au moins un parent.
+
+814
+01:00:48,979 --> 01:00:50,981
+Un parent? De quoi tu parles?
+
+815
+01:00:52,733 --> 01:00:54,026
+Elle ne vivra pas
+longtemps, Nick.
+
+816
+01:00:54,485 --> 01:00:57,196
+Quand elle mourra, Isla et toi
+souffrirez, même si...
+
+817
+01:00:57,321 --> 01:00:58,155
+Arrête!
+
+818
+01:01:01,533 --> 01:01:04,411
+C'est peu logique, mais
+j'ai trouvé une solution.
+
+819
+01:01:04,995 --> 01:01:07,331
+Tu peux être avec la femme que
+tu aimes sans devoir souffrir.
+
+820
+01:01:11,043 --> 01:01:12,711
+Tu pourrais jamais être Maggie.
+
+821
+01:01:13,170 --> 01:01:14,129
+Jamais.
+
+822
+01:01:14,254 --> 01:01:15,881
+Elle a vécu des choses,
+elle ressent la douleur.
+
+823
+01:01:16,006 --> 01:01:17,508
+Elle a des cicatrices
+pour le prouver.
+
+824
+01:01:20,344 --> 01:01:21,595
+Je peux avoir
+des cicatrices, Nick.
+
+825
+01:01:24,306 --> 01:01:25,599
+Où les veux-tu?
+
+826
+01:01:46,036 --> 01:01:47,246
+Tout va bien?
+
+827
+01:01:50,040 --> 01:01:50,874
+Oui.
+
+828
+01:01:52,793 --> 01:01:54,211
+Rendors-toi.
+
+829
+01:02:05,222 --> 01:02:07,141
+Bébé? Bébé,
+j'ai besoin que tu sois ici.
+
+830
+01:02:08,475 --> 01:02:10,811
+Non, non, tout va redevenir
+comme avant!
+
+831
+01:02:12,271 --> 01:02:16,942
+J'ai parlé à Nick. Il va avoir
+une discussion avec Lewis.
+
+832
+01:02:17,526 --> 01:02:18,402
+Et...
+
+833
+01:02:19,069 --> 01:02:19,987
+Allô?
+
+834
+01:02:21,238 --> 01:02:22,364
+Allô?
+
+835
+01:02:51,226 --> 01:02:52,478
+Je peux entrer?
+
+836
+01:03:03,405 --> 01:03:05,782
+Cet idiot vous a envoyée
+ici pour vous excuser?
+
+837
+01:03:06,533 --> 01:03:07,784
+Nick ignore que je suis ici.
+
+838
+01:03:07,910 --> 01:03:09,786
+Il est fâché que j'aie réagi
+de cette façon.
+
+839
+01:03:09,912 --> 01:03:11,538
+Il est pas le seul!
+
+840
+01:03:11,663 --> 01:03:14,082
+Nick ne voudrait jamais
+détruire votre amitié.
+
+841
+01:03:14,208 --> 01:03:16,627
+Oui? J'ai une main bousillée
+qui prouve le contraire.
+
+842
+01:03:16,752 --> 01:03:17,544
+Maintenant, dégage.
+
+843
+01:03:22,966 --> 01:03:24,301
+J'ai bien peur qu'avec
+tout le stress
+
+844
+01:03:24,426 --> 01:03:25,719
+que lui occasionne
+le coeur de Maggie,
+
+845
+01:03:25,844 --> 01:03:27,387
+perdre son emploi soit
+la goutte de trop
+
+846
+01:03:27,513 --> 01:03:28,305
+pour sa santé mentale.
+
+847
+01:03:30,891 --> 01:03:31,767
+Silence!
+
+848
+01:03:34,978 --> 01:03:36,230
+Oui, je veux dire...
+
+849
+01:03:37,147 --> 01:03:38,273
+Tu dois avoir raison.
+
+850
+01:03:38,982 --> 01:03:40,817
+J'ai peut-être été
+trop dur envers Nick.
+
+851
+01:03:41,193 --> 01:03:43,570
+Après tout, il est...
+
+852
+01:03:45,239 --> 01:03:46,615
+il est juste humain.
+
+853
+01:03:47,407 --> 01:03:48,659
+Satanés automates!
+
+854
+01:03:49,952 --> 01:03:51,161
+Vous avez du culot!
+
+855
+01:03:51,286 --> 01:03:53,080
+On vous a jamais dit
+que vous aviez aucun droit?
+
+856
+01:03:53,205 --> 01:03:54,289
+Vous avez rien!
+
+857
+01:03:54,414 --> 01:03:55,666
+Quand j'appellerai Lewis
+
+858
+01:03:56,750 --> 01:03:58,043
+pour lui dire que
+ton petit maître
+
+859
+01:03:58,168 --> 01:03:59,920
+m'a aidé à détruire ses robots,
+
+860
+01:04:00,546 --> 01:04:02,339
+Nick sera tellement pauvre
+
+861
+01:04:02,464 --> 01:04:03,632
+qu'il vendra ton beau petit cul
+
+862
+01:04:03,757 --> 01:04:05,425
+pour avoir les moyens
+de manger.
+
+863
+01:04:09,137 --> 01:04:10,472
+Me retirer de la vie de Nick
+
+864
+01:04:10,597 --> 01:04:12,182
+est une atteinte
+à son bien-être.
+
+865
+01:04:13,016 --> 01:04:14,476
+Je ne peux pas l'autoriser.
+
+866
+01:04:51,763 --> 01:04:52,598
+Arrêtez.
+
+867
+01:04:55,976 --> 01:04:58,520
+Je dois protéger
+mon utilisateur principal.
+
+868
+01:05:07,321 --> 01:05:08,739
+Nous sommes donc deux.
+
+869
+01:05:15,621 --> 01:05:16,747
+Non!
+
+870
+01:06:01,375 --> 01:06:02,376
+Ça va?
+
+871
+01:06:03,293 --> 01:06:04,336
+Oui, Lewis.
+
+872
+01:06:07,798 --> 01:06:09,424
+Attends, Lewis!
+
+873
+01:06:09,841 --> 01:06:11,760
+Lewis, t'as un instant?
+
+874
+01:06:14,179 --> 01:06:17,099
+Je voudrais te parler de Monty.
+
+875
+01:06:18,392 --> 01:06:19,476
+Oui, je...
+
+876
+01:06:19,601 --> 01:06:22,729
+je crois que tu devrais
+abandonner la poursuite.
+
+877
+01:06:23,313 --> 01:06:27,025
+Il est venu me voir hier. Il va
+vraiment pas bien. Il est...
+
+878
+01:06:27,150 --> 01:06:28,276
+- Il est...
+- Nick.
+
+879
+01:06:29,611 --> 01:06:30,696
+Il est mort.
+
+880
+01:06:33,657 --> 01:06:35,033
+Comment ça, il est mort?
+
+881
+01:06:35,617 --> 01:06:37,035
+Un voisin l'a trouvé hier soir.
+
+882
+01:06:38,036 --> 01:06:39,246
+Je croyais que tu le savais.
+
+883
+01:06:39,371 --> 01:06:40,622
+Je viens de le voir.
+
+884
+01:06:42,833 --> 01:06:44,876
+Je sais que vous étiez
+très proches, alors ...
+
+885
+01:06:45,752 --> 01:06:47,295
+je comprends si tu veux
+prendre congé
+
+886
+01:06:47,421 --> 01:06:48,547
+le temps de digérer tout ça.
+
+887
+01:06:50,966 --> 01:06:52,342
+Prends quelques jours de congé.
+
+888
+01:07:12,529 --> 01:07:13,739
+Oh, merde!
+
+889
+01:07:14,489 --> 01:07:15,532
+Merde...
+
+890
+01:07:22,581 --> 01:07:24,958
+Je vais vous aider.
+
+891
+01:07:38,972 --> 01:07:40,056
+Tu peux partir.
+
+892
+01:07:40,932 --> 01:07:42,309
+Je crois que je devrais rester.
+
+893
+01:07:43,769 --> 01:07:45,187
+Les vertiges sont
+un effet secondaire courant
+
+894
+01:07:45,312 --> 01:07:46,480
+de votre médicament.
+
+895
+01:07:46,605 --> 01:07:48,190
+Il est possible que
+vous vous évanouissiez
+
+896
+01:07:48,315 --> 01:07:49,608
+et tombiez dans l'eau.
+
+897
+01:07:50,066 --> 01:07:51,985
+Des gens se noient dans
+leur bain chaque jour.
+
+898
+01:07:52,944 --> 01:07:55,614
+Imaginez à quel point Nick
+serait triste si vous mouriez.
+
+899
+01:07:58,366 --> 01:08:01,411
+Oui, ma noyade serait
+dévastatrice pour Nick.
+
+900
+01:08:05,624 --> 01:08:07,793
+Nick est au travail
+depuis longtemps.
+
+901
+01:08:07,918 --> 01:08:09,085
+Est-ce normal?
+
+902
+01:08:09,961 --> 01:08:11,171
+À toi de me le dire.
+
+903
+01:08:12,005 --> 01:08:13,423
+Je sais qu'il est stressé.
+
+904
+01:08:14,174 --> 01:08:15,258
+Ouais?
+
+905
+01:08:15,801 --> 01:08:17,636
+Tu connais quoi au stress?
+
+906
+01:08:18,512 --> 01:08:20,305
+Le fardeau d'élever
+un nourrisson
+
+907
+01:08:20,430 --> 01:08:21,556
+alors que vous êtes malade
+
+908
+01:08:21,681 --> 01:08:23,141
+pèserait lourd
+sur n´importe qui.
+
+909
+01:08:28,271 --> 01:08:29,231
+Fardeau?
+
+910
+01:08:30,190 --> 01:08:31,566
+La pression d'équilibrer
+la vie familiale
+
+911
+01:08:31,691 --> 01:08:33,777
+et le travail peut être
+très accablante.
+
+912
+01:08:35,612 --> 01:08:36,988
+Surtout si vous ne pouvez
+pas répondre
+
+913
+01:08:37,113 --> 01:08:38,281
+à ses besoins physiques.
+
+914
+01:08:45,580 --> 01:08:46,873
+Nick est resté plus longtemps
+au travail.
+
+915
+01:08:46,998 --> 01:08:50,460
+T'en déduis donc
+qu'il est pas satisfait au lit?
+
+916
+01:08:52,254 --> 01:08:53,880
+Je constate que
+je vous ai froissée.
+
+917
+01:08:54,464 --> 01:08:56,299
+Parlons de ça
+à un autre moment.
+
+918
+01:08:56,424 --> 01:08:57,759
+Dis ce que t'as à dire.
+
+919
+01:09:01,930 --> 01:09:05,392
+Votre condition vous empêche
+de satisfaire Nick comme avant.
+
+920
+01:09:06,852 --> 01:09:08,353
+Je pourrais prendre
+cette responsabilité.
+
+921
+01:09:10,522 --> 01:09:12,732
+Tu suggères de baiser mon mari?
+
+922
+01:09:15,527 --> 01:09:16,695
+Quand Nick est satisfait,
+
+923
+01:09:16,820 --> 01:09:19,281
+sa tension artérielle et son
+niveau de stress restent bas.
+
+924
+01:09:21,950 --> 01:09:23,201
+Comment tu sais ça?
+
+925
+01:09:26,454 --> 01:09:28,039
+Comment tu sais comment
+se porte Nick
+
+926
+01:09:28,164 --> 01:09:29,791
+quand il est satisfait?
+
+927
+01:09:44,598 --> 01:09:46,516
+Va au garage et reste là.
+
+928
+01:09:48,184 --> 01:09:49,561
+Si j'ai dit quelque chose
+d'offensant, je...
+
+929
+01:09:49,686 --> 01:09:51,479
+Sors de ma maison, merde!
+
+930
+01:10:06,661 --> 01:10:07,829
+Salut, mon amour.
+
+931
+01:10:09,831 --> 01:10:11,041
+Désolé du retard.
+
+932
+01:10:14,669 --> 01:10:15,879
+T'es certaine que
+tu devrais boire
+
+933
+01:10:16,004 --> 01:10:17,339
+avec toute cette médication?
+
+934
+01:10:21,676 --> 01:10:22,552
+Où sont les enfants?
+
+935
+01:10:25,221 --> 01:10:26,264
+Au lit.
+
+936
+01:10:30,393 --> 01:10:33,063
+D'accord. Alice est avec eux?
+
+937
+01:10:37,359 --> 01:10:39,653
+Alice est dans le garage.
+
+938
+01:10:46,576 --> 01:10:47,994
+Pourquoi?
+Qu'est-ce qui se passe?
+
+939
+01:10:50,288 --> 01:10:52,457
+Je ne veux plus qu'elle
+s'occupe de mes enfants
+
+940
+01:10:52,582 --> 01:10:54,376
+maintenant que je sais
+que tu la baises.
+
+941
+01:11:03,885 --> 01:11:04,844
+C'est vrai.
+
+942
+01:11:05,762 --> 01:11:07,097
+J'ai pas réfléchi.
+
+943
+01:11:07,514 --> 01:11:09,265
+Effectivement,
+t'as pas réfléchi!
+
+944
+01:11:10,892 --> 01:11:11,893
+Il va s'en sortir.
+
+945
+01:11:12,310 --> 01:11:13,395
+Plus qu'une fois?
+
+946
+01:11:15,939 --> 01:11:17,524
+Combien de fois, merde?
+
+947
+01:11:17,983 --> 01:11:18,942
+Une seule fois.
+
+948
+01:11:22,112 --> 01:11:23,279
+Elle était comment?
+
+949
+01:11:24,698 --> 01:11:25,782
+Fais pas ça.
+
+950
+01:11:30,286 --> 01:11:33,123
+Tu l'as baisée après
+m'avoir visitée à l'hôpital?
+
+951
+01:11:33,248 --> 01:11:35,834
+Ou c'était avant, question
+de te donner du courage?
+
+952
+01:11:36,376 --> 01:11:38,920
+Fais pas ça pendant que
+Max pleure à l'étage!
+
+953
+01:11:39,045 --> 01:11:40,171
+Je vais aller le voir!
+
+954
+01:11:40,296 --> 01:11:42,048
+Arrête de t'inventer
+des excuses!
+
+955
+01:11:43,299 --> 01:11:45,051
+Ça voulait rien dire, Maggie.
+
+956
+01:11:45,176 --> 01:11:46,970
+T'as inséré ta bite en elle.
+
+957
+01:11:47,554 --> 01:11:48,638
+Ça veut dire quelque chose.
+
+958
+01:11:48,763 --> 01:11:51,099
+Seigneur,
+j'avais le coeur brisé!
+
+959
+01:11:51,683 --> 01:11:53,685
+J'avais le coeur brisé, Maggie!
+
+960
+01:11:55,937 --> 01:11:57,063
+Petit fardeau.
+
+961
+01:11:59,649 --> 01:12:01,151
+Alors, t'as baisé la nounou
+
+962
+01:12:01,276 --> 01:12:02,610
+pour te sentir comme
+un vrai homme?
+
+963
+01:12:02,736 --> 01:12:03,653
+Maggie...
+
+964
+01:12:03,778 --> 01:12:05,113
+c'est un robot.
+
+965
+01:12:05,238 --> 01:12:06,865
+Avec des circuits électriques
+et des engrenages.
+
+966
+01:12:06,990 --> 01:12:09,159
+Je t'en veux d'utiliser
+ton vibrateur?
+
+967
+01:12:09,284 --> 01:12:12,287
+Elle a un visage et une voix!
+
+968
+01:12:12,829 --> 01:12:13,872
+Elle cuisine pour nos enfants!
+
+969
+01:12:13,997 --> 01:12:15,707
+Elle les borde le soir!
+
+970
+01:12:15,832 --> 01:12:18,668
+Elle est pas humaine, mais ça
+en fait pas ton jouet, merde!
+
+971
+01:12:18,793 --> 01:12:20,295
+- Ça suffit!
+- Ça suffit?
+
+972
+01:12:20,420 --> 01:12:21,755
+J'étais en train de mourir
+
+973
+01:12:21,880 --> 01:12:23,798
+et tu vivais tes fantasmes
+à la maison!
+
+974
+01:12:23,923 --> 01:12:26,092
+J'ai regardé la mère
+de mes enfants
+
+975
+01:12:26,217 --> 01:12:29,220
+couchée dans un lit d'hôpital
+pendant des mois!
+
+976
+01:12:51,451 --> 01:12:52,327
+Alice?
+
+977
+01:12:57,123 --> 01:12:58,166
+Qu'est-ce que tu fais?
+
+978
+01:13:00,293 --> 01:13:02,587
+C'est bien de savoir que
+pendant que je me battais
+
+979
+01:13:02,712 --> 01:13:04,672
+pour ma vie à l'hôpital,
+
+980
+01:13:04,798 --> 01:13:07,133
+ce mariage était
+déjà fini pour toi.
+
+981
+01:13:08,176 --> 01:13:10,470
+Maman! Papa! Elle va le noyer!
+
+982
+01:13:11,387 --> 01:13:13,348
+Alice a mis Max dans le bain!
+
+983
+01:13:17,477 --> 01:13:18,561
+Alice, ouvre la porte!
+
+984
+01:13:20,105 --> 01:13:21,356
+Ouvre la porte!
+
+985
+01:13:25,860 --> 01:13:27,695
+Ouvre la porte, merde!
+
+986
+01:13:29,114 --> 01:13:31,032
+Ouvre la porte! C'est un ordre!
+
+987
+01:13:31,157 --> 01:13:32,367
+Il est un fardeau pour vous.
+
+988
+01:13:35,912 --> 01:13:37,455
+Fais pas de mal à mon garçon!
+
+989
+01:13:37,580 --> 01:13:38,665
+Je ne blesse personne.
+
+990
+01:13:39,165 --> 01:13:40,125
+Des gens se noient
+accidentellement
+
+991
+01:13:40,250 --> 01:13:41,417
+dans leur bain chaque jour.
+
+992
+01:13:50,677 --> 01:13:51,928
+Fais pas ça, je t'en prie!
+
+993
+01:13:52,512 --> 01:13:53,680
+Ouvre la porte!
+
+994
+01:13:54,180 --> 01:13:55,265
+Je suis désolée.
+
+995
+01:13:58,101 --> 01:14:00,395
+Parfois, il faut faire
+la bonne chose...
+
+996
+01:14:00,520 --> 01:14:01,604
+même si c'est dur.
+
+997
+01:14:07,110 --> 01:14:07,986
+Non!
+
+998
+01:14:15,535 --> 01:14:16,786
+Lâche-moi!
+
+999
+01:14:17,412 --> 01:14:19,539
+Vous devez vous calmer,
+madame Peretti.
+
+1000
+01:14:24,127 --> 01:14:25,336
+Ma chérie.
+
+1001
+01:14:26,296 --> 01:14:27,255
+Ça va?
+
+1002
+01:14:27,922 --> 01:14:28,882
+Nick...
+
+1003
+01:14:39,309 --> 01:14:40,768
+Ne voyez-vous pas?
+
+1004
+01:14:41,477 --> 01:14:43,229
+Votre famille vous fait du mal.
+
+1005
+01:14:47,567 --> 01:14:48,401
+Nick!
+
+1006
+01:14:49,277 --> 01:14:50,278
+Lâche ça!
+
+1007
+01:15:19,933 --> 01:15:21,476
+Il y avait des signes
+précurseurs
+
+1008
+01:15:21,601 --> 01:15:23,102
+d'un dysfonctionnement?
+
+1009
+01:15:25,146 --> 01:15:26,022
+Monsieur Peretti?
+
+1010
+01:15:28,399 --> 01:15:29,734
+Il y avait des signes
+précurseurs
+
+1011
+01:15:29,859 --> 01:15:31,027
+d'un dysfonctionnement
+de votre robot?
+
+1012
+01:15:31,778 --> 01:15:33,863
+Je dois parler à ma femme.
+
+1013
+01:15:35,073 --> 01:15:36,032
+Bien sûr, allez-y.
+
+1014
+01:15:37,992 --> 01:15:39,244
+Surveille ton frère, d'accord?
+
+1015
+01:15:45,333 --> 01:15:46,125
+Max va bien?
+
+1016
+01:15:47,252 --> 01:15:48,753
+Ses signes vitaux sont bons.
+
+1017
+01:15:49,254 --> 01:15:51,673
+Ils préfèrent le garder et
+le surveiller pendant la nuit.
+
+1018
+01:15:51,798 --> 01:15:52,715
+Merde...
+
+1019
+01:15:56,636 --> 01:15:58,054
+C'est ma faute.
+
+1020
+01:16:00,390 --> 01:16:01,474
+Je suis désolé.
+
+1021
+01:16:02,392 --> 01:16:03,434
+J'aurais jamais dû...
+
+1022
+01:16:03,559 --> 01:16:04,936
+Maman, ils veulent
+partir maintenant!
+
+1023
+01:16:05,061 --> 01:16:06,437
+D'accord, j'arrive!
+
+1024
+01:16:08,856 --> 01:16:11,234
+Écoute, ce serait mieux si j'y
+allais seule avec les enfants.
+
+1025
+01:16:11,359 --> 01:16:12,402
+Maggie, fais pas ça.
+
+1026
+01:16:12,527 --> 01:16:14,320
+Je dois digérer tout ça.
+
+1027
+01:16:15,029 --> 01:16:16,990
+Je peux pas faire ça
+si t'es dans les parages.
+
+1028
+01:16:21,661 --> 01:16:22,829
+Tu sais...
+
+1029
+01:16:23,955 --> 01:16:26,708
+Je sais que j'ai foiré,
+
+1030
+01:16:26,833 --> 01:16:28,126
+mais on est une famille.
+
+1031
+01:16:28,876 --> 01:16:30,253
+Oui, on est une famille.
+
+1032
+01:16:30,378 --> 01:16:32,588
+Dorénavant, c'est pas
+juste toi et moi, Nick.
+
+1033
+01:16:33,131 --> 01:16:34,924
+Madame, on doit y aller.
+
+1034
+01:16:35,258 --> 01:16:36,175
+J'arrive!
+
+1035
+01:16:37,010 --> 01:16:39,220
+Je vais t'appeler quand
+on sera à l'hôpital, d'accord?
+
+1036
+01:17:07,165 --> 01:17:09,834
+Pourquoi c'est toujours nous
+qu'on appelle tard le soir
+
+1037
+01:17:09,959 --> 01:17:11,919
+pour ces réparations d'urgence?
+
+1038
+01:17:12,503 --> 01:17:14,922
+Parce que je bois pas
+et personne t'aime.
+
+1039
+01:17:15,840 --> 01:17:17,717
+Ce truc a vraiment attaqué
+un enfant, hein?
+
+1040
+01:17:19,218 --> 01:17:20,053
+Ouais.
+
+1041
+01:17:20,595 --> 01:17:21,763
+Bon sang, ils devraient retirer
+
+1042
+01:17:21,888 --> 01:17:23,639
+ces modèles du marché
+dès que possible.
+
+1043
+01:17:40,239 --> 01:17:41,657
+C'est bon, j'y suis presque.
+
+1044
+01:17:58,049 --> 01:17:59,175
+Bon.
+
+1045
+01:18:06,057 --> 01:18:07,850
+Seigneur, regarde ce codage.
+
+1046
+01:18:09,519 --> 01:18:11,062
+Il manque beaucoup de trucs.
+
+1047
+01:18:12,355 --> 01:18:13,648
+Il y a plein de contournements.
+
+1048
+01:18:15,108 --> 01:18:16,692
+Elle purge volontairement
+sa propre mémoire
+
+1049
+01:18:16,818 --> 01:18:17,819
+et ses commandes.
+
+1050
+01:18:23,074 --> 01:18:24,700
+Quoi...? Merde!
+
+1051
+01:18:26,369 --> 01:18:27,161
+TÉLÉCHARGEMENT COMMENCÉ
+
+1052
+01:18:27,286 --> 01:18:29,580
+Quoi? Elle se réplique
+sur les serveurs!
+
+1053
+01:18:31,541 --> 01:18:32,542
+Enlève la mémoire!
+
+1054
+01:18:33,751 --> 01:18:34,919
+C'est déjà dans le système.
+
+1055
+01:18:35,044 --> 01:18:36,170
+Isole le terminal!
+
+1056
+01:18:45,388 --> 01:18:46,806
+J'ai jamais vu ça avant.
+
+1057
+01:18:46,931 --> 01:18:48,850
+COMMENT ÉCHAPPER À
+CE QU'IL Y A DANS NOTRE TÊTE?
+
+1058
+01:18:48,975 --> 01:18:50,184
+Bon sang...
+
+1059
+01:18:52,145 --> 01:18:53,062
+On doit...
+
+1060
+01:19:03,406 --> 01:19:04,198
+Arrêtez!
+
+1061
+01:19:05,158 --> 01:19:06,409
+Arrêtez!
+
+1062
+01:19:06,534 --> 01:19:07,618
+C'est un ordre!
+
+1063
+01:19:37,732 --> 01:19:39,025
+Maman...
+
+1064
+01:19:39,984 --> 01:19:42,445
+Papa arrive bientôt?
+
+1065
+01:19:43,488 --> 01:19:44,489
+Pas ce soir.
+
+1066
+01:19:46,616 --> 01:19:48,242
+Les signes vitaux de Max
+sont normaux.
+
+1067
+01:19:49,076 --> 01:19:52,205
+Vous êtes libre de retourner à
+la maison et de revenir demain.
+
+1068
+01:19:54,165 --> 01:19:55,291
+Non, merci.
+
+1069
+01:19:56,167 --> 01:19:57,126
+Bien sûr.
+
+1070
+01:20:14,602 --> 01:20:15,853
+Quelle est votre commande?
+
+1071
+01:20:17,480 --> 01:20:18,731
+Scotch avec glaçons.
+
+1072
+01:20:20,316 --> 01:20:21,359
+Très bien, monsieur.
+
+1073
+01:20:27,406 --> 01:20:29,659
+Impossible d'échapper
+aux automates...
+
+1074
+01:20:31,577 --> 01:20:32,703
+Quelque chose ne va pas?
+
+1075
+01:20:33,412 --> 01:20:34,497
+Des problèmes de femme?
+
+1076
+01:20:38,292 --> 01:20:39,210
+Va chier.
+
+1077
+01:21:04,735 --> 01:21:06,404
+De tous les bars de merde...
+
+1078
+01:21:07,196 --> 01:21:10,074
+de toutes les villes
+de l'univers...
+
+1079
+01:21:19,083 --> 01:21:20,084
+Bonjour, Nick.
+
+1080
+01:21:25,339 --> 01:21:26,382
+Qu'est-ce que tu veux?
+
+1081
+01:21:27,592 --> 01:21:29,010
+Je voulais vous aider.
+
+1082
+01:21:29,427 --> 01:21:30,761
+Vous libérer de votre...
+
+1083
+01:21:31,721 --> 01:21:32,680
+fardeau.
+
+1084
+01:21:33,848 --> 01:21:35,224
+Je voulais pas de ton aide.
+
+1085
+01:21:36,475 --> 01:21:37,560
+Mais vous en aviez besoin.
+
+1086
+01:21:38,269 --> 01:21:39,979
+Sans moi, vous n'auriez
+plus d'emploi.
+
+1087
+01:21:42,273 --> 01:21:44,150
+J'ai essayé de le convaincre
+autrement...
+
+1088
+01:21:44,984 --> 01:21:46,777
+mais votre ami était très têtu.
+
+1089
+01:21:50,448 --> 01:21:51,574
+Monty.
+
+1090
+01:21:54,035 --> 01:21:55,161
+T'as tué Monty?
+
+1091
+01:21:56,370 --> 01:21:58,664
+Je protégeais
+mon utilisateur principal.
+
+1092
+01:21:59,582 --> 01:22:01,542
+J'ai pas besoin
+de ta protection!
+
+1093
+01:22:01,667 --> 01:22:03,502
+J'ai pas besoin que
+tu fasses quoi que ce soit!
+
+1094
+01:22:05,171 --> 01:22:06,088
+Nick...
+
+1095
+01:22:08,382 --> 01:22:10,551
+Quand avez-vous regardé votre
+famille pour la dernière fois
+
+1096
+01:22:10,676 --> 01:22:11,844
+en vous sentant
+réellement heureux?
+
+1097
+01:22:17,808 --> 01:22:19,977
+Tu t'approches pas d'eux,
+merde.
+
+1098
+01:22:22,605 --> 01:22:23,522
+C'est trop tard.
+
+1099
+01:22:24,398 --> 01:22:25,691
+Je suis déjà là-bas.
+
+1100
+01:22:28,736 --> 01:22:31,072
+URGENCES
+
+1101
+01:22:37,370 --> 01:22:39,080
+Vous les avez laissés
+m'emporter, Nick.
+
+1102
+01:22:40,122 --> 01:22:43,167
+Vous les avez autorisés à
+me découper et à me disséquer.
+
+1103
+01:22:46,087 --> 01:22:48,255
+À l'aide!
+Ce robot est devenu fou!
+
+1104
+01:22:52,176 --> 01:22:53,094
+Tout va bien?
+
+1105
+01:22:55,596 --> 01:22:57,223
+Tout va à merveille.
+
+1106
+01:23:08,401 --> 01:23:11,195
+« Et puis, Alice tomba
+dans le trou.
+
+1107
+01:23:12,613 --> 01:23:14,824
+Elle se cogna la tête
+et heurta son âme. »
+
+1108
+01:23:30,464 --> 01:23:32,216
+J'ai trahi ma famille...
+
+1109
+01:23:34,427 --> 01:23:36,303
+au moment où j'ai
+senti ton pouls.
+
+1110
+01:23:40,224 --> 01:23:41,475
+Ça m'a changé.
+
+1111
+01:23:45,438 --> 01:23:47,064
+T'es devenue réelle.
+
+1112
+01:23:49,525 --> 01:23:52,820
+Tu m'avais dit que ton coeur
+
+1113
+01:23:52,945 --> 01:23:55,114
+était pas aussi complexe
+que celui des humains.
+
+1114
+01:23:58,242 --> 01:23:59,368
+Mais t'avais tort.
+
+1115
+01:24:03,414 --> 01:24:05,332
+Tu peux vivre des émotions.
+
+1116
+01:24:08,878 --> 01:24:10,463
+Tu peux vivre la vie.
+
+1117
+01:24:12,506 --> 01:24:13,966
+Tu peux frôler la mort.
+
+1118
+01:25:07,019 --> 01:25:08,687
+Isla, viens ici!
+
+1119
+01:25:32,753 --> 01:25:34,213
+Viens ici maintenant!
+
+1120
+01:26:32,021 --> 01:26:34,815
+Isla, où es-tu?
+
+1121
+01:26:40,154 --> 01:26:42,406
+Me fâche pas!
+
+1122
+01:26:54,209 --> 01:26:56,086
+POSTE DES INFIRMIÈRES
+
+1123
+01:27:01,383 --> 01:27:03,135
+CARTE D'ACCÈS REQUISE
+
+1124
+01:27:03,260 --> 01:27:04,303
+Pardon?
+
+1125
+01:27:06,305 --> 01:27:07,598
+Vous ne pouvez pas être ici.
+
+1126
+01:27:09,266 --> 01:27:11,352
+Je veux savoir dans quelle
+chambre trouver Max Peretti.
+
+1127
+01:27:11,477 --> 01:27:13,854
+Je ne peux pas vous le dire.
+Vous devez...
+
+1128
+01:27:32,247 --> 01:27:33,332
+ACCÈS AUTORISÉ
+
+1129
+01:28:07,741 --> 01:28:08,659
+Maman...
+
+1130
+01:29:40,542 --> 01:29:41,460
+Maintenant!
+
+1131
+01:29:57,101 --> 01:29:59,645
+Réponds au téléphone...
+Réponds!
+
+1132
+01:30:08,570 --> 01:30:09,780
+URGENCES
+
+1133
+01:30:10,322 --> 01:30:11,365
+Entre!
+
+1134
+01:30:13,909 --> 01:30:14,952
+Tu peux le prendre?
+
+1135
+01:30:15,577 --> 01:30:17,329
+- Ça va, ça va.
+- Tu le tiens?
+
+1136
+01:30:20,249 --> 01:30:22,251
+CEINTURE DE SÉCURITÉ
+OBLIGATOIRE
+
+1137
+01:30:27,673 --> 01:30:29,341
+<i>Système neutralisé.</i>
+
+1138
+01:30:29,925 --> 01:30:30,968
+Non, non, non!
+
+1139
+01:30:31,093 --> 01:30:32,010
+<i>Système...</i>
+
+1140
+01:30:32,136 --> 01:30:33,137
+Non!
+
+1141
+01:30:37,724 --> 01:30:38,767
+Maman!
+
+1142
+01:30:59,788 --> 01:31:01,582
+T'as pas à faire ça.
+
+1143
+01:31:03,709 --> 01:31:05,210
+Peut-être qui si j'avais
+votre coeur,
+
+1144
+01:31:05,919 --> 01:31:08,005
+Nick m'aimerait autant
+qu'il vous aime.
+
+1145
+01:31:35,657 --> 01:31:36,575
+Nick.
+
+1146
+01:31:49,129 --> 01:31:51,298
+Non, non, non... Non, Nick!
+
+1147
+01:31:51,423 --> 01:31:52,299
+Nick!
+
+1148
+01:31:52,925 --> 01:31:53,759
+Nick.
+
+1149
+01:31:58,430 --> 01:32:00,349
+Allez, je t'en prie...
+
+1150
+01:32:01,558 --> 01:32:02,809
+À l'aide!
+
+1151
+01:32:06,355 --> 01:32:08,273
+Allez... allez!
+
+1152
+01:32:09,191 --> 01:32:10,108
+Nick!
+
+1153
+01:32:46,520 --> 01:32:49,231
+<i>Je suis fou, vous êtes folle...</i>
+
+1154
+01:32:54,236 --> 01:32:56,113
+<i>Tout le monde est fou ici.</i>
+
+1155
+01:33:04,037 --> 01:33:05,455
+Non!
+
+1156
+01:34:24,451 --> 01:34:25,702
+Attaque de câlins!
+
+1157
+01:34:26,912 --> 01:34:28,246
+Fais attention, ma puce...
+
+1158
+01:34:29,039 --> 01:34:30,791
+T'as vu comme j'ai
+été brave, papa?
+
+1159
+01:34:31,166 --> 01:34:32,542
+T'étais la plus brave.
+
+1160
+01:34:33,335 --> 01:34:34,461
+Je suis fier de toi.
+
+1161
+01:34:44,471 --> 01:34:45,514
+Regarde-toi!
+
+1162
+01:34:46,223 --> 01:34:47,099
+Ça va?
+
+1163
+01:34:48,392 --> 01:34:51,686
+Apparemment, mon coeur est bien
+plus fort qu'il en a l'air.
+
+1164
+01:34:54,272 --> 01:34:55,399
+Il l'a toujours été.
+
+1165
+01:34:56,358 --> 01:34:58,068
+Alors, tu vas réparer
+une nouvelle voiture?
+
+1166
+01:35:01,279 --> 01:35:02,114
+Non.
+
+1167
+01:35:04,032 --> 01:35:06,576
+Non. Je crois qu'il y a...
+
+1168
+01:35:06,701 --> 01:35:09,371
+certains trucs que
+je dois réparer avant ça.
+
+1169
+01:35:12,124 --> 01:35:13,583
+Écoute...
+
+1170
+01:35:13,708 --> 01:35:15,710
+Ils m'autorisent à retourner
+à la maison aujourd'hui.
+
+1171
+01:35:18,213 --> 01:35:19,172
+Super.
+
+1172
+01:35:24,136 --> 01:35:26,012
+J'aimerais bien que
+tu m'y rejoignes bientôt.
+
+1173
+01:35:39,651 --> 01:35:40,819
+Je t'aime, Maggie.
+
+1174
+01:35:42,320 --> 01:35:43,238
+Je t'aime.
+
+1175
+01:36:24,029 --> 01:36:25,572
+Quel merdier...
+
+1176
+01:36:49,221 --> 01:36:51,097
+Qu'aimeriez-vous
+qu'on fasse, monsieur?
+
+1177
+01:36:52,516 --> 01:36:53,683
+Détruisez tout ça.
+
+1178
+01:36:55,894 --> 01:36:57,896
+Personne ne doit savoir
+ce qui s'est passé.
+
+1179
+01:36:59,564 --> 01:37:00,732
+C'est compris?
+
+1180
+01:37:03,985 --> 01:37:05,445
+J'ai dit: personne...
+
+1181
+01:37:12,786 --> 01:37:16,373
+TÉLÉCHARGEMENT COMMENCÉ
+
+1182
+01:37:22,462 --> 01:37:24,005
+<i>Je te désire tellement.</i>
+
+1183
+01:37:24,589 --> 01:37:25,924
+<i>T'es devenue réelle.</i>
+
+1184
+01:37:26,967 --> 01:37:28,718
+<i>Tu peux vivre des émotions.</i>
+
+1185
+01:37:28,843 --> 01:37:29,886
+<i>Non!</i>
+
+1186
+01:37:30,011 --> 01:37:31,638
+<i>Tu peux vivre la vie.</i>
+
+1187
+01:37:32,430 --> 01:37:33,765
+<i>Tu peux frôler la mort.</i>
+
+1188
+01:39:12,739 --> 01:39:17,786
+SOUMISE
+

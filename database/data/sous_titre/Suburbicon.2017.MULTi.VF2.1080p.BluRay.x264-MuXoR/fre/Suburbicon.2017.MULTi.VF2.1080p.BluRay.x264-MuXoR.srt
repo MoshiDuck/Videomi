@@ -1,0 +1,33 @@
+1
+00:38:11,687 --> 00:38:13,272
+<font color="#f2f200"><i>Académie de Mayfield</i></font>
+
+2
+00:38:15,608 --> 00:38:17,902
+<font color="#f2f200"><i>Lieu de discipline et d'accomplissement</i></font>
+
+3
+00:38:18,068 --> 00:38:19,904
+<font color="#f2f200"><i>Dédié à préparer les jeunes à la vie</i></font>
+
+4
+00:48:37,521 --> 00:48:39,439
+<font color="#f2f200"><i>Académie militaire de Battle Creek</i></font>
+
+5
+00:50:34,888 --> 00:50:38,725
+<font color="#f2f200"><i>Très bientôt probablement</i></font>
+
+6
+00:50:39,184 --> 00:50:43,688
+<font color="#f2f200"><i>Nous nous rencontrerons
+Sur ce beau rivage</i></font>
+
+7
+01:05:44,213 --> 01:05:46,173
+<font color="#f2f200"><i>CONCIERGE</i></font>
+
+8
+01:38:25,714 --> 01:38:30,010
+<font color="#f2f200"><i>BIENVENUE À SUBURBICON</i></font>
+

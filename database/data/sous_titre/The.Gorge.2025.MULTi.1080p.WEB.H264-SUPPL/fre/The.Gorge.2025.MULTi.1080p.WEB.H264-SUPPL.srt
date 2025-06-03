@@ -1,0 +1,258 @@
+1
+00:04:16,464 --> 00:04:20,427
+<i>RDV au C. Pendleton le 06/07
+Une voiture passera à 12h</i>
+
+2
+00:04:24,097 --> 00:04:26,266
+BASE DU CORPS DES MARINES
+
+3
+00:04:28,310 --> 00:04:29,520
+ENTRÉE PRINCIPALE
+
+4
+00:07:23,527 --> 00:07:26,655
+PERVALKA, LITUANIE
+
+5
+00:07:59,188 --> 00:08:00,522
+À la musique.
+
+6
+00:08:02,191 --> 00:08:03,942
+Ma petite lionne.
+
+7
+00:08:04,568 --> 00:08:05,652
+Comment ça va ?
+
+8
+00:08:08,906 --> 00:08:13,452
+La rumeur dit que tu as été photographiée
+en Biélorussie.
+
+9
+00:08:14,536 --> 00:08:16,413
+Par un drone.
+
+10
+00:08:16,496 --> 00:08:18,123
+C'est possible, ça ?
+
+11
+00:08:18,832 --> 00:08:24,171
+Moscou ne peut pas prendre le risque
+d'être associé à la mort de l'oligarque.
+
+12
+00:11:16,468 --> 00:11:19,847
+SEPTEMBRE
+
+13
+00:12:08,937 --> 00:12:10,022
+ACCÈS AUTORISÉ
+
+14
+00:15:44,278 --> 00:15:46,238
+CAPITAINE BRADFORD SHAW
+1ER GARDIEN
+
+15
+00:20:44,077 --> 00:20:46,747
+<i>L'étoile filante hurle
+ses derniers instants de douleur</i>
+
+16
+00:22:46,533 --> 00:22:48,702
+OCTOBRE
+
+17
+00:23:05,135 --> 00:23:06,762
+{\an8}SYSTÈME ACTIF
+
+18
+00:23:10,432 --> 00:23:11,934
+VÉRIFICATION SYSTÈMES
+
+19
+00:23:25,489 --> 00:23:27,074
+MINES ANTIPERSONNEL
+
+20
+00:28:31,545 --> 00:28:33,505
+NOVEMBRE
+
+21
+00:28:38,468 --> 00:28:41,847
+<i>Puisses-tu avoir une longue vie</i>
+
+22
+00:28:42,389 --> 00:28:45,601
+<i>Nous te souhaitons</i>
+
+23
+00:28:45,809 --> 00:28:51,148
+<i>Une très longue vie</i>
+
+24
+00:28:53,400 --> 00:28:58,280
+Hourra, hourra, hourra !
+
+25
+00:30:09,726 --> 00:30:12,521
+<i>Comment tu t'appelles ?</i>
+
+26
+00:30:32,916 --> 00:30:35,961
+{\an8}<i>On n'a pas le droit d'entrer en contact</i>
+
+27
+00:31:02,196 --> 00:31:05,407
+{\an8}<i>Je m'appelle Drasa.
+C'est mon anniv aujourd'hui.</i>
+
+28
+00:31:05,490 --> 00:31:09,036
+{\an8}<i>Je vais pas me gêner
+pour faire ce que je veux</i>
+
+29
+00:31:29,973 --> 00:31:31,099
+{\an8}<i>Je m'appelle Levi.</i>
+
+30
+00:31:31,183 --> 00:31:34,019
+{\an8}<i>Et si on trinquait pour ton anniversaire ?</i>
+
+31
+00:32:32,369 --> 00:32:34,621
+{\an8}<i>Je veux te voir danser, Levi</i>
+
+32
+00:32:42,004 --> 00:32:44,047
+{\an8}<i>Hors de question.
+Je danse très mal</i>
+
+33
+00:32:47,801 --> 00:32:50,804
+<i>Tu dois bien avoir un talent.
+Tu sais faire quoi ?</i>
+
+34
+00:32:55,309 --> 00:32:57,186
+{\an8}<i>Je suis assez bon tireur</i>
+
+35
+00:33:01,732 --> 00:33:03,400
+<i>Vraiment bon ?</i>
+
+36
+00:39:43,133 --> 00:39:44,885
+<i>Meilleur anniv de ma vie</i>
+
+37
+00:41:19,521 --> 00:41:21,481
+DÉCEMBRE
+
+38
+00:41:30,073 --> 00:41:32,910
+<i>Décembre
+Récupérer - Préparer - Fait</i>
+
+39
+00:42:43,355 --> 00:42:45,357
+<i>Joyeux Noël Drasa</i>
+
+40
+00:43:36,200 --> 00:43:37,492
+<i>La dame en H5</i>
+
+41
+00:43:59,765 --> 00:44:00,766
+<i>Le cavalier prend</i>
+
+42
+00:44:42,724 --> 00:44:44,685
+FÉVRIER
+
+43
+00:46:17,152 --> 00:46:19,488
+{\an8}<i>14 février
+C'est aussi simple que...</i>
+
+44
+00:46:49,935 --> 00:46:52,271
+<i>Tu m'as manqué en patrouille.
+Ça va ?</i>
+
+45
+00:47:05,284 --> 00:47:09,329
+{\an8}<i>Journée difficile.
+J'aimerais que tu sois ici avec moi.</i>
+
+46
+00:49:45,402 --> 00:49:48,030
+{\an8}<i>On dîne ensemble ce soir ?</i>
+
+47
+01:18:29,334 --> 01:18:31,295
+<i>Que Dieu nous pardonne</i>
+
+48
+01:20:28,829 --> 01:20:29,830
+DERNIER ÉCHANTILLON
+
+49
+01:22:38,208 --> 01:22:40,794
+SECRET DÉFENSE
+
+50
+01:22:42,337 --> 01:22:43,505
+{\an8}AUTODESTRUCTION
+
+51
+01:22:44,548 --> 01:22:47,801
+PROTOCOLE AUTOMATIQUE
+EN CAS D'EXPOSITION DE LA GORGE
+
+52
+01:22:47,885 --> 01:22:51,054
+PÉRIMÈTRE DE SÉCURITÉ : 4,2 KILOMÈTRES
+
+53
+01:27:32,669 --> 01:27:37,299
+Je vais arracher
+ce qui reste de ta sale gueule !
+
+54
+01:44:15,589 --> 01:44:18,550
+DARKLAKE
+SALLE INFORMATIQUE - CAMÉRA 2
+
+55
+01:45:33,208 --> 01:45:35,502
+<i>Moi aussi, je t'aime.</i>
+
+56
+01:54:04,970 --> 01:54:09,183
+<i>Si je ne survis pas,
+ouvre-la au coucher du soleil</i>
+
+57
+01:55:13,205 --> 01:55:14,665
+{\an8}"ELLE A ÉCLIPSÉ LA NUIT"
+
+58
+01:55:14,748 --> 01:55:17,376
+{\an8}<i>J'espérais sans le savoir
+Connaître ton étreinte</i>
+
+59
+01:55:56,707 --> 01:55:59,293
+AVRIL
+
+60
+01:56:30,032 --> 01:56:33,285
+{\an8}<i>Une part de tourte au lapin</i>
+

@@ -4,13 +4,15 @@ import os
 import subprocess
 from typing import Union
 from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6.QtCore import QThread
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
 
-from config.config import FFMPEG_PATH
+from config.config import FFMPEG_PATH, SRT_DIR
 from database.musique_manager import MusiqueManager
 from database.musique_thumbnail_manager import MusiqueThumbnailManager
+from database.sous_titre_manager import SousTitreManager
 from database.videos import normaliser_langue
 from database.video_thumbnail_manager import VideoThumbnailManager
 from database.video_manager           import VideoManager
@@ -23,6 +25,7 @@ from widgets.grid_list.grid.grid import Grid
 from widgets.grid_list.grid.grid_item import GridItem
 from widgets.grid_list.list.list import List
 from widgets.grid_list.list.list_item import ListItem
+from worker.sous_titre_worker import SousTitreWorker
 
 
 class Navigateur(QtWidgets.QMainWindow):
@@ -31,7 +34,6 @@ class Navigateur(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self._active_threads = []
-
         # 1. Mode d'affichage initial : 'grille' ou 'liste'
         self.mode_affichage = 'grille'
         # 2. Type initial : True = vidéo, False = musique
@@ -74,14 +76,13 @@ class Navigateur(QtWidgets.QMainWindow):
         self._verifier_ffmpeg()
         self.showMaximized()
         # Timer pour le filtrage différé (300 ms)
+        QtCore.QTimer.singleShot(0, self._lancer_traitement_sous_titres)
+
         self.filtre_timer = QtCore.QTimer(self)
         self.filtre_timer.setSingleShot(True)
         self.filtre_timer.setInterval(300)
         self.filtre_timer.timeout.connect(self._appliquer_filtre)
 
-        # Note : plus de chargement JSON. On récupère directement tout depuis la base SQLite.
-
-        # -------------- Connexions des widgets --------------
         left       = self.bar.container_gauche
         middle     = self.bar.container_milieu
         right      = self.bar.container_droite
@@ -108,8 +109,6 @@ class Navigateur(QtWidgets.QMainWindow):
         # Basculer entre vidéo/musique (carte du milieu)
         middle.card.state_changed.connect(self._toggle_type_media)
 
-        # -------------- Initialisation du slider de durée --------------
-        # On initialise avec la portée des durées des vidéos (pour vidéo uniquement au départ)
         videos = self.video_manager.charger_videos()
         if videos:
             min_d = min(v.get("duree", float('inf')) for v in videos if v.get("duree", 0) > 0)
@@ -123,7 +122,17 @@ class Navigateur(QtWidgets.QMainWindow):
         # Filtre initial
         self._appliquer_filtre()
 
+    def _lancer_traitement_sous_titres(self):
+        self._thread_sous_titres = QThread()
+        self._worker_sous_titres = SousTitreWorker()
+        self._worker_sous_titres.moveToThread(self._thread_sous_titres)
 
+        self._thread_sous_titres.started.connect(self._worker_sous_titres.run)
+        self._worker_sous_titres.finished.connect(self._thread_sous_titres.quit)
+        self._worker_sous_titres.finished.connect(self._worker_sous_titres.deleteLater)
+        self._thread_sous_titres.finished.connect(self._thread_sous_titres.deleteLater)
+
+        self._thread_sous_titres.start()
 
     def _creer_interface(self):
         self.setWindowTitle("Médiathèque")
@@ -196,26 +205,17 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _toggle_mode_affichage(self):
-        """Permute entre 'grille' et 'liste' et remet à jour la vue."""
         self.mode_affichage = 'liste' if self.mode_affichage == 'grille' else 'grille'
         self._mettre_a_jour_vue()
 
 
     def _toggle_type_media(self, state: bool):
-        """
-        Basculer entre vidéo (True) et musique (False).
-        state : booléen du card-toggle dans la barre.
-        """
         self.show_video = state
         # À la bascule, on remet à jour la vue immédiatement
         self._mettre_a_jour_vue()
 
 
     def _mettre_a_jour_vue(self):
-        """
-        Selon mode_affichage ('grille'/'liste') et show_video (True/False),
-        on définit l'index du stacked et on réapplique le filtre.
-        """
         if self.mode_affichage == 'grille' and self.show_video:
             self.main_stack.setCurrentIndex(0)
         elif self.mode_affichage == 'grille' and not self.show_video:
@@ -230,10 +230,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _on_state_changed(self, state):
-        """
-        Quand on clique sur l’icône recherche : on affiche/masque la sous-barre
-        et on ajuste la plage de durées selon le média courant.
-        """
         try:
             self.sous_bar.setVisible(state)
             sous_right = self.sous_bar.sous_bar_droite
@@ -257,10 +253,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def filtrer_depuis_menu(self):
-        """
-        Appelé éventuellement depuis un menu contextuel.
-        On délègue à filtrer_et_afficher pour un filtre générique.
-        """
         max_minutes = self.sous_bar.sous_bar_gauche.slide_time.value() // 60
         filtrer_et_afficher(self, max_minutes, None, None)
 
@@ -272,7 +264,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _arranger_vue_actuelle(self):
-        """Force l’arrangement (layout) du widget actuellement visible."""
         idx = self.main_stack.currentIndex()
         if idx == 0:   # grille vidéo
             self.graphics_video.arrange()
@@ -285,19 +276,11 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def update_thumbnail(self, chemin_media, pixmap: QtGui.QPixmap):
-        """
-        Slot déclenché par VideoThumbnailManager ou MusicThumbnailManager
-        quand la miniature est prête.
-        On récupère le widget et on met à jour le QPixmap.
-        """
         if chemin_media in self.thumbnail_labels:
             widget = self.thumbnail_labels[chemin_media]
             widget.setThumbnailPixmap(pixmap)
 
     def closeEvent(self, event):
-        """
-        Au lieu de fermer la fenêtre, on la cache.
-        """
         try:
             # Si tu veux continuer à faire ce nettoyage, garde-le ici.
             if hasattr(self, 'video_thumbnail_manager'):
@@ -318,16 +301,10 @@ class Navigateur(QtWidgets.QMainWindow):
         except Exception as e:
             print(f"Erreur lors de la fermeture : {e}")
 
-        # Ici, on ignore l'événement de fermeture et on cache la fenêtre
         event.ignore()  # Empêche la fermeture définitive
         self.hide()  # Cache la fenêtre
 
     def _verifier_ffmpeg(self):
-        """
-        Vérifie la disponibilité de FFmpeg (pour la partie vidéo).
-        Si le chemin stocké en DB est invalide, on affiche un message critique.
-        """
-
         if not os.path.exists(FFMPEG_PATH):
             self._afficher_erreur("❌ FFmpeg manquant ! Ajoutez-le via les paramètres.")
             return
@@ -352,19 +329,11 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _demarrer_filtre_timer(self):
-        """
-        Démarre/reprend le timer de filtrage pour éviter d'exécuter
-        le filtre à chaque frappe.
-        """
         self.filtre_timer.stop()
         self.filtre_timer.start()
 
 
     def _appliquer_filtre(self):
-        """
-        Récupère les médias (vidéos ou musiques) puis applique le filtre
-        (durée + texte). Enfin, affiche dans le widget approprié.
-        """
         if self.show_video:
             medias = self.video_manager.charger_videos()
         else:
@@ -410,9 +379,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _afficher_items(self, items: list):
-        """
-        Affiche la liste de médias (vidéos ou musiques), sous forme de grille ou liste.
-        """
         idx = self.main_stack.currentIndex()
 
         if idx == 0:          # grille vidéo
@@ -436,11 +402,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _creer_carte(self, media: dict, mode: str):
-        """
-        Crée un GridItem ou ListItem pour une vidéo ou une musique.
-        media : dict {'nom'/'titre', 'duree', 'chemin', ...}
-        mode : 'grille' ou 'liste'
-        """
         chemin = media['chemin']
         if self.show_video:
             titre = media['nom']
@@ -484,9 +445,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
     @staticmethod
     def _creer_pixmap_vide():
-        """
-        Retourne un QPixmap gris avec "Miniature non disponible".
-        """
         pixmap = QtGui.QPixmap(320, 180)
         pixmap.fill(QtGui.QColor(40, 40, 40))
         painter = QtGui.QPainter(pixmap)
@@ -498,9 +456,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
     @staticmethod
     def _formater_duree(secondes: Union[int, float]) -> str:
-        """
-        Formate un nombre de secondes en 'HH:MM:SS'.
-        """
         if not isinstance(secondes, (int, float)):
             return "00:00:00"
         try:
@@ -514,10 +469,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _menu_contextuel(self, pos):
-        """
-        Exemple de menu contextuel au clic droit sur un item.
-        On pourrait y ajouter “Ajouter aux favoris”, “Supprimer”, etc.
-        """
         menu = QtWidgets.QMenu()
         idx = self.main_stack.currentIndex()
         if idx == 2:  # liste vidéo
@@ -530,9 +481,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def wheelEvent(self, event):
-        """
-        Défilement avec la molette sur le widget actif.
-        """
         delta = int(event.angleDelta().y() * 0.3)
         idx = self.main_stack.currentIndex()
         if idx == 0:
@@ -551,9 +499,6 @@ class Navigateur(QtWidgets.QMainWindow):
             super().wheelEvent(event)
 
     def _ouvrir_lecteur(self, chemin_media: str):
-        """
-        Ouvre le Lecteur et ferme la fenêtre Navigateur.
-        """
         if not os.path.exists(chemin_media):
             QtWidgets.QMessageBox.critical(self, "Erreur", "Le fichier est introuvable.")
             return
@@ -569,9 +514,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _toggle_tri_alphabetique(self):
-        """
-        Change le sens du tri alphabétique et réaffiche.
-        """
         self.tri_alphabetique_asc = not self.tri_alphabetique_asc
 
         if self.show_video:
@@ -589,9 +531,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _toggle_tri_duree(self):
-        """
-        Change le sens du tri par durée et réaffiche.
-        """
         self.tri_duree_asc = not self.tri_duree_asc
 
         if self.show_video:
@@ -609,9 +548,6 @@ class Navigateur(QtWidgets.QMainWindow):
 
 
     def _afficher_erreur(self, message: str):
-        """
-        Boîte de dialogue d’erreur critique.
-        """
         dlg = QtWidgets.QMessageBox(self)
         dlg.setIcon(QtWidgets.QMessageBox.Icon.Critical)
         dlg.setWindowTitle("Erreur")

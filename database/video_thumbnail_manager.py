@@ -26,10 +26,8 @@ class VideoThumbnailManager(QtCore.QObject):
         self.cache = ThumbnailCache()
         self._sanitized_cache = {}
 
-        # DB de progression (on ne stocke plus generated, seulement done)
         self.progress_file = THUMBNAIL_VIDEO_PROGRESS_DIR
         self.secondary_progress = self._load_progress()
-        # Format : { "titre_nettoye": {"done": bool} }
 
         self.priority_queue = deque()
         self.secondary_queue = deque()
@@ -38,10 +36,6 @@ class VideoThumbnailManager(QtCore.QObject):
         self._shutting_down = False
 
     def _load_progress(self):
-        """
-        Charge la table thumbnail_progress(titre_nettoye, done) depuis SQLite.
-        Si la table n'existe pas, on la crée avec deux colonnes (titre_nettoye PK, done).
-        """
         progress = {}
         try:
             conn = sqlite3.connect(self.progress_file)
@@ -64,10 +58,6 @@ class VideoThumbnailManager(QtCore.QObject):
         return progress
 
     def _save_progress(self):
-        """
-        Sauvegarde uniquement le flag 'done' en base pour chaque titre
-        où self.secondary_progress[titre]['done'] vaut True ou False.
-        """
         try:
             conn = sqlite3.connect(self.progress_file)
             c = conn.cursor()
@@ -101,7 +91,6 @@ class VideoThumbnailManager(QtCore.QObject):
 
     def stop_all_processes(self):
         self._shutting_down = True
-        # Stoppe tous les QProcess en cours
         for key, process in list(self.active_processes.items()):
             try:
                 process.finished.disconnect()
@@ -118,11 +107,6 @@ class VideoThumbnailManager(QtCore.QObject):
                 process.deleteLater()
 
     def get_thumbnail_status(self, titre_video: str) -> dict:
-        """
-        - exists: True si thumb_15.jpg existe pour ce titre
-        - path:   chemin vers thumb_15.jpg
-        - in_queue: True si on est déjà en file prioritaire
-        """
         titre_nettoye = self.sanitize_title(titre_video)
         path = os.path.join(self.thumbnail_dir, titre_nettoye, "thumb_15.jpg")
         return {
@@ -132,10 +116,6 @@ class VideoThumbnailManager(QtCore.QObject):
         }
 
     def _process_next(self):
-        """
-        Pop d'abord dans priority_queue, sinon dans secondary_queue.
-        Si rien à faire, relance _process_next dans 1 s.
-        """
         if self._shutting_down:
             self._processing = False
             return
@@ -153,22 +133,16 @@ class VideoThumbnailManager(QtCore.QObject):
             QtCore.QTimer.singleShot(1000, self._process_next)
 
     def check_and_queue_thumbnail(self, chemin_video: str, titre_video: str):
-        """
-        1) Si thumb_15.jpg n'existe pas, on queue PRIORITY.
-        2) Sinon, si le flag '.done' secondaire n'est pas en base (done=False), on queue SECONDARY.
-        """
         titre_nettoye = self.sanitize_title(titre_video)
         dossier = os.path.join(self.thumbnail_dir, titre_nettoye)
         thumb_prio = os.path.join(dossier, "thumb_15.jpg")
 
-        # ——— Génération principale (prioritaire) ———
         if titre_nettoye not in self.active_processes and not os.path.exists(thumb_prio):
             self.priority_queue.appendleft((chemin_video, titre_video, "priority"))
             if not self._processing:
                 self._process_next()
             return
 
-        # ——— Génération secondaire ———
         if os.path.exists(thumb_prio):
             done_flag = self.secondary_progress.get(titre_nettoye, {}).get("done", False)
             if not done_flag and titre_nettoye not in self.active_processes:
@@ -177,11 +151,6 @@ class VideoThumbnailManager(QtCore.QObject):
                     self._process_next()
 
     def _run_thumbnail_generation(self, chemin_video: str, titre_video: str, task_type: str):
-        """
-        Lance FFmpeg (via QProcess) pour :
-         - task_type=="priority" : produire thumb_15.jpg
-         - task_type=="secondary": produire les 0000.jpg, 0001.jpg, … restantes.
-        """
         if self._shutting_down:
             return
 
@@ -195,7 +164,6 @@ class VideoThumbnailManager(QtCore.QObject):
         dossier = os.path.join(self.thumbnail_dir, titre)
         os.makedirs(dossier, exist_ok=True)
 
-        # Si un process tourne déjà pour ce titre, alors on skip
         if titre in self.active_processes:
             self._process_next()
             return
@@ -203,16 +171,13 @@ class VideoThumbnailManager(QtCore.QObject):
         num_threads = str(multiprocessing.cpu_count())
 
         if task_type == "priority":
-            # — Génération du thumb_15.jpg —
             flag = os.path.join(dossier, "thumb_15.done")
             out = os.path.join(dossier, "thumb_15.jpg")
 
-            # Si on a déjà le flag prioritaire, on skip
             if os.path.exists(flag):
                 self._process_next()
                 return
 
-            # Récupérer durée avec ffprobe (pour le calcul du 15%)
             try:
                 probe = os.path.join(os.path.dirname(ffprobe), "ffprobe")
                 res = subprocess.run(
@@ -242,13 +207,11 @@ class VideoThumbnailManager(QtCore.QObject):
                 '-nostdin', '-y', out
             ]
 
-        else:  # task_type == "secondary"
-            # 1) Si on est déjà marqué done en mémoire, on skip
+        else:
             if self.secondary_progress.get(titre, {}).get("done", False):
                 self._process_next()
                 return
 
-            # 2) Comptage des JPEG existants (0000.jpg …)
             existing_jpgs = sorted([
                 f for f in os.listdir(dossier)
                 if re.match(r'^\d{4}\.jpg$', f)
@@ -261,7 +224,6 @@ class VideoThumbnailManager(QtCore.QObject):
             else:
                 last_index = -1  # aucun JPEG trouvé
 
-            # 3) Si le flag secondaire existe, on marque done et on skip
             flag = os.path.join(dossier, ".done")
             if os.path.exists(flag):
                 self.secondary_progress[titre] = {"done": True}
@@ -269,7 +231,6 @@ class VideoThumbnailManager(QtCore.QObject):
                 self._process_next()
                 return
 
-            # 4) Sinon, on relance FFmpeg « reprise » à start_number = last_index + 1
             start_num = last_index + 1
             print(f"[SECONDARY] Démarrage génération secondaire pour {titre}, start_num={start_num}")
 
@@ -289,7 +250,6 @@ class VideoThumbnailManager(QtCore.QObject):
                 '-nostdin', '-y', os.path.join(dossier, '%04d.jpg')
             ]
 
-        # À ce stade, `cmd` et `flag` sont corrects pour PRIORITY ou SECONDARY
         proc = QtCore.QProcess(self)
         proc.setProperty('flag', flag)
         proc.setProperty('type', task_type)
@@ -303,12 +263,6 @@ class VideoThumbnailManager(QtCore.QObject):
         proc.start(cmd[0], cmd[1:])
 
     def _on_process_finished(self, titre: str, proc: QtCore.QProcess, code: int, status):
-        """
-        Quand FFmpeg se termine :
-         - On crée le fichier `flag` (.done ou thumb_15.done),
-         - Si prioritaire, on envoie le signal pour l'UI puis on ré-queue la secondaire,
-         - Si secondaire, on marque done et on écrit en base.
-        """
         if self._shutting_down or not proc:
             return
 
@@ -317,7 +271,6 @@ class VideoThumbnailManager(QtCore.QObject):
         try:
             if code == 0:
                 flag = proc.property('flag')
-                # 1) On écrit toujours le flag (vide) pour bloquer la future génération
                 with open(flag, 'w', encoding='utf-8') as fh:
                     fh.write('done')
 
@@ -327,13 +280,9 @@ class VideoThumbnailManager(QtCore.QObject):
                     if os.path.exists(p):
                         pix = QtGui.QPixmap(p)
                         self.thumbnail_ready.emit(proc.property('path'), pix)
-
-                    # — Enchaîner la génération secondaire, directement —
                     self.check_and_queue_thumbnail(proc.property('path'), titre)
 
                 else:
-                    # — Secondaire terminé —
-                    # On marque done en mémoire et en base
                     self.secondary_progress[titre] = {"done": True}
                     self._save_progress()
 
@@ -348,18 +297,12 @@ class VideoThumbnailManager(QtCore.QObject):
             self._process_next()
 
     def _handle_process_error(self, titre: str, proc: QtCore.QProcess, error):
-        """
-        En cas d’erreur QProcess, supprime et passe au suivant.
-        """
         print(f"[ERROR] Process error pour {titre} : {error}")
         self.active_processes.pop(titre, None)
         proc.deleteLater()
         self._process_next()
 
     def get_thumbnail_pixmap(self, chemin_video: str, titre_video: str):
-        """
-        Retourne un QPixmap si thumb_15.jpg existe, sinon None.
-        """
         titre = self.sanitize_title(titre_video)
         path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
         if os.path.exists(path):

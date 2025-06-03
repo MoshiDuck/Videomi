@@ -9,22 +9,23 @@ from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 import vlc
-from config.config import FFPROBE_PATH, FFMPEG_PATH
+from database.sous_titre_manager import SousTitreManager
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class Lecteur(QtWidgets.QMainWindow):
     def __init__(self, video_path=None):
         super().__init__()
         self.video_path = video_path
         self.subs = []
+        self.st_manager = SousTitreManager()
         self.vlc_instance = None
         self.player = None
         self.merged_ass_path = None
         self.td = None
 
-        self.setWindowTitle("Lecteur vidéo VLC intégré PyQt6")
-        self.resize(960, 540)
+        self.setWindowTitle("Lecteur")
         self.showFullScreen()
 
         self.videoframe = QtWidgets.QFrame(self)
@@ -37,45 +38,32 @@ class Lecteur(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.update_ui)
 
     def get_subtitle_streams(self):
-        cmd = [
-            FFPROBE_PATH, "-v", "error",
-            "-show_entries", "stream=index,codec_type,codec_name:stream_tags=language",
-            "-select_streams", "s", "-of", "json", self.video_path
-        ]
         try:
-            output = subprocess.check_output(cmd, text=True)
-            data = json.loads(output)
-            self.subs = [
-                {
-                    "index": s["index"],
-                    "codec": s.get("codec_name"),
-                    "language": s.get("tags", {}).get("language", "inconnu")
-                }
-                for s in data.get("streams", [])
-                if s.get("codec_type") == "subtitle"
-            ]
-        except subprocess.CalledProcessError as e:
-            logging.error("Erreur ffprobe: %s", e)
+            self.subs = self.st_manager.get_subtitle_streams(self.video_path)
+            if not self.subs:
+                raise ValueError("Aucun sous-titre trouvé")
+            return self.subs
+        except Exception as e:
+            logging.error(f"Erreur récupération sous-titres: {e}")
             raise
 
-        if not self.subs:
-            raise ValueError("Aucun sous-titre trouvé")
-        return self.subs
-
     def extract_srt(self, stream_index, out_path):
-        cmd = [FFMPEG_PATH, "-y", "-i", self.video_path, "-map", f"0:{stream_index}", "-c:s", "srt", out_path]
-        subprocess.run(cmd, check=True)
+        success = SousTitreManager._extract_srt(self.video_path, stream_index, out_path)
+        if not success:
+            raise RuntimeError(f"Erreur extraction SRT pour flux {stream_index}")
 
     @staticmethod
     def parse_srt_time(ts):
+        # Format attendu : "HH:MM:SS,mmm"
         h, m, rest = ts.strip().split(":")
         s, ms = rest.split(",")
         return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
 
     @staticmethod
     def format_ass_time(sec):
-        h, m = divmod(int(sec), 3600)
-        m, s = divmod(m, 60)
+        # Format ASS : H:MM:SS.cs (cs = centi-secondes)
+        h, rem = divmod(int(sec), 3600)
+        m, s = divmod(rem, 60)
         cs = int((sec - int(sec)) * 100)
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
@@ -97,7 +85,10 @@ class Lecteur(QtWidgets.QMainWindow):
                     text_lines.append(lines[i])
                     i += 1
 
-                ass_lines.append(f"Dialogue: 0,{a_start},{a_end},{style},,0,0,0,,{'\\N'.join(text_lines)}")
+                # Escape ligne multiple avec \N (ASS format)
+                ass_lines.append(
+                    f"Dialogue: 0,{a_start},{a_end},{style},,0,0,0,,{'\\N'.join(text_lines)}"
+                )
             else:
                 i += 1
 
@@ -120,6 +111,7 @@ class Lecteur(QtWidgets.QMainWindow):
         )
 
     def setup_shortcuts(self):
+        # Raccourcis pour ajuster délai sous-titres et quitter
         QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(100))
         QShortcut(QKeySequence("-"), self, activated=lambda: self.adjust_delay(-100))
         QShortcut(QKeySequence("R"), self, activated=lambda: self.player.video_set_spu_delay(0))
@@ -128,7 +120,7 @@ class Lecteur(QtWidgets.QMainWindow):
     def adjust_delay(self, delta):
         cur = self.player.video_get_spu_delay()
         self.player.video_set_spu_delay(cur + delta)
-        print(f"Délai actuel: {self.player.video_get_spu_delay() // 1000} ms")
+        logging.info(f"Délai actuel : {self.player.video_get_spu_delay() // 1000} ms")
 
     def init_vlc(self):
         self.vlc_instance = vlc.Instance([
@@ -157,7 +149,6 @@ class Lecteur(QtWidgets.QMainWindow):
         if self.player and self.player.get_state() == vlc.State.Ended:
             logging.info("La vidéo est terminée.")
 
-
     def run(self):
         try:
             if not self.video_path:
@@ -170,13 +161,16 @@ class Lecteur(QtWidgets.QMainWindow):
 
             choices = [f"{i}: {s['language']} • {s['codec']}" for i, s in enumerate(self.subs)]
             c1, ok1 = QtWidgets.QInputDialog.getInt(self, "Sous-titre 1", "\n".join(choices))
-            if not ok1: return
+            if not ok1:
+                return
             c2, ok2 = QtWidgets.QInputDialog.getInt(self, "Sous-titre 2", "\n".join(choices))
-            if not ok2: return
+            if not ok2:
+                return
 
             self.td = tempfile.TemporaryDirectory()
             td_path = self.td.name
             srt_paths = [os.path.join(td_path, name) for name in ("s1.srt", "s2.srt")]
+
             self.extract_srt(self.subs[c1]["index"], srt_paths[0])
             self.extract_srt(self.subs[c2]["index"], srt_paths[1])
 
@@ -190,11 +184,10 @@ class Lecteur(QtWidgets.QMainWindow):
             self.show()
 
         except Exception as e:
-            logging.error("Erreur : %s", e)
+            logging.error(f"Erreur : {e}")
             QtWidgets.QMessageBox.critical(self, "Erreur", str(e))
 
     def closeEvent(self, event):
         if self.td:
             self.td.cleanup()
         event.accept()
-

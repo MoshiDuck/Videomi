@@ -76,7 +76,7 @@ bar lecteur
 
 6. Commit
     ```bash
-    git commit -m "[FAIT] integrer lecteur a python"  
+    git commit -m "[FAIT] sous titre db"  
 
 7. Force le push
    ```bash

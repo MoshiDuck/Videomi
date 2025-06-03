@@ -7,6 +7,157 @@ import sys
 from PyQt6.uic.properties import QtGui
 
 
+import sys
+import sqlite3
+from PyQt6 import QtCore
+
+class SousTitreCache:
+    _instance = None
+
+    def __new__(cls, db_path=None):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._cache = {}  # clé = video_path, valeur = dict avec infos sous-titres
+            cls._max_size = 1024 * 1024 * 100  # 100 MB max pour sous-titres (tu peux adapter)
+            cls._current_size = 0
+            cls._lock = QtCore.QMutex()
+            cls._db_path = db_path or "sous_titres.db"
+            cls._conn = None
+            cls._connect_db()
+            cls._create_table()
+            cls._load_cache_from_db()
+        return cls._instance
+
+    @classmethod
+    def _connect_db(cls):
+        if cls._conn is None:
+            cls._conn = sqlite3.connect(cls._db_path, check_same_thread=False)
+            cls._conn.execute("PRAGMA foreign_keys = ON")
+
+    @classmethod
+    def _create_table(cls):
+        cls._conn.execute("""
+            CREATE TABLE IF NOT EXISTS subtitles (
+                video_path TEXT PRIMARY KEY,
+                index_sub INTEGER,
+                language TEXT,
+                codec TEXT,
+                srt_path TEXT,
+                sup_path TEXT
+            )
+        """)
+        cls._conn.commit()
+
+    @classmethod
+    def _load_cache_from_db(cls):
+        cursor = cls._conn.execute("SELECT video_path, index_sub, language, codec, srt_path, sup_path FROM subtitles")
+        with QtCore.QMutexLocker(cls._lock):
+            for row in cursor:
+                video_path = row[0]
+                data = {
+                    "index_sub": row[1],
+                    "language": row[2],
+                    "codec": row[3],
+                    "srt_path": row[4],
+                    "sup_path": row[5],
+                }
+                size = cls._estimate_size(data)
+                if cls._current_size + size <= cls._max_size:
+                    cls._cache[video_path] = data
+                    cls._current_size += size
+                else:
+                    # Taille max atteinte, on stoppe le chargement
+                    break
+
+    @classmethod
+    def _estimate_size(cls, data):
+        # Estimation basique : longueur des chaînes + taille fixe par champ
+        size = 0
+        for k, v in data.items():
+            if isinstance(v, str) and v:
+                size += len(v.encode("utf-8"))
+            else:
+                size += 50  # estimation arbitraire pour int ou None
+        return size
+
+    def exists(self, video_path: str) -> bool:
+        locker = QtCore.QMutexLocker(self._lock)
+        if video_path in self._cache:
+            data = self._cache[video_path]
+            return bool(data.get("srt_path") or data.get("sup_path"))
+        else:
+            # fallback base
+            cursor = self._conn.execute("SELECT srt_path, sup_path FROM subtitles WHERE video_path = ?", (video_path,))
+            row = cursor.fetchone()
+            if row:
+                data = {
+                    "index_sub": None,
+                    "language": None,
+                    "codec": None,
+                    "srt_path": row[0],
+                    "sup_path": row[1],
+                }
+                size = self._estimate_size(data)
+                if self._current_size + size <= self._max_size:
+                    self._cache[video_path] = data
+                    self._current_size += size
+                return bool(row[0] or row[1])
+            return False
+
+    def insert(self, video_path: str, index_sub: int, language: str, codec: str, srt_path: str = None, sup_path: str = None):
+        locker = QtCore.QMutexLocker(self._lock)
+        data = {
+            "index_sub": index_sub,
+            "language": language,
+            "codec": codec,
+            "srt_path": srt_path,
+            "sup_path": sup_path,
+        }
+        size = self._estimate_size(data)
+        if size > self._max_size:
+            # Trop gros, on refuse l'insertion
+            return False
+
+        # Eviction FIFO si nécessaire
+        while self._current_size + size > self._max_size and self._cache:
+            oldest_key = next(iter(self._cache))
+            old_size = self._estimate_size(self._cache[oldest_key])
+            self._cache.pop(oldest_key)
+            self._current_size -= old_size
+
+        self._cache[video_path] = data
+        self._current_size += size
+
+        # MAJ base SQLite
+        try:
+            with self._conn:
+                self._conn.execute("""
+                    INSERT OR REPLACE INTO subtitles (video_path, index_sub, language, codec, srt_path, sup_path)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (video_path, index_sub, language, codec, srt_path, sup_path))
+        except Exception as e:
+            print(f"[Erreur DB] {e}")
+            return False
+        return True
+
+    def get(self, video_path: str):
+        locker = QtCore.QMutexLocker(self._lock)
+        return self._cache.get(video_path)
+
+    def clear(self):
+        locker = QtCore.QMutexLocker(self._lock)
+        self._cache.clear()
+        self._current_size = 0
+        try:
+            with self._conn:
+                self._conn.execute("DELETE FROM subtitles")
+        except Exception as e:
+            print(f"[Erreur DB] {e}")
+
+    def close(self):
+        if self._conn:
+            self._conn.close()
+            self._conn = None
 
 
 

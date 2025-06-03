@@ -15,10 +15,6 @@ logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
 
 def normaliser_langue(lang: str) -> str:
-    """
-    Convertit une étiquette de langue (fr, fre, français, en, eng, anglais, esp, etc.)
-    en code standard ISO 639-2 (fra, eng, spa).
-    """
     lang = lang.lower().strip()
     mapping = {
         # Français
@@ -35,14 +31,6 @@ def normaliser_langue(lang: str) -> str:
 
 
 def obtenir_videos(video_info: dict) -> tuple[list[dict], dict]:
-    """
-    Parcourt récursivement tous les dossiers vidéo, extrait ou récupère
-    les métadonnées, et renvoie :
-      - une liste de dicts { 'nom', 'chemin', 'duree', 'codec',
-                             'audio_langues', 'sous_titres_langues' }
-      - un dict new_info contenant les chemins nouvellement découverts.
-    Utilise VideoCache pour stocker temporairement le résultat.
-    """
     cache = VideoCache()
     if cached := cache.object("videos"):
         return cached, {}
@@ -73,11 +61,6 @@ def obtenir_videos(video_info: dict) -> tuple[list[dict], dict]:
 
 
 def process_folder(dossier: str, extensions: tuple[str, ...], video_info: dict) -> tuple[list[dict], dict]:
-    """
-    Parcourt un dossier donné, renvoie :
-      - folder_videos : liste de dicts pour chaque fichier vidéo trouvé
-      - folder_new_info : dict { chemin: metadata } pour les nouveaux fichiers
-    """
     folder_videos: list[dict] = []
     folder_new_info: dict = {}
 
@@ -103,14 +86,6 @@ def process_folder(dossier: str, extensions: tuple[str, ...], video_info: dict) 
 
 
 def get_video_metadata(chemin_video: str) -> dict:
-    """
-    Utilise ffprobe pour extraire :
-      - durée (en secondes)
-      - codec vidéo
-      - liste d'audio_langues (fra, eng, etc.)
-      - liste de sous_titres_langues (fra, eng, etc.)
-    En cas d'erreur, renvoie des valeurs par défaut.
-    """
     commande = [
         FFPROBE_PATH,
         '-v', 'error',

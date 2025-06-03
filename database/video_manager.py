@@ -5,22 +5,42 @@ from config.config import VIDEOS_DB_PATH
 from database.videos import obtenir_videos
 from cache.cache import SortCache, SearchCache
 
+
+def init_db():
+    os.makedirs("subs_cache", exist_ok=True)
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS subtitles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        video_name TEXT NOT NULL,
+        stream_index INTEGER NOT NULL,
+        language TEXT,
+        codec TEXT,
+        srt_path TEXT NOT NULL,
+        last_modified REAL,
+        UNIQUE(video_name, stream_index)
+    )
+    """)
+    conn.commit()
+    conn.close()
+
 class VideoManager:
     def __init__(self, video_info, thumbnail_manager, thumbnail_dir):
-        print("[INIT] Initialisation du VideoManager")
         self.video_info = video_info
         self.thumbnail_manager = thumbnail_manager
         self.thumbnail_dir = thumbnail_dir
         self.sort_cache = SortCache()
         self.search_cache = SearchCache()
 
+
+
     def load_video_info(self):
         import sqlite3
         try:
             conn = sqlite3.connect(VIDEOS_DB_PATH)
             c = conn.cursor()
-
-            # Création de la table si elle n'existe pas
             c.execute("""
                 CREATE TABLE IF NOT EXISTS video_info (
                     chemin              TEXT PRIMARY KEY,
@@ -127,39 +147,21 @@ class VideoManager:
             print("[SORT_VIDEOS] Cache utilisé")
         return sorted_videos
 
-        # ==== database/video_manager.py ====
-
     @staticmethod
     def advanced_filter(videos, texte_recherche=None, max_duree=None, audio=None, st=None):
-        """
-        Filtre la liste de vidéos selon :
-         - texte_recherche : sous‐chaîne à chercher dans 'nom'
-         - max_duree       : durée MAXIMALE en secondes
-         - audio           : liste de langues audio normalisées (fra, eng, spa)
-         - st              : liste de langues sous‐titre normalisées
-        """
         result = []
         for v in videos:
-            # 1) Filtre par durée
             if max_duree is not None and v.get('duree', 0) > max_duree:
                 continue
-
-            # 2) Filtre audio
             if audio is not None:
                 video_langs = [lang.lower() for lang in (v.get('audio_langues') or [])]
                 if not any(lang in video_langs for lang in audio):
                     continue
-
-            # 3) Filtre sous-titres
             if st is not None:
                 st_langs = [lang.lower() for lang in (v.get('sous_titres_langues') or [])]
                 if not any(lang in st_langs for lang in st):
                     continue
-
-            # 4) Filtre texte
             if texte_recherche and texte_recherche.lower() not in v.get('nom', '').lower():
                 continue
-
             result.append(v)
-
         return result
