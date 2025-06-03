@@ -1,5 +1,11 @@
 __pycache__/
 Ressource
+
+/database/data/sous_titre
+/database/data/miniature/
+
+
+
 *.pyc
 *.pyo
 *.pyd
@@ -26,6 +32,3 @@ pubspec.lock
 *.log
 .DS_Store
 Thumbs.db
-/database/data/miniature/
-/database/data/miniature/videos/
-/database/data/miniature/musiques/

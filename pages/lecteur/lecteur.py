@@ -1,14 +1,11 @@
+import logging
 import os
 import sys
-import json
-import logging
 import tempfile
-import subprocess
-
-from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtGui import QShortcut, QKeySequence
 
 import vlc
+from PyQt6 import QtWidgets, QtCore
+from PyQt6.QtGui import QShortcut, QKeySequence, QCursor
 
 from config.config import SRT_DIR
 from database.sous_titre_manager import SousTitreManager
@@ -30,17 +27,163 @@ class Lecteur(QtWidgets.QMainWindow):
         self.merged_ass_path = None
         self.td = None
 
-        self.setWindowTitle("Lecteur")
-        self.showFullScreen()
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(1000)  # 1 second interval, adjust if needed
+        self.timer.timeout.connect(self.update_ui)
 
-        self.videoframe = QtWidgets.QFrame(self)
-        self.setCentralWidget(self.videoframe)
+        self.setWindowTitle("Lecteur")
+
+        # --- central widget unique et layout ---
+        self.central_widget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.central_widget)
+
+        self.layout = QtWidgets.QVBoxLayout(self.central_widget)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+
+        # --- cadre vidéo ---
+        self.videoframe = QtWidgets.QFrame(self.central_widget)
+        self.videoframe.setStyleSheet("background-color: black;")
+        self.layout.addWidget(self.videoframe)
+
+        # --- barre de contrôle ---
+        self.control_bar = QtWidgets.QWidget(self.central_widget)
+        self.control_bar.setParent(self.central_widget)
+        self.control_bar.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool)
+        self.control_bar.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        self.control_bar.setFixedHeight(50)
+        self.control_bar.setStyleSheet("background-color: rgba(0, 0, 0, 180); color: white;")
+        control_layout = QtWidgets.QHBoxLayout(self.control_bar)
+        control_layout.setContentsMargins(10, 0, 10, 0)
+
+        play_btn = QtWidgets.QPushButton("Play")
+        play_btn.clicked.connect(lambda: self.player.play() if self.player else None)
+        control_layout.addWidget(play_btn)
+
+        pause_btn = QtWidgets.QPushButton("Pause")
+        pause_btn.clicked.connect(lambda: self.player.pause() if self.player else None)
+        control_layout.addWidget(pause_btn)
+
+        # Position initiale et visibilité
+        self.control_bar.setGeometry(0, self.videoframe.height() - self.control_bar.height(),
+                                     self.videoframe.width(), self.control_bar.height())
+        self.control_bar.hide()
+
+        # Gestion du resize pour repositionner la barre
+        self.videoframe.resizeEvent = self.resize_overlay
+
+        # Timer pour cacher la barre après 3 secondes d'inactivité
+        self.hide_bar_timer = QtCore.QTimer(self)
+        self.hide_bar_timer.setInterval(3000)
+        self.hide_bar_timer.timeout.connect(self.control_bar.hide)
+
+        # Timer pour vérifier la position de la souris
+        self.cursor_monitor = QtCore.QTimer(self)
+        self.cursor_monitor.setInterval(200)
+        self.cursor_monitor.timeout.connect(self.check_mouse_position)
+        self.cursor_monitor.start()
+
+        # Mode plein écran
+        self.showFullScreen()
 
         self.setup_shortcuts()
 
-        self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(200)
-        self.timer.timeout.connect(self.update_ui)
+        # Init VLC player (à appeler dans run)
+        self.vlc_instance = None
+        self.player = None
+
+    def resize_overlay(self, event):
+        pos = self.videoframe.pos()
+        self.control_bar.setGeometry(
+            pos.x(),
+            pos.y() + self.videoframe.height() - self.control_bar.height(),
+            self.videoframe.width(),
+            self.control_bar.height()
+        )
+        self.control_bar.raise_()
+        self.control_bar.show()
+
+        event.accept()
+
+    def check_mouse_position(self):
+        global_pos = QCursor.pos()
+        local_pos = self.videoframe.mapFromGlobal(global_pos)
+
+        logging.debug(f"check_mouse_position appelé - position souris locale : {local_pos.x()}, {local_pos.y()}")
+
+        if 0 <= local_pos.y() <= self.videoframe.height() and local_pos.y() > self.videoframe.height() - 80:
+            logging.debug("Souris en bas : affichage de la barre.")
+            self.show_control_bar()
+        else:
+            # On ne cache pas tout de suite la barre ici, c'est géré par le timer
+            pass
+
+    def show_control_bar(self):
+        logging.debug(f"show_control_bar appelé - visible avant: {self.control_bar.isVisible()}")
+        if not self.control_bar.isVisible():
+            self.control_bar.show()
+            logging.info("control_bar.show() appelé")
+        else:
+            logging.debug("control_bar déjà visible")
+
+        # Repositionne la barre pour être sûr qu'elle soit visible
+        geom = (
+            0,
+            self.videoframe.height() - self.control_bar.height(),
+            self.videoframe.width(),
+            self.control_bar.height()
+        )
+        self.control_bar.setGeometry(*geom)
+        logging.debug(f"control_bar position et taille mises à jour : {geom}")
+
+        self.control_bar.raise_()
+        logging.debug("control_bar.raise_() appelé")
+
+        self.control_bar.repaint()
+        logging.debug("control_bar.repaint() appelé")
+
+        self.hide_bar_timer.start()
+        logging.debug("hide_bar_timer démarré")
+
+    def setup_shortcuts(self):
+        QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(100))
+        QShortcut(QKeySequence("-"), self, activated=lambda: self.adjust_delay(-100))
+        QShortcut(QKeySequence("R"), self, activated=lambda: self.player.video_set_spu_delay(0) if self.player else None)
+        QShortcut(QKeySequence("Q"), self, activated=self.close)
+
+    def adjust_delay(self, delta):
+        if self.player:
+            cur = self.player.video_get_spu_delay()
+            self.player.video_set_spu_delay(cur + delta)
+            logging.info(f"Délai actuel : {self.player.video_get_spu_delay() // 1000} ms")
+
+    def eventFilter(self, source, event):
+        if event.type() == QtCore.QEvent.Type.MouseMove:
+            global_pos = QCursor.pos()
+            local_pos = self.videoframe.mapFromGlobal(global_pos)
+
+            if 0 <= local_pos.y() <= self.videoframe.height() and local_pos.y() > self.videoframe.height() - 80:
+                logging.debug("eventFilter : souris en bas")
+                self.show_control_bar()
+
+            self.hide_bar_timer.start()
+        return False
+
+    def hide_control_bar(self):
+        logging.debug(f"hide_control_bar appelé - visible avant: {self.control_bar.isVisible()}")
+        self.control_bar.hide()
+        logging.info("control_bar.hide() appelé")
+
+    def mouseMoveEvent(self, event):
+        cursor_y = event.position().y()
+        screen_height = self.height()
+        if cursor_y > screen_height - 80:  # Si la souris est dans les 80 derniers pixels
+            self.show_control_bar()
+        self.hide_bar_timer.start()
+
+    def enterEvent(self, event):
+        self.show_control_bar()
 
     @staticmethod
     def parse_srt_time(ts):
@@ -51,7 +194,6 @@ class Lecteur(QtWidgets.QMainWindow):
 
     @staticmethod
     def format_ass_time(sec):
-        # Format ASS : H:MM:SS.cs (cs = centi-secondes)
         h, rem = divmod(int(sec), 3600)
         m, s = divmod(rem, 60)
         cs = int((sec - int(sec)) * 100)
@@ -100,18 +242,6 @@ class Lecteur(QtWidgets.QMainWindow):
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
         )
 
-    def setup_shortcuts(self):
-        # Raccourcis pour ajuster délai sous-titres et quitter
-        QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(100))
-        QShortcut(QKeySequence("-"), self, activated=lambda: self.adjust_delay(-100))
-        QShortcut(QKeySequence("R"), self, activated=lambda: self.player.video_set_spu_delay(0))
-        QShortcut(QKeySequence("Q"), self, activated=self.close)
-
-    def adjust_delay(self, delta):
-        cur = self.player.video_get_spu_delay()
-        self.player.video_set_spu_delay(cur + delta)
-        logging.info(f"Délai actuel : {self.player.video_get_spu_delay() // 1000} ms")
-
     def init_vlc(self):
         self.vlc_instance = vlc.Instance([
             f"--sub-file={self.merged_ass_path}",
@@ -143,9 +273,6 @@ class Lecteur(QtWidgets.QMainWindow):
         try:
             if not self.video_path:
                 raise ValueError("Aucun chemin vidéo fourni.")
-
-            # Répertoire de la vidéo
-            video_dir = os.path.dirname(self.video_path)
 
             # Lister tous les .srt du dossier
             # Chercher tous les .srt dans les sous-dossiers du dossier SRT correspondant
@@ -202,3 +329,4 @@ class Lecteur(QtWidgets.QMainWindow):
         if self.td:
             self.td.cleanup()
         event.accept()
+

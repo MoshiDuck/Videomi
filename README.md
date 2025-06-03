@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.1
+0.0.3.2
 
 ---
 
@@ -50,7 +50,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ## PROCHAINE CHOSE À FAIRE :
 
-bar lecteur
+optimiser lecteur 
 
 ## GIT
 
@@ -76,7 +76,7 @@ bar lecteur
 
 6. Commit
     ```bash
-    git commit -m "[FAIT] sous titre db"  
+    git commit -m "[FAIT] bar lecteur"  
 
 7. Force le push
    ```bash
