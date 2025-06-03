@@ -1,0 +1,31 @@
+__pycache__/
+Ressource
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+
+# Flutter/Dart
+build/
+.dart_tool/
+.packages
+pubspec.lock
+
+# FFmpeg or binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs & system
+*.log
+.DS_Store
+Thumbs.db
+/database/data/miniature/
+/database/data/miniature/videos/
+/database/data/miniature/musiques/
