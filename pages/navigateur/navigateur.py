@@ -4,12 +4,11 @@ import os
 import subprocess
 from typing import Union
 from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtCore import QThread
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
 
-from config.config import FFMPEG_PATH, SRT_DIR
+from config.config import FFMPEG_PATH
 from database.musique_manager import MusiqueManager
 from database.musique_thumbnail_manager import MusiqueThumbnailManager
 from database.sous_titre_manager import SousTitreManager
@@ -25,7 +24,6 @@ from widgets.grid_list.grid.grid import Grid
 from widgets.grid_list.grid.grid_item import GridItem
 from widgets.grid_list.list.list import List
 from widgets.grid_list.list.list_item import ListItem
-from worker.sous_titre_worker import SousTitreWorker
 
 
 class Navigateur(QtWidgets.QMainWindow):
@@ -76,7 +74,6 @@ class Navigateur(QtWidgets.QMainWindow):
         self._verifier_ffmpeg()
         self.showMaximized()
         # Timer pour le filtrage différé (300 ms)
-        QtCore.QTimer.singleShot(0, self._lancer_traitement_sous_titres)
 
         self.filtre_timer = QtCore.QTimer(self)
         self.filtre_timer.setSingleShot(True)
@@ -122,17 +119,7 @@ class Navigateur(QtWidgets.QMainWindow):
         # Filtre initial
         self._appliquer_filtre()
 
-    def _lancer_traitement_sous_titres(self):
-        self._thread_sous_titres = QThread()
-        self._worker_sous_titres = SousTitreWorker()
-        self._worker_sous_titres.moveToThread(self._thread_sous_titres)
 
-        self._thread_sous_titres.started.connect(self._worker_sous_titres.run)
-        self._worker_sous_titres.finished.connect(self._thread_sous_titres.quit)
-        self._worker_sous_titres.finished.connect(self._worker_sous_titres.deleteLater)
-        self._thread_sous_titres.finished.connect(self._thread_sous_titres.deleteLater)
-
-        self._thread_sous_titres.start()
 
     def _creer_interface(self):
         self.setWindowTitle("Médiathèque")

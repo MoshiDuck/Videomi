@@ -1,9 +1,5 @@
 import os
 import re
-
-from PyQt6 import QtCore
-import sys
-
 from PyQt6.uic.properties import QtGui
 
 

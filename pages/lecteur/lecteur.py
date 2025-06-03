@@ -9,6 +9,8 @@ from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 import vlc
+
+from config.config import SRT_DIR
 from database.sous_titre_manager import SousTitreManager
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -17,9 +19,12 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 class Lecteur(QtWidgets.QMainWindow):
     def __init__(self, video_path=None):
         super().__init__()
+        self.st_manager = SousTitreManager()
+        self.st_manager.extract_subtitle_from_video(video_path)
+        self.st_manager.close()
         self.video_path = video_path
         self.subs = []
-        self.st_manager = SousTitreManager()
+
         self.vlc_instance = None
         self.player = None
         self.merged_ass_path = None
@@ -36,21 +41,6 @@ class Lecteur(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(200)
         self.timer.timeout.connect(self.update_ui)
-
-    def get_subtitle_streams(self):
-        try:
-            self.subs = self.st_manager.get_subtitle_streams(self.video_path)
-            if not self.subs:
-                raise ValueError("Aucun sous-titre trouvé")
-            return self.subs
-        except Exception as e:
-            logging.error(f"Erreur récupération sous-titres: {e}")
-            raise
-
-    def extract_srt(self, stream_index, out_path):
-        success = SousTitreManager._extract_srt(self.video_path, stream_index, out_path)
-        if not success:
-            raise RuntimeError(f"Erreur extraction SRT pour flux {stream_index}")
 
     @staticmethod
     def parse_srt_time(ts):
@@ -154,12 +144,30 @@ class Lecteur(QtWidgets.QMainWindow):
             if not self.video_path:
                 raise ValueError("Aucun chemin vidéo fourni.")
 
-            self.get_subtitle_streams()
-            if len(self.subs) < 2:
-                QtWidgets.QMessageBox.critical(self, "Erreur", "Moins de deux sous-titres trouvés.")
+            # Répertoire de la vidéo
+            video_dir = os.path.dirname(self.video_path)
+
+            # Lister tous les .srt du dossier
+            # Chercher tous les .srt dans les sous-dossiers du dossier SRT correspondant
+            video_title = os.path.splitext(os.path.basename(self.video_path))[0]
+            srt_root = os.path.join(SRT_DIR, video_title)
+
+            srt_files = []
+            for root, _, files in os.walk(srt_root):
+                for f in files:
+                    if f.lower().endswith(".srt"):
+                        srt_files.append(os.path.join(root, f))
+
+            if len(srt_files) < 2:
+                QtWidgets.QMessageBox.critical(self, "Erreur", "Moins de deux fichiers .srt trouvés dans le dossier.")
                 return
 
-            choices = [f"{i}: {s['language']} • {s['codec']}" for i, s in enumerate(self.subs)]
+            # Afficher la liste et demander à l'utilisateur de choisir 2 fichiers
+            choices = []
+            for i, path in enumerate(srt_files):
+                # Extraire la langue : dossier parent direct du fichier .srt
+                langue = os.path.basename(os.path.dirname(path))
+                choices.append(f"{i}: {langue}")
             c1, ok1 = QtWidgets.QInputDialog.getInt(self, "Sous-titre 1", "\n".join(choices))
             if not ok1:
                 return
@@ -167,19 +175,22 @@ class Lecteur(QtWidgets.QMainWindow):
             if not ok2:
                 return
 
+            # Chemins absolus vers les deux fichiers .srt sélectionnés
+            srt_paths = [
+                srt_files[c1],
+                srt_files[c2]
+            ]
+
+            # Créer le fichier .ass fusionné temporaire
             self.td = tempfile.TemporaryDirectory()
-            td_path = self.td.name
-            srt_paths = [os.path.join(td_path, name) for name in ("s1.srt", "s2.srt")]
+            self.merged_ass_path = os.path.join(self.td.name, "merged.ass")
 
-            self.extract_srt(self.subs[c1]["index"], srt_paths[0])
-            self.extract_srt(self.subs[c2]["index"], srt_paths[1])
-
-            self.merged_ass_path = os.path.join(td_path, "merged.ass")
             with open(self.merged_ass_path, "w", encoding="utf-8") as f:
                 f.write(self.create_ass_header())
                 f.write(self.srt_to_ass(srt_paths[0], "TopSub") + "\n")
                 f.write(self.srt_to_ass(srt_paths[1], "BottomSub"))
 
+            # Lancer VLC
             self.init_vlc()
             self.show()
 
