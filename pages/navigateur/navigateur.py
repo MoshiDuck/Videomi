@@ -3,23 +3,21 @@ import logging
 import os
 import subprocess
 from typing import Union
+
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
-
 from config.config import FFMPEG_PATH
 from database.musique_manager import MusiqueManager
 from database.musique_thumbnail_manager import MusiqueThumbnailManager
-from database.sous_titre_manager import SousTitreManager
-from database.videos import normaliser_langue
+from database.video_manager import VideoManager
 from database.video_thumbnail_manager import VideoThumbnailManager
-from database.video_manager           import VideoManager
+from database.videos import normaliser_langue
 from pages.lecteur.lecteur import Lecteur
-
+from pages.navigateur.widgets.bar.bar_nav import BarNav
+from pages.navigateur.widgets.sous_bar.sous_bar_nav import SousBarNav
 from utils.filtrer_et_afficher import filtrer_et_afficher
-from pages.navigateur.widgets.bar.bar_widget_nav import BarWidgetNav
-from pages.navigateur.widgets.sous_bar.sous_bar_widget import SousBarWidgetNav
 from widgets.grid_list.grid.grid import Grid
 from widgets.grid_list.grid.grid_item import GridItem
 from widgets.grid_list.list.list import List
@@ -44,8 +42,8 @@ class Navigateur(QtWidgets.QMainWindow):
         self.thumbnail_labels = {}
 
         # Barre principale + sous-barre
-        self.bar      = BarWidgetNav(self)
-        self.sous_bar = SousBarWidgetNav(self)
+        self.bar      = BarNav(self)
+        self.sous_bar = SousBarNav(self)
         self.sous_bar.setVisible(False)
 
         # Répertoires pour miniatures et infos

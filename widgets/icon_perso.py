@@ -18,12 +18,13 @@ class IconPerso(QPushButton):
         icon_only_name: str = "",
         icon_true_name: str = "",
         icon_false_name: str = "",
+        color = DARK_ICON,
         parent=None
     ):
         super().__init__(parent)
         self.icon_only = icon_only_name
         self.state = initial_state
-
+        self.color = color
         # Style et taille du bouton
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("border: none;")
@@ -42,8 +43,8 @@ class IconPerso(QPushButton):
         if self.icon_only:
             self.icon_name = self.icon_only
         else:
-            self.icon_true = qta.icon(icon_true_name, color=DARK_ICON)
-            self.icon_false = qta.icon(icon_false_name, color=DARK_ICON)
+            self.icon_true = qta.icon(icon_true_name, color=self.color)
+            self.icon_false = qta.icon(icon_false_name, color=self.color)
 
         # Initialisation de l’affichage
         self.update_icon()
@@ -56,8 +57,8 @@ class IconPerso(QPushButton):
     def update_icon(self):
         """Affiche l’icône correspondant à l’état courant."""
         if self.icon_only:
-            color = PRIMARY_COLOR if self.state else DARK_ICON
-            icon = qta.icon(self.icon_name, color=color)
+            color_choose = PRIMARY_COLOR if self.state else self.color
+            icon = qta.icon(self.icon_name, color=color_choose)
         else:
             icon = self.icon_true if self.state else self.icon_false
 

@@ -1,4 +1,6 @@
 # Couleurs du thème
+from typer.colors import WHITE
+
 PRIMARY_COLOR = "#f59e0b"
 PRIMARY_HOVER = "#FFB733"
 PRIMARY_ACTIVE = "#E59400"
@@ -8,6 +10,7 @@ DARK_BAR = "#343434"
 DARK_BORDURE = "#444444"
 DARK_SURLIGNAGE = "#f59e0b"
 DARK_ICON = "#e0e0e0"
+WHITE_ICON = "#000000"
 LIST_BG = "#3c3c3c"
 ITEM_BG = "#2E2E2E"
 SCROLLBAR_BG = "#4A4A4A"

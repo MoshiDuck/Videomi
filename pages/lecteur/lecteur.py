@@ -1,332 +1,421 @@
 import logging
-import os
 import sys
 import tempfile
-
+from pathlib import Path
+import qtawesome as qta
 import vlc
-from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtGui import QShortcut, QKeySequence, QCursor
+from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6.QtGui import QKeySequence, QCursor, QShortcut
+from PyQt6.QtWidgets import QMessageBox
 
 from config.config import SRT_DIR
-from database.sous_titre_manager import SousTitreManager
+from pages.lecteur.widgets.sous_bar.sous_bar_lect import SousBarLect
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+# ======================= CONSTANTES =======================
 
+CONTROL_BAR_HEIGHT = 50
+HIDE_BAR_DELAY_MS = 3000
+MOUSE_CHECK_INTERVAL_MS = 200
+UI_REFRESH_INTERVAL_MS = 1000
+SEEK_OFFSET_MS = 10_000
+ASS_RES_X = 384
+ASS_RES_Y = 288
+
+ASS_HEADER = (
+    "[Script Info]\n"
+    "ScriptType: v4.00+\n"
+    f"PlayResX: {ASS_RES_X}\n"
+    f"PlayResY: {ASS_RES_Y}\n\n"
+    "[V4+ Styles]\n"
+    "Style: TopSub,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
+    "0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,0\n"
+    "Style: BottomSub,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
+    "0,0,0,0,100,100,0,0,1,2,0,8,10,10,10,0\n\n"
+    "[Events]\n"
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+# ======================= CLASSE PRINCIPALE =======================
 
 class Lecteur(QtWidgets.QMainWindow):
-    def __init__(self, video_path=None):
+    def __init__(self, video_path: str | Path | None = None):
         super().__init__()
-        self.st_manager = SousTitreManager()
-        self.st_manager.extract_subtitle_from_video(video_path)
-        self.st_manager.close()
-        self.video_path = video_path
-        self.subs = []
+        self.video_path: Path | None = Path(video_path) if video_path else None
+        self.vlc_instance: vlc.Instance | None = None
+        self.player: vlc.MediaPlayer | None = None
+        self.tmp_dir: tempfile.TemporaryDirectory | None = None
+        self.merged_ass_path: Path | None = None
 
-        self.vlc_instance = None
-        self.player = None
-        self.merged_ass_path = None
-        self.td = None
+        # Widgets
+        self.central_widget = QtWidgets.QWidget(self)
+        self.videoframe = QtWidgets.QFrame(self.central_widget)
+        self.sous_bar = SousBarLect(self.central_widget)
+        
+        self.sous_milieu = self.sous_bar.sous_bar_milieu
 
-        self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(1000)  # 1 second interval, adjust if needed
-        self.timer.timeout.connect(self.update_ui)
+
+        # Timers
+        self.hide_bar_timer = QtCore.QTimer(self)
+        self.cursor_monitor = QtCore.QTimer(self)
+        self.ui_timer = QtCore.QTimer(self)
+
+        self._setup_ui()
+        self._setup_shortcuts()
+        self._setup_timers()
 
         self.setWindowTitle("Lecteur")
-
-        # --- central widget unique et layout ---
-        self.central_widget = QtWidgets.QWidget(self)
-        self.setCentralWidget(self.central_widget)
-
-        self.layout = QtWidgets.QVBoxLayout(self.central_widget)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
-
-        # --- cadre vidéo ---
-        self.videoframe = QtWidgets.QFrame(self.central_widget)
-        self.videoframe.setStyleSheet("background-color: black;")
-        self.layout.addWidget(self.videoframe)
-
-        # --- barre de contrôle ---
-        self.control_bar = QtWidgets.QWidget(self.central_widget)
-        self.control_bar.setParent(self.central_widget)
-        self.control_bar.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool)
-        self.control_bar.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-        self.control_bar.setFixedHeight(50)
-        self.control_bar.setStyleSheet("background-color: rgba(0, 0, 0, 180); color: white;")
-        control_layout = QtWidgets.QHBoxLayout(self.control_bar)
-        control_layout.setContentsMargins(10, 0, 10, 0)
-
-        play_btn = QtWidgets.QPushButton("Play")
-        play_btn.clicked.connect(lambda: self.player.play() if self.player else None)
-        control_layout.addWidget(play_btn)
-
-        pause_btn = QtWidgets.QPushButton("Pause")
-        pause_btn.clicked.connect(lambda: self.player.pause() if self.player else None)
-        control_layout.addWidget(pause_btn)
-
-        # Position initiale et visibilité
-        self.control_bar.setGeometry(0, self.videoframe.height() - self.control_bar.height(),
-                                     self.videoframe.width(), self.control_bar.height())
-        self.control_bar.hide()
-
-        # Gestion du resize pour repositionner la barre
-        self.videoframe.resizeEvent = self.resize_overlay
-
-        # Timer pour cacher la barre après 3 secondes d'inactivité
-        self.hide_bar_timer = QtCore.QTimer(self)
-        self.hide_bar_timer.setInterval(3000)
-        self.hide_bar_timer.timeout.connect(self.control_bar.hide)
-
-        # Timer pour vérifier la position de la souris
-        self.cursor_monitor = QtCore.QTimer(self)
-        self.cursor_monitor.setInterval(200)
-        self.cursor_monitor.timeout.connect(self.check_mouse_position)
-        self.cursor_monitor.start()
-
-        # Mode plein écran
         self.showFullScreen()
 
-        self.setup_shortcuts()
+    # ----------------------- INITIALISATION UI -----------------------
 
-        # Init VLC player (à appeler dans run)
-        self.vlc_instance = None
-        self.player = None
+    def _setup_ui(self) -> None:
+        """Crée et dispose les éléments de l'interface."""
+        self.setCentralWidget(self.central_widget)
+        layout = QtWidgets.QVBoxLayout(self.central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-    def resize_overlay(self, event):
-        pos = self.videoframe.pos()
-        self.control_bar.setGeometry(
-            pos.x(),
-            pos.y() + self.videoframe.height() - self.control_bar.height(),
-            self.videoframe.width(),
-            self.control_bar.height()
+        # Video frame
+        self.videoframe.setStyleSheet("background-color: black;")
+        layout.addWidget(self.videoframe)
+
+        # Barre de contrôle (overlay)
+        self.sous_bar.setFixedHeight(CONTROL_BAR_HEIGHT)
+        self.sous_bar.setStyleSheet("background-color: rgba(0, 0, 0, 180); color: white;")
+        self.sous_bar.setWindowFlags(
+            QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
         )
-        self.control_bar.raise_()
-        self.control_bar.show()
+        self.sous_bar.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        event.accept()
+        control_layout = QtWidgets.QHBoxLayout(self.sous_bar)
+        control_layout.setContentsMargins(10, 0, 10, 0)
+        control_layout.setSpacing(30)
+        control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
-    def check_mouse_position(self):
-        global_pos = QCursor.pos()
-        local_pos = self.videoframe.mapFromGlobal(global_pos)
+        self.sous_milieu.rewind_btn.clicked.connect(self.seek_backward)
+        self.sous_milieu.forward_btn.clicked.connect(self.seek_forward)
+        self.sous_milieu.play_pause_btn.clicked.connect(self.toggle_play_pause)
 
-        logging.debug(f"check_mouse_position appelé - position souris locale : {local_pos.x()}, {local_pos.y()}")
+        # Positionnement initial de la barre (cachée)
+        self.sous_bar.hide()
+        self.videoframe.installEventFilter(self)
 
-        if 0 <= local_pos.y() <= self.videoframe.height() and local_pos.y() > self.videoframe.height() - 80:
-            logging.debug("Souris en bas : affichage de la barre.")
-            self.show_control_bar()
-        else:
-            # On ne cache pas tout de suite la barre ici, c'est géré par le timer
-            pass
-
-    def show_control_bar(self):
-        logging.debug(f"show_control_bar appelé - visible avant: {self.control_bar.isVisible()}")
-        if not self.control_bar.isVisible():
-            self.control_bar.show()
-            logging.info("control_bar.show() appelé")
-        else:
-            logging.debug("control_bar déjà visible")
-
-        # Repositionne la barre pour être sûr qu'elle soit visible
-        geom = (
-            0,
-            self.videoframe.height() - self.control_bar.height(),
-            self.videoframe.width(),
-            self.control_bar.height()
-        )
-        self.control_bar.setGeometry(*geom)
-        logging.debug(f"control_bar position et taille mises à jour : {geom}")
-
-        self.control_bar.raise_()
-        logging.debug("control_bar.raise_() appelé")
-
-        self.control_bar.repaint()
-        logging.debug("control_bar.repaint() appelé")
-
-        self.hide_bar_timer.start()
-        logging.debug("hide_bar_timer démarré")
-
-    def setup_shortcuts(self):
-        QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(100))
+    def _setup_shortcuts(self) -> None:
+        """Définit les raccourcis clavier."""
+        QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(+100))
         QShortcut(QKeySequence("-"), self, activated=lambda: self.adjust_delay(-100))
-        QShortcut(QKeySequence("R"), self, activated=lambda: self.player.video_set_spu_delay(0) if self.player else None)
+        QShortcut(QKeySequence("R"), self, activated=lambda: self.reset_delay())
         QShortcut(QKeySequence("Q"), self, activated=self.close)
 
-    def adjust_delay(self, delta):
+    def _setup_timers(self) -> None:
+        """Initialise les timers pour le suivi souris, cache de barre et UI VLC."""
+        # Timer pour masquer la barre après inactivité
+        self.hide_bar_timer.setInterval(HIDE_BAR_DELAY_MS)
+        self.hide_bar_timer.timeout.connect(self.sous_bar.hide)
+
+        # Timer pour vérifier la position de la souris
+        self.cursor_monitor.setInterval(MOUSE_CHECK_INTERVAL_MS)
+        self.cursor_monitor.timeout.connect(self._check_mouse_position)
+        self.cursor_monitor.start()
+
+        # Timer pour mettre à jour l'UI (icône Play/Pause) toutes les secondes
+        self.ui_timer.setInterval(UI_REFRESH_INTERVAL_MS)
+        self.ui_timer.timeout.connect(self._update_ui)
+
+    # ----------------------- MÉTHODES VLC -----------------------
+
+    def _init_vlc_player(self) -> None:
+        """Configure l'instance VLC et le lecteur, puis lance la vidéo."""
+        assert self.video_path is not None and self.merged_ass_path is not None
+
+        args = [
+            f"--sub-file={str(self.merged_ass_path)}",
+            "--file-caching=200",  # plus aucun buffering côté fichier
+            "--network-caching=200",  # plus aucun buffering côté réseau
+            "--avcodec-hw=none",
+            "--audio-time-stretch"
+        ]
+        self.vlc_instance = vlc.Instance(args)
+        self.player = self.vlc_instance.media_player_new()
+        media = self.vlc_instance.media_new(str(self.video_path))
+        self.player.set_media(media)
+
+        # Affectation de l'ID de fenêtre selon la plateforme
+        win_id = int(self.videoframe.winId())
+        if sys.platform.startswith("linux"):
+            self.player.set_xwindow(win_id)
+        elif sys.platform == "win32":
+            self.player.set_hwnd(win_id)
+        elif sys.platform == "darwin":
+            self.player.set_nsobject(win_id)
+
+        self.videoframe.show()
+        # Lecture différée pour que le widget soit bien affiché
+        QtCore.QTimer.singleShot(100, self.player.play)
+        self.player.audio_set_track(0)
+        self.ui_timer.start()
+
+    def toggle_play_pause(self) -> None:
+        """Met en pause ou relance la lecture sans latence."""
+        if not self.player:
+            return
+
+        if self.player.is_playing():
+            # Met en pause immédiatement
+            self.player.set_pause(True)
+            self.sous_milieu.play_pause_btn.setIcon(qta.icon('fa5s.play', color='black'))
+        else:
+            # Reprend la lecture immédiatement
+            self.player.set_pause(False)
+            self.sous_milieu.play_pause_btn.setIcon(qta.icon('fa5s.pause', color='black'))
+
+    def seek_forward(self) -> None:
+        """Avance la vidéo de 10 secondes."""
         if self.player:
-            cur = self.player.video_get_spu_delay()
-            self.player.video_set_spu_delay(cur + delta)
-            logging.info(f"Délai actuel : {self.player.video_get_spu_delay() // 1000} ms")
+            new_time = self.player.get_time() + SEEK_OFFSET_MS
+            self.player.set_time(new_time)
 
-    def eventFilter(self, source, event):
-        if event.type() == QtCore.QEvent.Type.MouseMove:
-            global_pos = QCursor.pos()
-            local_pos = self.videoframe.mapFromGlobal(global_pos)
+    def seek_backward(self) -> None:
+        """Recule la vidéo de 10 secondes, sans passer en dessous de 0."""
+        if self.player:
+            new_time = max(0, self.player.get_time() - SEEK_OFFSET_MS)
+            self.player.set_time(new_time)
 
-            if 0 <= local_pos.y() <= self.videoframe.height() and local_pos.y() > self.videoframe.height() - 80:
-                logging.debug("eventFilter : souris en bas")
-                self.show_control_bar()
+    def adjust_delay(self, delta_ms: int) -> None:
+        """Ajuste le délai des sous-titres en ajoutant delta_ms (en ms)."""
+        if self.player:
+            current_delay = self.player.video_get_spu_delay() or 0
+            new_delay = current_delay + delta_ms
+            self.player.video_set_spu_delay(new_delay)
+            logging.info(f"Délai SPU ajusté : {new_delay} μs ({new_delay // 1000} ms)")
 
-            self.hide_bar_timer.start()
-        return False
+    def reset_delay(self) -> None:
+        """Réinitialise le délai des sous-titres à zéro."""
+        if self.player:
+            self.player.video_set_spu_delay(0)
+            logging.info("Délai SPU réinitialisé à 0")
 
-    def hide_control_bar(self):
-        logging.debug(f"hide_control_bar appelé - visible avant: {self.control_bar.isVisible()}")
-        self.control_bar.hide()
-        logging.info("control_bar.hide() appelé")
+    def _update_ui(self) -> None:
+        """Met à jour l'icône Play/Pause en fonction de l'état VLC."""
+        if not self.player:
+            return
+        state = self.player.get_state()
+        if state == vlc.State.Playing:
+            self.sous_milieu.play_pause_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPause))
+        elif state in (vlc.State.Paused, vlc.State.Stopped, vlc.State.Ended):
+            self.sous_milieu.play_pause_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPlay))
 
-    def mouseMoveEvent(self, event):
-        cursor_y = event.position().y()
-        screen_height = self.height()
-        if cursor_y > screen_height - 80:  # Si la souris est dans les 80 derniers pixels
-            self.show_control_bar()
+    # ----------------------- GESTION DE LA BARRE -----------------------
+
+    def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        """Intercepte l'événement de redimensionnement du videoframe pour repositionner la barre."""
+        if watched == self.videoframe and event.type() == QtCore.QEvent.Type.Resize:
+            self._position_control_bar()
+        return super().eventFilter(watched, event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
+        """Réactive le timer de masquage dès que la souris bouge."""
+        if event.position().y() > self.height() - (CONTROL_BAR_HEIGHT + 30):
+            self._show_control_bar()
+        self.hide_bar_timer.start()
+        super().mouseMoveEvent(event)
+
+    def enterEvent(self, event: QtCore.QEvent) -> None:
+        """Affiche la barre de contrôle quand la souris entre dans la fenêtre."""
+        self._show_control_bar()
+        super().enterEvent(event)
+
+    def _check_mouse_position(self) -> None:
+        """Vérifie si la souris est proche du bas de la vidéo pour afficher la barre."""
+        local_pos = self.videoframe.mapFromGlobal(QCursor.pos())
+        if (self.videoframe.height() - (CONTROL_BAR_HEIGHT + 30)) <= local_pos.y() <= self.videoframe.height():
+            self._show_control_bar()
+
+    def _show_control_bar(self) -> None:
+        """Affiche et repositionne la barre de contrôle, puis relance le timer de masquage."""
+        if not self.sous_bar.isVisible():
+            self.sous_bar.show()
+            logging.debug("Affichage de la barre de contrôle")
+        self._position_control_bar()
         self.hide_bar_timer.start()
 
-    def enterEvent(self, event):
-        self.show_control_bar()
+    def _position_control_bar(self) -> None:
+        """Positionne la barre en bas du videoframe."""
+        vf_width = self.videoframe.width()
+        vf_height = self.videoframe.height()
+        self.sous_bar.setGeometry(
+            0,
+            vf_height - CONTROL_BAR_HEIGHT,
+            vf_width,
+            CONTROL_BAR_HEIGHT
+        )
+        self.sous_bar.raise_()
+
+    # ----------------------- CONVERSION SRT → ASS -----------------------
 
     @staticmethod
-    def parse_srt_time(ts):
-        # Format attendu : "HH:MM:SS,mmm"
-        h, m, rest = ts.strip().split(":")
+    def parse_srt_time(timestamp: str) -> float:
+        """
+        Convertit une durée SRT (HH:MM:SS,ms) en secondes flottantes.
+        Exemple : "00:01:23,456" → 83.456
+        """
+        h, m, rest = timestamp.strip().split(":")
         s, ms = rest.split(",")
         return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
 
     @staticmethod
-    def format_ass_time(sec):
-        h, rem = divmod(int(sec), 3600)
-        m, s = divmod(rem, 60)
-        cs = int((sec - int(sec)) * 100)
+    def format_ass_time(seconds: float) -> str:
+        """
+        Convertit un temps en secondes (float) en format ASS (H:MM:SS.CC).
+        Les centièmes (CC) sont déduits des parties décimales des secondes.
+        """
+        total_cs = int(round(seconds * 100))
+        h = total_cs // 360_000
+        m = (total_cs % 360_000) // 6000
+        s = (total_cs % 6000) // 100
+        cs = total_cs % 100
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
-    def srt_to_ass(self, srt_path, style):
-        ass_lines = []
-        with open(srt_path, encoding="utf-8") as f:
-            lines = [l.strip() for l in f if l.strip()]
+    def srt_to_ass(self, srt_path: Path, style_name: str) -> list[str]:
+        """
+        Lit un fichier .srt et retourne une liste de lignes ASS (Dialogue: ...).
+        Chaque bloc SRT "start --> end" est converti en "Dialogue: ..."
+        """
+        ass_lines: list[str] = []
+        with srt_path.open(encoding="utf-8") as f:
+            raw_lines = [line.strip() for line in f if line.strip()]
 
-        i = 0
-        while i < len(lines):
-            if "-->" in lines[i]:
-                start, end = map(str.strip, lines[i].split("-->"))
-                a_start = self.format_ass_time(self.parse_srt_time(start))
-                a_end = self.format_ass_time(self.parse_srt_time(end))
-
-                text_lines = []
-                i += 1
-                while i < len(lines) and not lines[i].isdigit() and "-->" not in lines[i]:
-                    text_lines.append(lines[i])
-                    i += 1
-
-                # Escape ligne multiple avec \N (ASS format)
-                ass_lines.append(
-                    f"Dialogue: 0,{a_start},{a_end},{style},,0,0,0,,{'\\N'.join(text_lines)}"
+        idx = 0
+        while idx < len(raw_lines):
+            if "-->" in raw_lines[idx]:
+                start_ts, end_ts = map(str.strip, raw_lines[idx].split("-->"))
+                a_start = self.format_ass_time(self.parse_srt_time(start_ts))
+                a_end = self.format_ass_time(self.parse_srt_time(end_ts))
+                idx += 1
+                text_lines: list[str] = []
+                # Collecter toutes les lignes de texte jusqu'au prochain index ou timestamp
+                while idx < len(raw_lines) and "-->" not in raw_lines[idx] and not raw_lines[idx].isdigit():
+                    text_lines.append(raw_lines[idx])
+                    idx += 1
+                dialogue = (
+                    f"Dialogue: 0,{a_start},{a_end},{style_name},,0,0,0,," 
+                    f"{'\\N'.join(text_lines)}"
                 )
+                ass_lines.append(dialogue)
             else:
-                i += 1
+                idx += 1
+        return ass_lines
 
-        return "\n".join(ass_lines)
+    # ----------------------- FONCTION PRINCIPALE (RUN) -----------------------
 
-    @staticmethod
-    def create_ass_header():
-        return (
-            "[Script Info]\n"
-            "ScriptType: v4.00+\n"
-            "PlayResX: 384\n"
-            "PlayResY: 288\n\n"
-            "[V4+ Styles]\n"
-            "Style: TopSub,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
-            "0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,0\n"
-            "Style: BottomSub,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
-            "0,0,0,0,100,100,0,0,1,2,0,8,10,10,10,0\n\n"
-            "[Events]\n"
-            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-        )
-
-    def init_vlc(self):
-        self.vlc_instance = vlc.Instance([
-            f"--sub-file={self.merged_ass_path}",
-            "--file-caching=3000",
-            "--network-caching=3000",
-            "--avcodec-hw=none",
-            "--audio-time-stretch"
-        ])
-        self.player = self.vlc_instance.media_player_new()
-        self.player.set_media(self.vlc_instance.media_new(self.video_path))
-
-        if sys.platform.startswith("linux"):
-            self.player.set_xwindow(self.videoframe.winId())
-        elif sys.platform == "win32":
-            self.player.set_hwnd(int(self.videoframe.winId()))
-        elif sys.platform == "darwin":
-            self.player.set_nsobject(int(self.videoframe.winId()))
-
-        self.videoframe.show()
-        QtCore.QTimer.singleShot(100, self.player.play)
-        self.player.audio_set_track(0)
-        self.timer.start()
-
-    def update_ui(self):
-        if self.player and self.player.get_state() == vlc.State.Ended:
-            logging.info("La vidéo est terminée.")
-
-    def run(self):
+    def run(self) -> None:
+        """
+        Lance la procédure :
+        1. Vérifie le chemin vidéo
+        2. Liste les fichiers .srt du dossier correspondant
+        3. Demande à l'utilisateur de choisir deux langues
+        4. Génère le fichier merged.ass et lance VLC
+        """
         try:
-            if not self.video_path:
-                raise ValueError("Aucun chemin vidéo fourni.")
+            if not self.video_path or not self.video_path.exists():
+                raise FileNotFoundError("Chemin vidéo non valide ou inexistant.")
 
-            # Lister tous les .srt du dossier
-            # Chercher tous les .srt dans les sous-dossiers du dossier SRT correspondant
-            video_title = os.path.splitext(os.path.basename(self.video_path))[0]
-            srt_root = os.path.join(SRT_DIR, video_title)
+            video_stem = self.video_path.stem
+            srt_root = Path(SRT_DIR) / video_stem
 
-            srt_files = []
-            for root, _, files in os.walk(srt_root):
-                for f in files:
-                    if f.lower().endswith(".srt"):
-                        srt_files.append(os.path.join(root, f))
+            if not srt_root.exists() or not srt_root.is_dir():
+                raise FileNotFoundError(f"Dossier SRT introuvable : {srt_root}")
 
+            # Récupérer tous les .srt et grouper par nom de dossier (langue)
+            srt_files = sorted(srt_root.glob("**/*.srt"))
             if len(srt_files) < 2:
-                QtWidgets.QMessageBox.critical(self, "Erreur", "Moins de deux fichiers .srt trouvés dans le dossier.")
+                QMessageBox.critical(
+                    self, "Erreur",
+                    "Moins de deux fichiers .srt trouvés dans le dossier."
+                )
                 return
 
-            # Afficher la liste et demander à l'utilisateur de choisir 2 fichiers
-            choices = []
-            for i, path in enumerate(srt_files):
-                # Extraire la langue : dossier parent direct du fichier .srt
-                langue = os.path.basename(os.path.dirname(path))
-                choices.append(f"{i}: {langue}")
-            c1, ok1 = QtWidgets.QInputDialog.getInt(self, "Sous-titre 1", "\n".join(choices))
+            # Mapping langue -> chemin complet du .srt (on prend le premier trouvé par langue)
+            lang_to_path: dict[str, Path] = {}
+            for path in srt_files:
+                lang = path.parent.name
+                if lang not in lang_to_path:
+                    lang_to_path[lang] = path
+
+            languages = sorted(lang_to_path.keys())
+            if len(languages) < 2:
+                QMessageBox.critical(
+                    self, "Erreur",
+                    "Moins de deux langues de sous-titres disponibles."
+                )
+                return
+
+            # Préparer la liste de choix pour l'utilisateur (seulement la langue)
+            choices = [f"{i}: {lang}" for i, lang in enumerate(languages)]
+            prompt = "\n".join(choices)
+
+            # Sélection du premier langage
+            c1, ok1 = QtWidgets.QInputDialog.getInt(
+                self, "Choix de la Langue 1", prompt, value=0, min=0, max=len(languages) - 1
+            )
             if not ok1:
                 return
-            c2, ok2 = QtWidgets.QInputDialog.getInt(self, "Sous-titre 2", "\n".join(choices))
+
+            # Sélection du second langage
+            c2, ok2 = QtWidgets.QInputDialog.getInt(
+                self, "Choix de la Langue 2", prompt, value=1, min=0, max=len(languages) - 1
+            )
             if not ok2:
                 return
 
-            # Chemins absolus vers les deux fichiers .srt sélectionnés
-            srt_paths = [
-                srt_files[c1],
-                srt_files[c2]
-            ]
+            # Récupérer les chemins .srt choisis
+            lang1 = languages[c1]
+            lang2 = languages[c2]
+            path1 = lang_to_path[lang1]
+            path2 = lang_to_path[lang2]
 
-            # Créer le fichier .ass fusionné temporaire
-            self.td = tempfile.TemporaryDirectory()
-            self.merged_ass_path = os.path.join(self.td.name, "merged.ass")
+            # Création du dossier temporaire pour merged.ass
+            self.tmp_dir = tempfile.TemporaryDirectory()
+            self.merged_ass_path = Path(self.tmp_dir.name) / "merged.ass"
 
-            with open(self.merged_ass_path, "w", encoding="utf-8") as f:
-                f.write(self.create_ass_header())
-                f.write(self.srt_to_ass(srt_paths[0], "TopSub") + "\n")
-                f.write(self.srt_to_ass(srt_paths[1], "BottomSub"))
+            # Écriture du fichier ASS
+            with self.merged_ass_path.open("w", encoding="utf-8") as ass_file:
+                ass_file.write(ASS_HEADER)
+                for style, srt_path in [("TopSub", path1), ("BottomSub", path2)]:
+                    lines = self.srt_to_ass(srt_path, style)
+                    ass_file.write("\n".join(lines) + "\n")
 
-            # Lancer VLC
-            self.init_vlc()
+            # Initialisation et lancement de VLC
+            self._init_vlc_player()
             self.show()
 
         except Exception as e:
-            logging.error(f"Erreur : {e}")
-            QtWidgets.QMessageBox.critical(self, "Erreur", str(e))
+            logging.error(f"Erreur lors de l'exécution : {e}", exc_info=True)
+            QMessageBox.critical(self, "Erreur", str(e))
 
-    def closeEvent(self, event):
-        if self.td:
-            self.td.cleanup()
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self.tmp_dir:
+            self.tmp_dir.cleanup()
+        if self.player:
+            self.player.stop()
         event.accept()
 
+
+# ======================= POINT D'ENTRÉE =======================
+
+def main() -> None:
+    app = QtWidgets.QApplication(sys.argv)
+    # Exemple : remplacer par un argument de ligne de commande si nécessaire
+    video_path = sys.argv[1] if len(sys.argv) > 1 else None
+    player = Lecteur(video_path)
+    player.run()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

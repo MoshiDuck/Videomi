@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt
 from widgets.icon_perso import IconPerso
 
 
-class ContainerBarDroite(QWidget):
+class ContainerBarDroiteNav(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 

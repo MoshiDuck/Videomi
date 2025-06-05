@@ -1,15 +1,13 @@
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtCore import Qt
 from config.colors import DARK_BAR
-from pages.navigateur.widgets.bar.droite.container_bar_droite import ContainerBarDroite
-from pages.navigateur.widgets.bar.milieu.container_bar_milieu import ContainerBarMilieu
-
-#Spacer
-from pages.navigateur.widgets.bar.gauche.container_bar_gauche import ContainerBarGauche
+from pages.lecteur.widgets.bar.droite.container_bar_droite_lect import ContainerBarDroiteLect
+from pages.lecteur.widgets.bar.gauche.container_bar_gauche_lect import ContainerBarGaucheLect
+from pages.lecteur.widgets.bar.milieu.container_bar_milieu_lect import ContainerBarMilieuLect
 from widgets.row_widget import Row
 
 
-class BarWidgetNav(Row):
+class BarLect(Row):
     def __init__(self, parent=None):
         super().__init__(parent=parent, space_between=True, margins=(10, 0, 10, 0))
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -21,9 +19,9 @@ class BarWidgetNav(Row):
         """)
         self.setFixedHeight(40)
 
-        self.container_gauche = ContainerBarGauche()
-        self.container_milieu = ContainerBarMilieu()
-        self.container_droite = ContainerBarDroite()
+        self.container_gauche = ContainerBarGaucheLect()
+        self.container_milieu = ContainerBarMilieuLect()
+        self.container_droite = ContainerBarDroiteLect()
 
         self.add_widget(self.container_gauche)
         self.add_widget(self.container_milieu)

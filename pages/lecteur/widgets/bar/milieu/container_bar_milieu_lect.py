@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QSizePolicy
 from pages.navigateur.widgets.bar.milieu.card_categorie import CardCategorie
 
-class ContainerBarMilieu(QWidget):
+class ContainerBarMilieuLect(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)

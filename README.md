@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.2
+0.0.3.3
 
 ---
 
@@ -50,7 +50,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ## PROCHAINE CHOSE À FAIRE :
 
-optimiser lecteur 
+gerer sous bar milieu pour icon et bug aucune icone fonctionne
 
 ## GIT
 
@@ -76,7 +76,7 @@ optimiser lecteur
 
 6. Commit
     ```bash
-    git commit -m "[FAIT] bar lecteur"  
+    git commit -m "[FAIT] sous bar"  
 
 7. Force le push
    ```bash
