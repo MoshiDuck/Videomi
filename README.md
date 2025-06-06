@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.4
+0.0.3.5
 
 ---
 
@@ -48,12 +48,6 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ---
 
-## PROCHAINE CHOSE À FAIRE :
-
-Mettre slide son
-
----
-
 ## GIT
 
 ### Réinitialiser
@@ -87,11 +81,15 @@ Mettre slide son
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] gerer sous bar milieu pour icon et bug aucune icone fonctionne"
+    git commit -m "[FAIT] Mettre slide son"
     ```
 3. Force le push  
     ```bash
     git push --force origin main
     ```
 
-### Total
+---
+   
+## PROCHAINE CHOSE À FAIRE :
+
+Mettre slide dans une class appart 

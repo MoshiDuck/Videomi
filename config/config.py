@@ -25,7 +25,6 @@ THUMBNAIL_MUSIC_DIR = os.path.join(BASE_DIR, "database", "data", "miniature", "m
 
 SRT_DIR  = os.path.join(BASE_DIR, "database", "data", "sous_titre")
 
-
 # Dossier VLC
 VLC_DIR = os.path.join(BASE_DIR, "Ressource", "vlc-3.0.21")
 

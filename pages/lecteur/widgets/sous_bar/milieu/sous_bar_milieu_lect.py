@@ -1,6 +1,8 @@
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import QSizePolicy
+
+from config.colors import WHITE_ICON, DARK_ICON
 from widgets.icon_perso import IconPerso
 
 class SousBarMilieuLect(QtWidgets.QWidget):
@@ -23,6 +25,7 @@ class SousBarMilieuLect(QtWidgets.QWidget):
         self.rewind_icon = IconPerso(
             icon_only_name='mdi.rewind-10',
             icon_size=small_size,
+            color_2=DARK_ICON,
         )
         self.play_pause_icon = IconPerso(
             icon_true_name='fa5s.play-circle',
@@ -32,6 +35,7 @@ class SousBarMilieuLect(QtWidgets.QWidget):
         self.forward_icon = IconPerso(
             icon_only_name='mdi.fast-forward-10',
             icon_size=small_size,
+            color_2=DARK_ICON,
         )
 
         self.control_layout.addWidget(self.rewind_icon)

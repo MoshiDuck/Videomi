@@ -2,12 +2,14 @@ import logging
 import sys
 import tempfile
 from pathlib import Path
+
 import qtawesome as qta
 import vlc
 from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtGui import QKeySequence, QCursor, QShortcut
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMessageBox
 
+from config.colors import PRIMARY_COLOR
 from config.config import SRT_DIR
 from pages.lecteur.widgets.sous_bar.sous_bar_lect import SousBarLect
 
@@ -45,6 +47,12 @@ logging.basicConfig(
 class Lecteur(QtWidgets.QMainWindow):
     def __init__(self, video_path: str | Path | None = None):
         super().__init__()
+
+        def log_uncaught_exceptions(exctype, value, tb):
+            logging.critical("Exception non interceptée", exc_info=(exctype, value, tb))
+
+        sys.excepthook = log_uncaught_exceptions
+
         self.video_path: Path | None = Path(video_path) if video_path else None
         self.vlc_instance: vlc.Instance | None = None
         self.player: vlc.MediaPlayer | None = None
@@ -57,7 +65,7 @@ class Lecteur(QtWidgets.QMainWindow):
         self.sous_bar = SousBarLect(self.central_widget)
         
         self.sous_milieu = self.sous_bar.sous_bar_milieu
-
+        self.sous_droite = self.sous_bar.sous_bar_droite
 
         # Timers
         self.hide_bar_timer = QtCore.QTimer(self)
@@ -65,7 +73,6 @@ class Lecteur(QtWidgets.QMainWindow):
         self.ui_timer = QtCore.QTimer(self)
 
         self._setup_ui()
-        self._setup_shortcuts()
         self._setup_timers()
 
         self.setWindowTitle("Lecteur")
@@ -101,17 +108,65 @@ class Lecteur(QtWidgets.QMainWindow):
         self.sous_milieu.play_pause_icon.clicked.connect(self.toggle_play_pause)
         self.sous_milieu.forward_icon.clicked.connect(self.seek_forward)
 
+        # Utilisation :
+        self.sous_droite.volume.clicked.connect(self.toggle_mute)
+        self.sous_droite.volume.setEnabled(False)
+        self.sous_droite.volume_slider.valueChanged.connect(self.set_volume)
+        self.sous_droite.volume_slider.setEnabled(False)
 
         # Positionnement initial de la barre (cachée)
         self.sous_bar.hide()
         self.videoframe.installEventFilter(self)
 
-    def _setup_shortcuts(self) -> None:
-        """Définit les raccourcis clavier."""
-        QShortcut(QKeySequence("+"), self, activated=lambda: self.adjust_delay(+100))
-        QShortcut(QKeySequence("-"), self, activated=lambda: self.adjust_delay(-100))
-        QShortcut(QKeySequence("R"), self, activated=lambda: self.reset_delay())
-        QShortcut(QKeySequence("Q"), self, activated=self.close)
+    def toggle_mute(self, checked=None):
+        if self.player:
+            muted = self.player.audio_get_volume() == 0
+            if muted:
+                self.player.audio_set_volume(100)
+                self.sous_droite.volume_slider.setValue(100)
+                self._update_volume_slider_style(100)
+            else:
+                self.player.audio_set_volume(0)
+                self.sous_droite.volume_slider.setValue(0)
+                self._update_volume_slider_style(0)
+
+    def set_volume(self, value: int) -> None:
+        try:
+            clamped_value = min(value, 150)  # Cap le volume à 150%
+            if self.player:
+                self.player.audio_set_volume(clamped_value)
+                self._update_volume_slider_style(clamped_value)
+                self.sous_droite.volume.set_state(clamped_value > 0)
+            else:
+                logging.warning("Player non initialisé lors du changement de volume.")
+        except Exception as e:
+            logging.error(f"Erreur lors du changement de volume : {e}", exc_info=True)
+
+    def _update_volume_slider_style(self, value: int) -> None:
+        if value < 100:
+            # Orange jusqu'à 100%
+            color = PRIMARY_COLOR  # orange
+        else:
+            # Rouge pastel au-delà
+            color = "#FF5C5C"  # rouge clair/pastel
+
+        self.sous_droite.volume_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: 6px;
+                background: #ccc;
+                border-radius: 3px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {color};
+                width: 12px;
+                margin: -5px 0;
+                border-radius: 6px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {color};
+                border-radius: 3px;
+            }}
+        """)
 
     def _setup_timers(self) -> None:
         """Initialise les timers pour le suivi souris, cache de barre et UI VLC."""
@@ -160,6 +215,8 @@ class Lecteur(QtWidgets.QMainWindow):
         QtCore.QTimer.singleShot(100, self.player.play)
         self.player.audio_set_track(0)
         self.ui_timer.start()
+        self.sous_droite.volume.setEnabled(True)
+        self.sous_droite.volume_slider.setEnabled(True)
 
     def toggle_play_pause(self) -> None:
         """Met en pause ou relance la lecture sans latence."""
@@ -241,7 +298,6 @@ class Lecteur(QtWidgets.QMainWindow):
         """Affiche et repositionne la barre de contrôle, puis relance le timer de masquage."""
         if not self.sous_bar.isVisible():
             self.sous_bar.show()
-            logging.debug("Affichage de la barre de contrôle")
         self._position_control_bar()
         self.hide_bar_timer.start()
 
@@ -272,7 +328,7 @@ class Lecteur(QtWidgets.QMainWindow):
     @staticmethod
     def format_ass_time(seconds: float) -> str:
         """
-        Convertit un temps en secondes (float) en format ASS (H:MM:SS.CC).
+        Convertit un temps en secondes (float) en format ASS (H : MM : SS.CC).
         Les centièmes (CC) sont déduits des parties décimales des secondes.
         """
         total_cs = int(round(seconds * 100))
@@ -284,8 +340,8 @@ class Lecteur(QtWidgets.QMainWindow):
 
     def srt_to_ass(self, srt_path: Path, style_name: str) -> list[str]:
         """
-        Lit un fichier .srt et retourne une liste de lignes ASS (Dialogue: ...).
-        Chaque bloc SRT "start --> end" est converti en "Dialogue: ..."
+        Lit un fichier .srt et retourne une liste de lignes ASS (Dialogue : ...).
+        Chaque bloc SRT "start → end" est converti en "Dialogue: ..."
         """
         ass_lines: list[str] = []
         with srt_path.open(encoding="utf-8") as f:
@@ -299,7 +355,7 @@ class Lecteur(QtWidgets.QMainWindow):
                 a_end = self.format_ass_time(self.parse_srt_time(end_ts))
                 idx += 1
                 text_lines: list[str] = []
-                # Collecter toutes les lignes de texte jusqu'au prochain index ou timestamp
+                # Collecter toutes les lignes de texte jusqu'au prochain index où timestamp
                 while idx < len(raw_lines) and "-->" not in raw_lines[idx] and not raw_lines[idx].isdigit():
                     text_lines.append(raw_lines[idx])
                     idx += 1
@@ -341,7 +397,7 @@ class Lecteur(QtWidgets.QMainWindow):
                 )
                 return
 
-            # Mapping langue -> chemin complet du .srt (on prend le premier trouvé par langue)
+            # Mapping langue → chemin complet du .srt (on prend le premier trouvé par langue)
             lang_to_path: dict[str, Path] = {}
             for path in srt_files:
                 lang = path.parent.name
@@ -405,18 +461,3 @@ class Lecteur(QtWidgets.QMainWindow):
         if self.player:
             self.player.stop()
         event.accept()
-
-
-# ======================= POINT D'ENTRÉE =======================
-
-def main() -> None:
-    app = QtWidgets.QApplication(sys.argv)
-    # Exemple : remplacer par un argument de ligne de commande si nécessaire
-    video_path = sys.argv[1] if len(sys.argv) > 1 else None
-    player = Lecteur(video_path)
-    player.run()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
