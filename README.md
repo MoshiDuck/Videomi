@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.3
+0.0.3.4
 
 ---
 
@@ -50,13 +50,13 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 ## PROCHAINE CHOSE À FAIRE :
 
-gerer sous bar milieu pour icon et bug aucune icone fonctionne
+Mettre slide son
 
 ## GIT
 
 1. Supprimer l'historique Git local + recrée un dépôt Git vierge
-    ```bash   
-      Remove-Item -Recurse -Force .git
+    ```bash
+   Remove-Item -Recurse -Force .git
 
 2. Init git
     ```bash       
@@ -76,7 +76,7 @@ gerer sous bar milieu pour icon et bug aucune icone fonctionne
 
 6. Commit
     ```bash
-    git commit -m "[FAIT] sous bar"  
+    git commit -m "[FAIT] gerer sous bar milieu pour icon et bug aucune icone fonctionne"  
 
 7. Force le push
    ```bash

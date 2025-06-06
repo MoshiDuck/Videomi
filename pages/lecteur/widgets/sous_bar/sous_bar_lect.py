@@ -14,7 +14,7 @@ class SousBarLect(QtWidgets.QWidget):
         self.setWindowFlags(
             QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
         )
-        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
 
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(10, 0, 10, 0)

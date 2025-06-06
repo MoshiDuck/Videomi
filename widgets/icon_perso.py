@@ -1,5 +1,3 @@
-# icon_perso.py
-
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import QPushButton, QHBoxLayout, QLabel
 import qtawesome as qta
@@ -19,19 +17,30 @@ class IconPerso(QPushButton):
         icon_true_name: str = "",
         icon_false_name: str = "",
         color = DARK_ICON,
+        icon_size: QSize = QSize(32, 32),
         parent=None
     ):
         super().__init__(parent)
         self.icon_only = icon_only_name
         self.state = initial_state
         self.color = color
+        self.icon_size = icon_size
+
         # Style et taille du bouton
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet("border: none;")
-        self.setFixedSize(32, 32)
+        self.setStyleSheet("""
+            QPushButton {
+                border: none;
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+            }
+        """)
+        self.setFixedSize(self.icon_size)
         self.setCheckable(True)
         self.setChecked(self.state)
-        self.setIconSize(QSize(32, 32))
+        self.setIconSize(self.icon_size)
 
         # Conteneur pour l’icône
         layout = QHBoxLayout(self)
@@ -43,6 +52,7 @@ class IconPerso(QPushButton):
         if self.icon_only:
             self.icon_name = self.icon_only
         else:
+            self.icon_name = ""
             self.icon_true = qta.icon(icon_true_name, color=self.color)
             self.icon_false = qta.icon(icon_false_name, color=self.color)
 
@@ -62,7 +72,7 @@ class IconPerso(QPushButton):
         else:
             icon = self.icon_true if self.state else self.icon_false
 
-        self.icon_label.setPixmap(icon.pixmap(self.iconSize()))
+        self.icon_label.setPixmap(icon.pixmap(self.icon_size))
 
     def get_state(self) -> bool:
         return self.state

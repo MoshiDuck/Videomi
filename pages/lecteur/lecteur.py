@@ -97,9 +97,10 @@ class Lecteur(QtWidgets.QMainWindow):
         control_layout.setSpacing(30)
         control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
-        self.sous_milieu.rewind_btn.clicked.connect(self.seek_backward)
-        self.sous_milieu.forward_btn.clicked.connect(self.seek_forward)
-        self.sous_milieu.play_pause_btn.clicked.connect(self.toggle_play_pause)
+        self.sous_milieu.rewind_icon.clicked.connect(self.seek_backward)
+        self.sous_milieu.play_pause_icon.clicked.connect(self.toggle_play_pause)
+        self.sous_milieu.forward_icon.clicked.connect(self.seek_forward)
+
 
         # Positionnement initial de la barre (cachée)
         self.sous_bar.hide()
@@ -168,11 +169,11 @@ class Lecteur(QtWidgets.QMainWindow):
         if self.player.is_playing():
             # Met en pause immédiatement
             self.player.set_pause(True)
-            self.sous_milieu.play_pause_btn.setIcon(qta.icon('fa5s.play', color='black'))
+            self.sous_milieu.play_pause_icon.setIcon(qta.icon('fa5s.play', color='black'))
         else:
             # Reprend la lecture immédiatement
             self.player.set_pause(False)
-            self.sous_milieu.play_pause_btn.setIcon(qta.icon('fa5s.pause', color='black'))
+            self.sous_milieu.play_pause_icon.setIcon(qta.icon('fa5s.pause', color='black'))
 
     def seek_forward(self) -> None:
         """Avance la vidéo de 10 secondes."""
@@ -206,9 +207,9 @@ class Lecteur(QtWidgets.QMainWindow):
             return
         state = self.player.get_state()
         if state == vlc.State.Playing:
-            self.sous_milieu.play_pause_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPause))
+            self.sous_milieu.play_pause_icon.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPause))
         elif state in (vlc.State.Paused, vlc.State.Stopped, vlc.State.Ended):
-            self.sous_milieu.play_pause_btn.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPlay))
+            self.sous_milieu.play_pause_icon.setIcon(self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaPlay))
 
     # ----------------------- GESTION DE LA BARRE -----------------------
 
