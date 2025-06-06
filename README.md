@@ -61,34 +61,37 @@ Mettre slide son
 1. Supprimer l'historique Git local + recrée un dépôt Git vierge
     ```bash
    Remove-Item -Recurse -Force .git
+   ```
 
 2. Init git
     ```bash       
    git init
+   ```
 
 3. Mettre main
    ```bash  
    git checkout -b main
+   ```
    
 4. Lier au dépôt distant GitHub
     ```bash
    git remote add origin https://github.com/MoshiDuck/Videomi
-
+   ```
 ---
 
 ### Ajouter / Modifier
 
-1. Ajoutez les dossiers
+1. Ajoutez les dossiers  
     ```bash
-   git add .
-
-2. Commit
+    git add .
+    ```
+2. Commit  
     ```bash
-    git commit -m "[FAIT] gerer sous bar milieu pour icon et bug aucune icone fonctionne"  
+    git commit -m "[FAIT] gerer sous bar milieu pour icon et bug aucune icone fonctionne"
+    ```
+3. Force le push  
+    ```bash
+    git push --force origin main
+    ```
 
-3. Force le push
-   ```bash
-   git push --force origin main
-
-   
-   
+### Total
