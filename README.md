@@ -52,7 +52,11 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
 
 Mettre slide son
 
+---
+
 ## GIT
+
+### Réinitialiser
 
 1. Supprimer l'historique Git local + recrée un dépôt Git vierge
     ```bash
@@ -70,15 +74,19 @@ Mettre slide son
     ```bash
    git remote add origin https://github.com/MoshiDuck/Videomi
 
-5. Ajoutez les dossiers
+---
+
+### Ajouter / Modifier
+
+1. Ajoutez les dossiers
     ```bash
    git add .
 
-6. Commit
+2. Commit
     ```bash
     git commit -m "[FAIT] gerer sous bar milieu pour icon et bug aucune icone fonctionne"  
 
-7. Force le push
+3. Force le push
    ```bash
    git push --force origin main
 
