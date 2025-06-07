@@ -18,4 +18,3 @@ class SousBarGaucheLect(QtWidgets.QWidget):
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(10, 0, 10, 0)
         self.control_layout.setSpacing(30)
-        self.control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)

@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.7
+0.0.4.0
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Mettre le slide tout à droite "
+    git commit -m "[FAIT] Mettre bar transparent, recup chapitre"
     ```
 3. Force le push  
     ```bash
@@ -92,4 +92,4 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-Mettre indication % volume
+Agrandir icone play

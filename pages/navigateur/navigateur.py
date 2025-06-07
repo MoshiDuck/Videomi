@@ -489,7 +489,8 @@ class Navigateur(QtWidgets.QMainWindow):
             return
 
         # 1) On crée d’abord l’instance du Lecteur avec le chemin fourni
-        self.lecteur = Lecteur(chemin_media)
+        # On passe self.video_info à Lecteur
+        self.lecteur = Lecteur(chemin_media, video_info=self.video_info)
 
         # 2) On ferme la fenêtre Navigateur
         self.hide()

@@ -28,8 +28,6 @@ def normaliser_langue(lang: str) -> str:
     }
     return mapping.get(lang, lang)
 
-
-
 def obtenir_videos(video_info: dict) -> tuple[list[dict], dict]:
     cache = VideoCache()
     if cached := cache.object("videos"):
@@ -58,7 +56,6 @@ def obtenir_videos(video_info: dict) -> tuple[list[dict], dict]:
 
     cache.insert("videos", videos, max(len(videos) // 10, 1))
     return videos, new_info
-
 
 def process_folder(dossier: str, extensions: tuple[str, ...], video_info: dict) -> tuple[list[dict], dict]:
     folder_videos: list[dict] = []
@@ -92,6 +89,7 @@ def get_video_metadata(chemin_video: str) -> dict:
         '-print_format', 'json',
         '-show_format',
         '-show_streams',
+        '-show_chapters',  # <- Ajout pour récupérer les chapitres
         chemin_video
     ]
 
@@ -130,11 +128,27 @@ def get_video_metadata(chemin_video: str) -> dict:
                 audio_langues.append(lang)
             elif codec_type == "subtitle" and lang not in sous_titres_langues:
                 sous_titres_langues.append(lang)
+
+        # Chapitres
+        chapitres = []
+        for chapitre in data.get("chapters", []):
+            start = float(chapitre.get("start_time", 0))
+            end = float(chapitre.get("end_time", 0))
+            tags = chapitre.get("tags", {})
+            titre = tags.get("title", "")
+            chapitres.append({
+                "titre": titre,
+                "start": start,
+                "end": end,
+                "duree": end - start
+            })
+
         return {
             "duree": duration,
             "codec": codec,
             "audio_langues": audio_langues,
-            "sous_titres_langues": sous_titres_langues
+            "sous_titres_langues": sous_titres_langues,
+            "chapitres": chapitres
         }
 
     except subprocess.CalledProcessError as e:
@@ -146,5 +160,7 @@ def get_video_metadata(chemin_video: str) -> dict:
         "duree": 0.0,
         "codec": "inconnu",
         "audio_langues": [],
-        "sous_titres_langues": []
+        "sous_titres_langues": [],
+        "chapitres": []
     }
+

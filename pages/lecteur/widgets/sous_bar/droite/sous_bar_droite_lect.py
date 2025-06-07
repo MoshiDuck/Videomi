@@ -16,7 +16,6 @@ class SousBarDroiteLect(QtWidgets.QWidget):
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(0, 0, 0, 0)
         self.control_layout.setSpacing(10)
-        self.control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         height = self.height()
         middle_size = QSize(int(height * 0.7), int(height * 0.7))

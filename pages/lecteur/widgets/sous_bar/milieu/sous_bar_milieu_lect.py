@@ -15,7 +15,6 @@ class SousBarMilieuLect(QtWidgets.QWidget):
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(0, 0, 0, 0)
         self.control_layout.setSpacing(30)
-        self.control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         height = self.height()
 

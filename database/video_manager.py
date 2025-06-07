@@ -1,30 +1,10 @@
 import os
 from operator import itemgetter
+import sqlite3
 
 from config.config import VIDEOS_DB_PATH
 from database.videos import obtenir_videos
 from cache.cache import SortCache, SearchCache
-
-
-def init_db():
-    os.makedirs("subs_cache", exist_ok=True)
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS subtitles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        video_name TEXT NOT NULL,
-        stream_index INTEGER NOT NULL,
-        language TEXT,
-        codec TEXT,
-        srt_path TEXT NOT NULL,
-        last_modified REAL,
-        UNIQUE(video_name, stream_index)
-    )
-    """)
-    conn.commit()
-    conn.close()
 
 class VideoManager:
     def __init__(self, video_info, thumbnail_manager, thumbnail_dir):
@@ -34,36 +14,72 @@ class VideoManager:
         self.sort_cache = SortCache()
         self.search_cache = SearchCache()
 
-
-
     def load_video_info(self):
-        import sqlite3
         try:
             conn = sqlite3.connect(VIDEOS_DB_PATH)
             c = conn.cursor()
+
+            # Création des tables si nécessaire
             c.execute("""
                 CREATE TABLE IF NOT EXISTS video_info (
-                    chemin              TEXT PRIMARY KEY,
-                    nom                 TEXT,
-                    duree               REAL,
-                    audio_langues       TEXT,
+                    chemin TEXT PRIMARY KEY,
+                    nom TEXT,
+                    duree REAL,
+                    audio_langues TEXT,
                     sous_titres_langues TEXT
+                )
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS chapitres (
+                    chemin TEXT,
+                    titre TEXT,
+                    start REAL,
+                    end REAL,
+                    duree REAL,
+                    PRIMARY KEY (chemin, start),
+                    FOREIGN KEY (chemin) REFERENCES video_info(chemin) ON DELETE CASCADE
                 )
             """)
             conn.commit()
 
-            c.execute("SELECT chemin, nom, duree, audio_langues, sous_titres_langues FROM video_info")
-            rows = c.fetchall()
             self.video_info = {}
-            for row in rows:
-                chemin, nom, duree, audio_langues, sous_titres_langues = row
+            c.execute("SELECT chemin, nom, duree, audio_langues, sous_titres_langues FROM video_info")
+            for chemin, nom, duree, audio_langues, sous_titres_langues in c.fetchall():
                 self.video_info[chemin] = {
                     'chemin': chemin,
                     'nom': nom,
                     'duree': duree,
                     'audio_langues': audio_langues.split(',') if audio_langues else [],
-                    'sous_titres_langues': sous_titres_langues.split(',') if sous_titres_langues else []
+                    'sous_titres_langues': sous_titres_langues.split(',') if sous_titres_langues else [],
+                    'chapitres': [],
+                    'nb_chapitres': 0,
+                    'has_opening': False,
+                    'has_ending': False
                 }
+
+            # Charger les chapitres
+            c.execute("SELECT chemin, titre, start, end, duree FROM chapitres")
+            for chemin, titre, start, end, duree in c.fetchall():
+                chapitre = {
+                    'titre': titre,
+                    'start': start,
+                    'end': end,
+                    'duree': duree
+                }
+                if chemin in self.video_info:
+                    self.video_info[chemin]['chapitres'].append(chapitre)
+
+            # Marquer has_opening / has_ending
+            for info in self.video_info.values():
+                chapitres = info['chapitres']
+                info['nb_chapitres'] = len(chapitres)
+                for ch in chapitres:
+                    titre = ch['titre'].lower()
+                    if 'opening' in titre:
+                        info['has_opening'] = True
+                    if 'ending' in titre:
+                        info['has_ending'] = True
+
             conn.close()
         except Exception as e:
             print(f"[LOAD_VIDEO_INFO] Erreur : {e}")
@@ -71,18 +87,28 @@ class VideoManager:
         return self.video_info
 
     def save_video_info(self):
-        import sqlite3
         conn = sqlite3.connect(VIDEOS_DB_PATH)
         c = conn.cursor()
 
-        # Création de la table si elle n'existe pas
+        # Création des tables
         c.execute("""
             CREATE TABLE IF NOT EXISTS video_info (
-                chemin              TEXT PRIMARY KEY,
-                nom                 TEXT,
-                duree               REAL,
-                audio_langues       TEXT,
+                chemin TEXT PRIMARY KEY,
+                nom TEXT,
+                duree REAL,
+                audio_langues TEXT,
                 sous_titres_langues TEXT
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS chapitres (
+                chemin TEXT,
+                titre TEXT,
+                start REAL,
+                end REAL,
+                duree REAL,
+                PRIMARY KEY (chemin, start),
+                FOREIGN KEY (chemin) REFERENCES video_info(chemin) ON DELETE CASCADE
             )
         """)
         conn.commit()
@@ -92,18 +118,37 @@ class VideoManager:
             duree = info.get('duree', 0)
             audio_str = ','.join(info.get('audio_langues', []))
             subs_str = ','.join(info.get('sous_titres_langues', []))
-            print(f"[DEBUG] INSERT chemin={chemin} nom={nom}")
+
+            # INSERT OR REPLACE video
             c.execute("""
                 INSERT OR REPLACE INTO video_info
                 (chemin, nom, duree, audio_langues, sous_titres_langues)
                 VALUES (?, ?, ?, ?, ?)
             """, (chemin, nom, duree, audio_str, subs_str))
+
+            # Supprimer anciens chapitres
+            c.execute("DELETE FROM chapitres WHERE chemin = ?", (chemin,))
+
+            # Insérer nouveaux chapitres
+            for ch in info.get('chapitres', []):
+                c.execute("""
+                    INSERT INTO chapitres (chemin, titre, start, end, duree)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    chemin,
+                    ch.get('titre', ''),
+                    ch.get('start', 0),
+                    ch.get('end', 0),
+                    ch.get('duree', ch.get('end', 0) - ch.get('start', 0))
+                ))
+
         conn.commit()
         conn.close()
-        print("[DEBUG] commit et close effectués")
+        print("[DEBUG] Infos vidéo + chapitres sauvegardées")
 
     def charger_videos(self):
         videos, new_info = obtenir_videos(self.video_info)
+
         for video in videos:
             titre_nettoye = self.thumbnail_manager.sanitize_title(video['nom'])
             dossier_video = os.path.join(self.thumbnail_dir, titre_nettoye)
