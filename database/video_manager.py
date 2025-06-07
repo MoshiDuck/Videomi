@@ -2,15 +2,15 @@ import os
 from operator import itemgetter
 import sqlite3
 
-from config.config import VIDEOS_DB_PATH
+from config.config import VIDEOS_DB_PATH, THUMBNAIL_VIDEO_DIR
 from database.videos import obtenir_videos
 from cache.cache import SortCache, SearchCache
 
 class VideoManager:
-    def __init__(self, video_info, thumbnail_manager, thumbnail_dir):
+    def __init__(self, video_info, thumbnail_manager):
         self.video_info = video_info
         self.thumbnail_manager = thumbnail_manager
-        self.thumbnail_dir = thumbnail_dir
+        self.thumbnail_dir = THUMBNAIL_VIDEO_DIR
         self.sort_cache = SortCache()
         self.search_cache = SearchCache()
 

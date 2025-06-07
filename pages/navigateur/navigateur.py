@@ -8,7 +8,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
-from config.config import FFMPEG_PATH
+from config.config import FFMPEG_PATH, THUMBNAIL_VIDEO_DIR, THUMBNAIL_MUSIC_DIR
 from database.musique_manager import MusiqueManager
 from database.musique_thumbnail_manager import MusiqueThumbnailManager
 from database.video_manager import VideoManager
@@ -47,24 +47,17 @@ class Navigateur(QtWidgets.QMainWindow):
         self.sous_bar = SousBarNav(self)
         self.sous_bar.setVisible(False)
 
-        # Répertoires pour miniatures et infos
-        self.base_path     = os.path.join(os.path.expanduser("~"), "mediatheque", "donnees")
-        self.thumbnail_dir = os.path.join(self.base_path, "images")
-        self.info_dir      = os.path.join(self.base_path, "informations")
-        os.makedirs(self.thumbnail_dir, exist_ok=True)
-        os.makedirs(self.info_dir, exist_ok=True)
-
         # --- Managers vidéo ---
         self.video_thumbnail_manager = VideoThumbnailManager()
         self.video_thumbnail_manager.thumbnail_ready.connect(self.update_thumbnail)
-        self.video_manager = VideoManager({}, self.video_thumbnail_manager, self.thumbnail_dir)
+        self.video_manager = VideoManager({}, self.video_thumbnail_manager)
         self.video_info    = self.video_manager.load_video_info()
         self.video_manager.video_info = self.video_info
 
         # --- Managers musique ---
         self.music_thumbnail_manager = MusiqueThumbnailManager()
         self.music_thumbnail_manager.thumbnail_ready.connect(self.update_thumbnail)
-        self.music_manager = MusiqueManager({}, self.music_thumbnail_manager, self.thumbnail_dir)
+        self.music_manager = MusiqueManager({}, self.music_thumbnail_manager)
         self.music_info = self.music_manager.load_music_info()
         self.music_manager.music_info = self.music_info
 

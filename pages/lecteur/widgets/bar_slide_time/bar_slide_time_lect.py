@@ -1,14 +1,12 @@
-from PyQt6.QtCore import Qt, QRect
+from PyQt6.QtCore import Qt, QRect, QPoint
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtGui import QColor, QPainter
-from PyQt6.QtWidgets import QSizePolicy, QSlider
+from PyQt6.QtWidgets import QSizePolicy, QSlider, QStyleOptionSlider
 
 
 class TimeSlider(QSlider):
     def __init__(self, parent=None):
         super().__init__(Qt.Orientation.Horizontal, parent)
-        self.setRange(0, 100)
-        self.setValue(0)
         self.setMouseTracking(True)
         self.chapitres = []
         self.duree_totale = 1
@@ -16,9 +14,23 @@ class TimeSlider(QSlider):
 
     def setChapitres(self, chapitres, duree_totale):
         self.chapitres = chapitres
-        self.duree_totale = duree_totale if duree_totale > 0 else 1
+        self.duree_totale = max(1, duree_totale)
         self.setRange(0, int(self.duree_totale))
         self.update()
+
+    def _pickValue(self, x_pos: int) -> int:
+        """Calcule la valeur du slider en secondes depuis l'abscisse du clic/déplacement."""
+        opt = QStyleOptionSlider()
+        self.initStyleOption(opt)
+        style = self.style()
+        groove = style.subControlRect(
+            QtWidgets.QStyle.ComplexControl.CC_Slider, opt,
+            QtWidgets.QStyle.SubControl.SC_SliderGroove, self
+        )
+        rel = x_pos - groove.x()
+        return style.sliderValueFromPosition(
+            self.minimum(), self.maximum(), rel, groove.width(), opt.upsideDown
+        )
 
     def enterEvent(self, event):
         self._hover = True
@@ -75,7 +87,32 @@ class TimeSlider(QSlider):
                     painter.fillRect(rect_progress, progress_color)
 
         painter.end()
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            val = self._pickValue(int(event.position().x()))
+            self.setValue(val)
+            self.setSliderDown(True)
+            self.sliderMoved.emit(val)
+            event.accept()
+        else:
+            super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        # Quand on glisse avec le bouton enfoncé, on continue à mettre à jour
+        if self.isSliderDown():
+            val = self._pickValue(int(event.position().x()))
+            self.setValue(val)
+            self.sliderMoved.emit(val)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.MouseButton.LeftButton and self.isSliderDown():
+            self.setSliderDown(False)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
 
 class BarSlideTimeLect(QtWidgets.QWidget):
     def __init__(self,parent=None, chapitres=None, duree_totale=3000 ):
@@ -96,11 +133,10 @@ class BarSlideTimeLect(QtWidgets.QWidget):
         self.control_layout.setSpacing(0)
 
         if chapitres is None or len(chapitres) == 0:
-            # Aucun chapitre : créer un chapitre unique couvrant toute la durée
-            chapitres = [{'titre': 'Unique', 'start': 0.0, 'end': duree_totale}]
-
+            chapitres = [{'titre':'Unique','start':0.0,'end':duree_totale}]
         duree_totale = chapitres[-1]['end'] if chapitres else duree_totale
 
         self.slider = TimeSlider(self)
         self.slider.setChapitres(chapitres, duree_totale)
         self.control_layout.addWidget(self.slider)
+

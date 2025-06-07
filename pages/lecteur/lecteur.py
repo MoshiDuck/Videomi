@@ -53,49 +53,56 @@ logging.basicConfig(
 class Lecteur(QtWidgets.QMainWindow):
     def __init__(self, video_path, vm: VideoManager):
         super().__init__()
-        # log uncaught
-        sys.excepthook = lambda ex, val, tb: logging.critical("Uncaught", exc_info=(ex,val,tb))
+        sys.excepthook = lambda ex, val, tb: logging.critical("Uncaught", exc_info=(ex, val, tb))
         self._last_volume = 100
 
+        # Chemin vidéo
         self.video_path = Path(video_path) if video_path else None
 
-        # Charge infos depuis la base SQLite (via VideoManager)
+        # Récupère les infos depuis la DB
         vm.load_video_info()
-
-        # Récupérer les infos de la vidéo en question
         media = vm.video_info.get(str(self.video_path), {})
 
-        self.total_time_ms = int(media.get('duree', 0) * 1000)  # durée en secondes convertie en ms
-        self.duree_str = formater_duree(media.get('duree', 0))  # durée formatée pour affichage
-        self.chapitres = media.get('chapitres', [])
+        # Durée en secondes pour le slider + version formatée pour l'affichage
+        self.duration_sec    = int(media.get('duree', 0))
+        self.duree_str       = formater_duree(self.duration_sec)
+        self.chapitres       = media.get('chapitres', [])
+        self.total_time_ms   = self.duration_sec * 1000  # pour formatage ultérieur
 
+        # VLC
         self.vlc_instance = None
-        self.player = None
-        self.tmp_dir = None
+        self.player       = None
+        self.tmp_dir      = None
         self.merged_ass_path = None
 
         # UI
         self.central_widget = QtWidgets.QWidget(self)
-        self.videoframe = QtWidgets.QFrame(self.central_widget)
-        self.bar_slide = BarSlideTimeLect(self.central_widget, self.chapitres, self.duree_str)
-        self.sous_bar = SousBarLect(self.central_widget)
-        self.sous_milieu = self.sous_bar.sous_bar_milieu
-        self.sous_droite = self.sous_bar.sous_bar_droite
+        self.videoframe     = QtWidgets.QFrame(self.central_widget)
 
-        # Overlays : volume + time
+        # Barre de progression custom (en secondes)
+        self.bar_slide = BarSlideTimeLect(self.central_widget,
+                                         self.chapitres,
+                                         self.duration_sec)
+        # SliderMoved envoie une valeur en secondes
+        self.bar_slide.slider.sliderMoved.connect(self.on_slider_moved)
+
+        self.sous_bar   = SousBarLect(self.central_widget)
+        self.sous_milieu= self.sous_bar.sous_bar_milieu
+        self.sous_droite= self.sous_bar.sous_bar_droite
+
+        # Overlays
         self.volume_display = self._create_overlay_label()
-        self.time_display = self._create_overlay_label()
+        self.time_display   = self._create_overlay_label()
 
         # Timers
-        self._hide_volume_timer = QtCore.QTimer(self, singleShot=True, interval=1500)
+        self._hide_volume_timer      = QtCore.QTimer(self, singleShot=True, interval=1500)
         self._hide_volume_timer.timeout.connect(self.volume_display.hide)
-
-        self._hide_time_display_timer = QtCore.QTimer(self, singleShot=True, interval=1500)
+        self._hide_time_display_timer= QtCore.QTimer(self, singleShot=True, interval=1500)
         self._hide_time_display_timer.timeout.connect(self.time_display.hide)
 
-        self.hide_bar_timer = QtCore.QTimer(self)
-        self.cursor_monitor = QtCore.QTimer(self)
-        self.ui_timer = QtCore.QTimer(self)
+        self.hide_bar_timer  = QtCore.QTimer(self)
+        self.cursor_monitor  = QtCore.QTimer(self)
+        self.ui_timer        = QtCore.QTimer(self)
 
         self._setup_ui()
         self._setup_timers()
@@ -103,52 +110,61 @@ class Lecteur(QtWidgets.QMainWindow):
         self.setWindowTitle("Lecteur")
         self.showFullScreen()
 
+    def on_slider_moved(self, seconds_position: int):
+        """Lorsque l'utilisateur déplace le slider, saute à cette position."""
+        if self.player:
+            ms = seconds_position * 1000
+            self.player.set_time(ms)
+            # Mise à jour immédiate du label temps
+            current_str = self._format_time(ms)
+            total_str   = self._format_time(self.total_time_ms)
+            self.time_display.setText(f"{current_str} / {total_str}")
+            self.time_display.adjustSize()
+            self._position_label_top_right(self.time_display, self.videoframe.geometry())
+
     # ----------------------- INITIALISATION UI -----------------------
 
     def _setup_ui(self) -> None:
-        """Crée et dispose les éléments de l'interface."""
         self.setCentralWidget(self.central_widget)
         layout = QtWidgets.QVBoxLayout(self.central_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0,0,0,0)
         layout.setSpacing(0)
 
         # Video frame
         self.videoframe.setStyleSheet("background-color: black;")
         layout.addWidget(self.videoframe)
 
-        # Barre de contrôle (overlay)
+        # Barre de progression
         self.bar_slide.setFixedHeight(10)
-        self.bar_slide.setStyleSheet("background-color: transparent; color: white;")
+        self.bar_slide.setStyleSheet("background-color: transparent;")
         self.bar_slide.setWindowFlags(
-            QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
+            QtCore.Qt.WindowType.FramelessWindowHint |
+            QtCore.Qt.WindowType.Tool
         )
         self.bar_slide.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        # Barre de contrôle (overlay)
+        # Barre de contrôle inférieure
         self.sous_bar.setFixedHeight(CONTROL_BAR_HEIGHT)
-        self.sous_bar.setStyleSheet("background-color: transparent; color: white;")
+        self.sous_bar.setStyleSheet("background-color: transparent;")
         self.sous_bar.setWindowFlags(
-            QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
+            QtCore.Qt.WindowType.FramelessWindowHint |
+            QtCore.Qt.WindowType.Tool
         )
         self.sous_bar.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-
-        control_layout = QtWidgets.QHBoxLayout(self.sous_bar)
-        control_layout.setContentsMargins(0, 0, 0, 0)
-        control_layout.setSpacing(30)
-        control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        ctrl = QtWidgets.QHBoxLayout(self.sous_bar)
+        ctrl.setContentsMargins(0,0,0,0)
+        ctrl.setSpacing(30)
+        ctrl.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         self.sous_milieu.rewind_icon.clicked.connect(self.seek_backward)
         self.sous_milieu.play_pause_icon.clicked.connect(self.toggle_play_pause)
         self.sous_milieu.forward_icon.clicked.connect(self.seek_forward)
 
-        # Utilisation :
         self.sous_droite.volume.clicked.connect(self.toggle_mute)
-        self.sous_droite.volume.setEnabled(False)
         self.sous_droite.volume_slider.volumeChanged.connect(self.set_volume)
-        self.sous_droite.volume_slider.setEnabled(False)
 
-        # Positionnement initial de la barre (cachée)
+        # Démarre tout masqué
         self.bar_slide.hide()
         self.sous_bar.hide()
         self.videoframe.installEventFilter(self)
@@ -156,11 +172,7 @@ class Lecteur(QtWidgets.QMainWindow):
     def _create_overlay_label(self, font_size: int = 60) -> QLabel:
         label = QLabel(self.central_widget)
         label.setAttribute(Qt.WidgetAttribute.WA_AlwaysStackOnTop)
-        label.setStyleSheet(f"""
-            color: white;
-            font-size: {font_size}px;
-            background-color: transparent;
-        """)
+        label.setStyleSheet(f"color:white; font-size:{font_size}px; background:transparent;")
         label.adjustSize()
         label.hide()
         return label
@@ -214,19 +226,21 @@ class Lecteur(QtWidgets.QMainWindow):
         self._hide_volume_timer.start()
 
     def update_ui(self) -> None:
+        """Timer -> mets à jour temps et slider."""
         if not self.player:
             return
 
-        current_time = self.player.get_time()  # en ms
-        total_time = self.total_time_ms  # en ms
-
-        if current_time != -1 and total_time > 0:
-            current_str = self._format_time(current_time)
-            total_str = self._format_time(total_time)
+        current_ms = self.player.get_time()
+        total_ms   = self.player.get_length()
+        if current_ms != -1 and total_ms > 0:
+            # Label
+            current_str = self._format_time(current_ms)
+            total_str   = self._format_time(total_ms)
             self.time_display.setText(f"{current_str} / {total_str}")
             self.time_display.adjustSize()
-
             self._position_label_top_right(self.time_display, self.videoframe.geometry())
+            # Slider (en secondes)
+            self.bar_slide.slider.setValue(current_ms // 1000)
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         super().resizeEvent(event)

@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.4.1
+0.0.4.2
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] incorporation chapitres"
+    git commit -m "[FAIT] interaction film / slide"
     ```
 3. Force le push  
     ```bash
@@ -92,4 +92,4 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-interaction film / slide
+miniatures

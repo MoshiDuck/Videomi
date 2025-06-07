@@ -1,16 +1,16 @@
 import os
 
-from config.config import MUSIQUES_DB_PATH
+from config.config import MUSIQUES_DB_PATH, THUMBNAIL_MUSIC_DIR
 from database.musiques import obtenir_musiques
 from cache.cache import SortCache, SearchCache
 
 
 class MusiqueManager:
-    def __init__(self, music_info, thumbnail_manager, thumbnail_dir):
+    def __init__(self, music_info, thumbnail_manager):
         print("[INIT] Initialisation du MusiqueManager")
         self.music_info = music_info
         self.thumbnail_manager = thumbnail_manager
-        self.thumbnail_dir = thumbnail_dir
+        self.thumbnail_dir = THUMBNAIL_MUSIC_DIR
         self.sort_cache = SortCache()
         self.search_cache = SearchCache()
 
