@@ -16,15 +16,19 @@ class SousBarLect(QtWidgets.QWidget):
         )
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
 
+        # Layout principal horizontal
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(10, 0, 10, 0)
-        self.control_layout.setSpacing(30)
-        self.control_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.control_layout.setSpacing(0)
 
+        # Widgets gauche, milieu, droite
         self.sous_bar_gauche = SousBarGaucheLect()
         self.sous_bar_milieu = SousBarMilieuLect()
         self.sous_bar_droite = SousBarDroiteLect()
 
+        # Ajouter widgets avec stretches pour alignement
         self.control_layout.addWidget(self.sous_bar_gauche)
+        self.control_layout.addStretch(1)
         self.control_layout.addWidget(self.sous_bar_milieu)
+        self.control_layout.addStretch(1)
         self.control_layout.addWidget(self.sous_bar_droite)

@@ -1,4 +1,4 @@
-# volume_slider.py
+# widgets/volume_slider.py
 from PyQt6.QtWidgets import QSlider
 from PyQt6.QtCore import Qt, pyqtSignal
 
@@ -6,25 +6,29 @@ class VolumeSlider(QSlider):
     """
     QSlider horizontal avec plage 0–150 et style dynamique :
     - Orange de 0 à 100
-    - Rouge pastel de 101 à 150
+    - Rouge pastel plus voyant de 101 à 150
+    Permet de personnaliser la largeur via le paramètre `width`.
     Émet un signal volumeChanged(int) à chaque modification.
     """
     volumeChanged = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(Qt.Orientation.Horizontal, parent)
+        # Plage de volume 0–150
         self.setRange(0, 150)
         self.setValue(100)
-        self.setFixedWidth(100)
+        # Largeur paramétrable
+        self.setFixedWidth(200)
         self.setToolTip("Volume")
+        # Connexion interne
         self.valueChanged.connect(self._on_value_changed)
         # Appliquer le style initial
         self._update_style(self.value())
 
     def _on_value_changed(self, value: int):
-        # Met à jour le style visuel
+        # Mise à jour du style
         self._update_style(value)
-        # Réémet proprement un signal
+        # Réémission du signal
         self.volumeChanged.emit(value)
 
     def _update_style(self, value: int):
