@@ -1,83 +1,90 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QRect
 from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtWidgets import QSizePolicy
+from PyQt6.QtGui import QColor, QPainter
+from PyQt6.QtWidgets import QSizePolicy, QSlider
 
 
-class TimeSlider(QtWidgets.QSlider):
+class TimeSlider(QSlider):
     def __init__(self, parent=None):
         super().__init__(Qt.Orientation.Horizontal, parent)
         self.setRange(0, 100)
         self.setValue(0)
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.setMouseTracking(True)
-
+        self.chapitres = []
+        self.duree_totale = 1
         self._hover = False
-        self._update_style()
+
+    def setChapitres(self, chapitres, duree_totale):
+        self.chapitres = chapitres
+        self.duree_totale = duree_totale if duree_totale > 0 else 1
+        self.setRange(0, int(self.duree_totale))
+        self.update()
 
     def enterEvent(self, event):
         self._hover = True
-        self._update_style()
+        self.update()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self._hover = False
-        self._update_style()
+        self.update()
         super().leaveEvent(event)
 
-    def _update_style(self):
-        if self._hover:
-            groove_height = 10
-            sub_page_color = "#FFA500"  # orange clair
-            add_page_color = "#555"     # gris clair
-        else:
-            groove_height = 4
-            sub_page_color = "#cc7a00"  # orange foncé
-            add_page_color = "#222"      # gris foncé
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        rect = self.rect()
 
-        radius = groove_height // 2
+        groove_height = 10 if self._hover else 6
+        groove_y = rect.center().y() - groove_height // 2
+        total_width = rect.width() - 20
+        groove_left = rect.left() + 10
+        groove_top = groove_y
 
-        self.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: {groove_height}px;
-                background: {add_page_color};
-                border-radius: {radius}px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {sub_page_color};
-                border-top-left-radius: {radius}px;
-                border-bottom-left-radius: {radius}px;
-                border-top-right-radius: 0;
-                border-bottom-right-radius: 0;
-            }}
-            QSlider::add-page:horizontal {{
-                background: {add_page_color};
-                border-top-right-radius: {radius}px;
-                border-bottom-right-radius: {radius}px;
-                border-top-left-radius: 0;
-                border-bottom-left-radius: 0;
-            }}
-            QSlider::handle:horizontal {{
-                width: 0px;
-                height: 0px;
-                margin: 0px;
-                border: none;
-            }}
-        """)
+        progress_color = QColor("#cc7a00") if not self._hover else QColor("#FFA500")
+        base_color = QColor("#222") if not self._hover else QColor("#555")
+
+        value_frac = self.value() / self.duree_totale
+        progress_x = groove_left + value_frac * total_width
+
+        espace_sep = 5  # espace transparent entre chapitres
+
+        for i, ch in enumerate(self.chapitres):
+            start_frac = ch['start'] / self.duree_totale
+            end_frac = ch['end'] / self.duree_totale
+
+            start_x = groove_left + int(start_frac * total_width)
+            end_x = groove_left + int(end_frac * total_width)
+
+            # Réduire la fin pour faire un espace transparent sauf dernier chapitre
+            if i < len(self.chapitres) - 1:
+                end_x -= espace_sep
+
+            width_chap = end_x - start_x
+            if width_chap <= 0:
+                continue
+
+            # Partie non lue du chapitre
+            rect_base = QRect(start_x, groove_top, width_chap, groove_height)
+            painter.fillRect(rect_base, base_color)
+
+            # Partie lue (progression)
+            if progress_x > start_x:
+                progress_width = min(progress_x, end_x) - start_x
+                if progress_width > 0:
+                    rect_progress = QRect(start_x, groove_top, int(progress_width), groove_height)
+                    painter.fillRect(rect_progress, progress_color)
+
+        painter.end()
+
 
 class BarSlideTimeLect(QtWidgets.QWidget):
-    def __init__(self, parent=None):
+    def __init__(self,parent=None, chapitres=None, duree_totale=3000 ):
         super().__init__(parent)
-        # 1) Autoriser la fenêtre translucide
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WA_StyledBackground, True)
-
-        # 2) Style CSS : fond 100% transparent ou semi-transparent (ici 50%)
         self.setStyleSheet("""
-            background-color: rgba(0, 0, 0, 0);  /* fully transparent */
-            /* background-color: rgba(0, 0, 0, 128);  semi-transparent black */
+            background-color: rgba(0, 0, 0, 0);
             color: white;
         """)
-
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setWindowFlags(
             QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
@@ -88,5 +95,12 @@ class BarSlideTimeLect(QtWidgets.QWidget):
         self.control_layout.setContentsMargins(10, 0, 10, 0)
         self.control_layout.setSpacing(0)
 
+        if chapitres is None or len(chapitres) == 0:
+            # Aucun chapitre : créer un chapitre unique couvrant toute la durée
+            chapitres = [{'titre': 'Unique', 'start': 0.0, 'end': duree_totale}]
+
+        duree_totale = chapitres[-1]['end'] if chapitres else duree_totale
+
         self.slider = TimeSlider(self)
+        self.slider.setChapitres(chapitres, duree_totale)
         self.control_layout.addWidget(self.slider)

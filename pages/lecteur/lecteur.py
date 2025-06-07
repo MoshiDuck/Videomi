@@ -2,6 +2,7 @@ import logging
 import sys
 import tempfile
 from pathlib import Path
+from typing import Union
 
 import qtawesome as qta
 import vlc
@@ -10,15 +11,17 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMessageBox, QLabel
 
-from config.colors import PRIMARY_COLOR
 from config.config import SRT_DIR
+from database.sous_titre_converter import SousTitreConverter
 from database.sous_titre_manager import SousTitreManager
+from database.video_manager import VideoManager
 from pages.lecteur.widgets.bar_slide_time.bar_slide_time_lect import BarSlideTimeLect
 from pages.lecteur.widgets.sous_bar.sous_bar_lect import SousBarLect
+from utils.formater_duree import formater_duree
 
 # ======================= CONSTANTES =======================
 
-CONTROL_BAR_HEIGHT = 40
+CONTROL_BAR_HEIGHT = 60
 HIDE_BAR_DELAY_MS = 3000
 MOUSE_CHECK_INTERVAL_MS = 200
 UI_REFRESH_INTERVAL_MS = 1000
@@ -48,15 +51,24 @@ logging.basicConfig(
 # ======================= CLASSE PRINCIPALE =======================
 
 class Lecteur(QtWidgets.QMainWindow):
-    def __init__(self, video_path, video_info):
+    def __init__(self, video_path, vm: VideoManager):
         super().__init__()
         # log uncaught
         sys.excepthook = lambda ex, val, tb: logging.critical("Uncaught", exc_info=(ex,val,tb))
         self._last_volume = 100
 
         self.video_path = Path(video_path) if video_path else None
-        self.video_info = video_info
-        self.chapitres = video_info.get('chapitres', [])
+
+        # Charge infos depuis la base SQLite (via VideoManager)
+        vm.load_video_info()
+
+        # Récupérer les infos de la vidéo en question
+        media = vm.video_info.get(str(self.video_path), {})
+
+        self.total_time_ms = int(media.get('duree', 0) * 1000)  # durée en secondes convertie en ms
+        self.duree_str = formater_duree(media.get('duree', 0))  # durée formatée pour affichage
+        self.chapitres = media.get('chapitres', [])
+
         self.vlc_instance = None
         self.player = None
         self.tmp_dir = None
@@ -65,7 +77,7 @@ class Lecteur(QtWidgets.QMainWindow):
         # UI
         self.central_widget = QtWidgets.QWidget(self)
         self.videoframe = QtWidgets.QFrame(self.central_widget)
-        self.bar_slide = BarSlideTimeLect(self.central_widget)
+        self.bar_slide = BarSlideTimeLect(self.central_widget, self.chapitres, self.duree_str)
         self.sous_bar = SousBarLect(self.central_widget)
         self.sous_milieu = self.sous_bar.sous_bar_milieu
         self.sous_droite = self.sous_bar.sous_bar_droite
@@ -90,8 +102,6 @@ class Lecteur(QtWidgets.QMainWindow):
 
         self.setWindowTitle("Lecteur")
         self.showFullScreen()
-
-        self.print_chapters()
 
     # ----------------------- INITIALISATION UI -----------------------
 
@@ -142,17 +152,6 @@ class Lecteur(QtWidgets.QMainWindow):
         self.bar_slide.hide()
         self.sous_bar.hide()
         self.videoframe.installEventFilter(self)
-
-    def print_chapters(self):
-        if not self.chapitres:
-            print("Pas de chapitres disponibles pour cette vidéo.")
-            return
-        print(f"Chapitres pour {self.video_path} :")
-        for i, ch in enumerate(self.chapitres):
-            start = self._format_time(ch['start'])
-            end = self._format_time(ch['end'])
-            titre = ch.get('titre', '')
-            print(f"  Chapitre {i} : '{titre}' de {start} à {end}")
 
     def _create_overlay_label(self, font_size: int = 60) -> QLabel:
         label = QLabel(self.central_widget)
@@ -215,12 +214,12 @@ class Lecteur(QtWidgets.QMainWindow):
         self._hide_volume_timer.start()
 
     def update_ui(self) -> None:
-        """Met à jour le label de temps toutes les secondes."""
         if not self.player:
             return
 
         current_time = self.player.get_time()  # en ms
-        total_time = self.player.get_length()  # en ms
+        total_time = self.total_time_ms  # en ms
+
         if current_time != -1 and total_time > 0:
             current_str = self._format_time(current_time)
             total_str = self._format_time(total_time)
@@ -399,7 +398,6 @@ class Lecteur(QtWidgets.QMainWindow):
         )
         self.sous_bar.raise_()
 
-        # Position bar_slide juste au-dessus de sous_bar avec un léger chevauchement
         overlap = -5  # nombre de pixels de recouvrement ou d'espacement négatif
         y_slide = vf_height - CONTROL_BAR_HEIGHT - self.bar_slide.height() + overlap
         self.bar_slide.setGeometry(
@@ -410,155 +408,110 @@ class Lecteur(QtWidgets.QMainWindow):
         )
         self.bar_slide.raise_()
 
-    # ----------------------- CONVERSION SRT → ASS -----------------------
-
-    @staticmethod
-    def parse_srt_time(timestamp: str) -> float:
-        """
-        Convertit une durée SRT (HH:MM:SS,ms) en secondes flottantes.
-        Exemple : "00:01:23,456" → 83.456
-        """
-        h, m, rest = timestamp.strip().split(":")
-        s, ms = rest.split(",")
-        return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
-
-    @staticmethod
-    def format_ass_time(seconds: float) -> str:
-        """
-        Convertit un temps en secondes (float) en format ASS (H : MM : SS.CC).
-        Les centièmes (CC) sont déduits des parties décimales des secondes.
-        """
-        total_cs = int(round(seconds * 100))
-        h = total_cs // 360_000
-        m = (total_cs % 360_000) // 6000
-        s = (total_cs % 6000) // 100
-        cs = total_cs % 100
-        return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
-
-    def srt_to_ass(self, srt_path: Path, style_name: str) -> list[str]:
-        """
-        Lit un fichier .srt et retourne une liste de lignes ASS (Dialogue : ...).
-        Chaque bloc SRT "start → end" est converti en "Dialogue: ..."
-        """
-        ass_lines: list[str] = []
-        with srt_path.open(encoding="utf-8") as f:
-            raw_lines = [line.strip() for line in f if line.strip()]
-
-        idx = 0
-        while idx < len(raw_lines):
-            if "-->" in raw_lines[idx]:
-                start_ts, end_ts = map(str.strip, raw_lines[idx].split("-->"))
-                a_start = self.format_ass_time(self.parse_srt_time(start_ts))
-                a_end = self.format_ass_time(self.parse_srt_time(end_ts))
-                idx += 1
-                text_lines: list[str] = []
-                # Collecter toutes les lignes de texte jusqu'au prochain index où timestamp
-                while idx < len(raw_lines) and "-->" not in raw_lines[idx] and not raw_lines[idx].isdigit():
-                    text_lines.append(raw_lines[idx])
-                    idx += 1
-                dialogue = (
-                    f"Dialogue: 0,{a_start},{a_end},{style_name},,0,0,0,," 
-                    f"{'\\N'.join(text_lines)}"
-                )
-                ass_lines.append(dialogue)
-            else:
-                idx += 1
-        return ass_lines
-
     # ----------------------- FONCTION PRINCIPALE (RUN) -----------------------
 
     def run(self) -> None:
         """
         Lance la procédure :
         1. Vérifie le chemin vidéo
-        2. Liste les fichiers .srt du dossier correspondant (fallback extraction pour cette vidéo)
+        2. Liste les fichiers .srt (extraction si besoin)
         3. Demande à l'utilisateur de choisir deux langues
         4. Génère le fichier merged.ass et lance VLC
         """
         try:
-            if not self.video_path or not self.video_path.exists():
+            if not self._is_valid_video_path():
                 raise FileNotFoundError("Chemin vidéo non valide ou inexistant.")
 
-            video_stem = self.video_path.stem
-            srt_root = Path(SRT_DIR) / video_stem
-
-            # ─── Si pas de dossier SRT ou aucun .srt, on extrait uniquement pour cette vidéo ───
-            if not srt_root.exists() or not any(srt_root.glob("**/*.srt")):
-                logging.info(f"Sous-titres manquants pour {self.video_path}, extraction pour cette vidéo.")
-                stm = SousTitreManager()
-                stm.extract_subtitle_from_video(str(self.video_path))
-
-                # on retente la détection
-                srt_root = Path(SRT_DIR) / video_stem
-                if not srt_root.exists() or not any(srt_root.glob("**/*.srt")):
-                    QMessageBox.critical(
-                        self, "Erreur",
-                        f"Aucun sous-titre trouvé ou extrait pour : {video_stem}"
-                    )
-                    return
-            # ────────────────────────────────────────────────────────────────────────────────
-
-            # Récupérer tous les .srt et grouper par nom de dossier (langue)
-            srt_files = sorted(srt_root.glob("**/*.srt"))
+            srt_files = self._get_srt_files_for_video()
             if len(srt_files) < 2:
-                QMessageBox.critical(
-                    self, "Erreur",
-                    "Moins de deux fichiers .srt trouvés dans le dossier."
-                )
+                QMessageBox.critical(self, "Erreur", "Moins de deux fichiers .srt trouvés.")
                 return
 
-            # Mapping langue → chemin complet du .srt
-            lang_to_path: dict[str, Path] = {}
-            for path in srt_files:
-                lang = path.parent.name
-                if lang not in lang_to_path:
-                    lang_to_path[lang] = path
+            lang_to_path = self._map_languages_to_paths(srt_files)
+            if len(lang_to_path) < 2:
+                QMessageBox.critical(self, "Erreur", "Moins de deux langues détectées.")
+                return
 
+            # Choix des deux langues par l'utilisateur
             languages = sorted(lang_to_path.keys())
-            if len(languages) < 2:
-                QMessageBox.critical(
-                    self, "Erreur",
-                    "Moins de deux langues de sous-titres disponibles."
-                )
+            choice_1 = self._ask_user_choice("Choix de la Langue 1", languages, default=0)
+            if choice_1 is None:
                 return
 
-            # Préparation du choix de langues
-            choices = [f"{i}: {lang}" for i, lang in enumerate(languages)]
-            prompt = "\n".join(choices)
-
-            c1, ok1 = QtWidgets.QInputDialog.getInt(
-                self, "Choix de la Langue 1", prompt, value=0, min=0, max=len(languages) - 1
-            )
-            if not ok1:
+            choice_2 = self._ask_user_choice("Choix de la Langue 2", languages, default=1)
+            if choice_2 is None:
                 return
 
-            c2, ok2 = QtWidgets.QInputDialog.getInt(
-                self, "Choix de la Langue 2", prompt, value=1, min=0, max=len(languages) - 1
-            )
-            if not ok2:
-                return
+            path1 = lang_to_path[languages[choice_1]]
+            path2 = lang_to_path[languages[choice_2]]
 
-            path1 = lang_to_path[languages[c1]]
-            path2 = lang_to_path[languages[c2]]
+            # Création et écriture du fichier ASS fusionné
+            self._generate_merged_ass(path1, path2)
 
-            # Création du dossier temporaire pour merged.ass
-            self.tmp_dir = tempfile.TemporaryDirectory()
-            self.merged_ass_path = Path(self.tmp_dir.name) / "merged.ass"
-
-            # Écriture du fichier ASS
-            with self.merged_ass_path.open("w", encoding="utf-8") as ass_file:
-                ass_file.write(ASS_HEADER)
-                for style, srt_path in [("TopSub", path1), ("BottomSub", path2)]:
-                    lines = self.srt_to_ass(srt_path, style)
-                    ass_file.write("\n".join(lines) + "\n")
-
-            # Initialisation et lancement de VLC
+            # Lancement du lecteur VLC
             self._init_vlc_player()
             self.show()
 
         except Exception as e:
             logging.error(f"Erreur lors de l'exécution : {e}", exc_info=True)
             QMessageBox.critical(self, "Erreur", str(e))
+
+    # ────────────────────────────────
+    # Méthodes auxiliaires proposées :
+    # ────────────────────────────────
+
+    def _is_valid_video_path(self) -> bool:
+        return self.video_path and self.video_path.exists()
+
+    def _get_srt_files_for_video(self) -> list[Path]:
+        video_stem = self.video_path.stem
+        srt_root = Path(SRT_DIR) / video_stem
+
+        if not srt_root.exists() or not any(srt_root.glob("**/*.srt")):
+            logging.info(f"Sous-titres manquants pour {self.video_path}, extraction...")
+            stm = SousTitreManager()
+            stm.extract_subtitle_from_video(str(self.video_path))
+            srt_root = Path(SRT_DIR) / video_stem
+
+        return sorted(srt_root.glob("**/*.srt")) if srt_root.exists() else []
+
+    @staticmethod
+    def _map_languages_to_paths(srt_files: list[Path]) -> dict[str, Path]:
+        lang_map = {}
+        for path in srt_files:
+            lang = path.parent.name
+            lang_map.setdefault(lang, path)
+        return lang_map
+
+    def _ask_user_choice(self, title: str, options: list[str], default: int = 0) -> int | None:
+        prompt = "\n".join(f"{i}: {lang}" for i, lang in enumerate(options))
+        choice, ok = QtWidgets.QInputDialog.getInt(
+            self, title, prompt, value=default, min=0, max=len(options) - 1
+        )
+        return choice if ok else None
+
+    def _generate_merged_ass(self, path1: Path, path2: Path) -> None:
+        """
+        Crée un fichier ASS fusionné à partir de deux fichiers SRT,
+        en utilisant SousTitreConverter pour la conversion.
+        """
+        # Prépare le converter
+        converter = SousTitreConverter()
+
+        # Crée un dossier temporaire pour merged.ass
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.merged_ass_path = Path(self.tmp_dir.name) / "merged.ass"
+
+        # Écrit header + dialogues pour les deux langues
+        with self.merged_ass_path.open("w", encoding="utf-8") as ass_file:
+            # Header ASS défini dans la classe
+            ass_file.write(SousTitreConverter.ASS_HEADER)
+
+            # Pour chaque style/langue, convertit et ajoute les lignes Dialogue
+            for style, srt_path in [("TopSub", path1), ("BottomSub", path2)]:
+                # Appel à la méthode srt_to_ass_lines (pas srt_to_ass)
+                ass_lines = converter.srt_to_ass_lines(srt_path, style)
+                ass_file.write("\n".join(ass_lines) + "\n")
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         if self.tmp_dir:

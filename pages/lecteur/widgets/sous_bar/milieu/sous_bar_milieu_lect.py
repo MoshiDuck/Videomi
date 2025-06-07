@@ -10,7 +10,7 @@ class SousBarMilieuLect(QtWidgets.QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setFixedHeight(40)
+        self.setFixedHeight(60)
         self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool)
         self.control_layout = QtWidgets.QHBoxLayout(self)
         self.control_layout.setContentsMargins(0, 0, 0, 0)

@@ -89,7 +89,7 @@ def get_video_metadata(chemin_video: str) -> dict:
         '-print_format', 'json',
         '-show_format',
         '-show_streams',
-        '-show_chapters',  # <- Ajout pour récupérer les chapitres
+        '-show_chapters',
         chemin_video
     ]
 

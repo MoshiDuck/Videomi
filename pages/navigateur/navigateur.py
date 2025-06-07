@@ -18,6 +18,7 @@ from pages.lecteur.lecteur import Lecteur
 from pages.navigateur.widgets.bar.bar_nav import BarNav
 from pages.navigateur.widgets.sous_bar.sous_bar_nav import SousBarNav
 from utils.filtrer_et_afficher import filtrer_et_afficher
+from utils.formater_duree import formater_duree
 from widgets.grid_list.grid.grid import Grid
 from widgets.grid_list.grid.grid_item import GridItem
 from widgets.grid_list.list.list import List
@@ -402,7 +403,7 @@ class Navigateur(QtWidgets.QMainWindow):
         if pix is None:
             pix = self._creer_pixmap_vide()
 
-        duree_str = self._formater_duree(media.get('duree', 0))
+        duree_str = formater_duree(media.get('duree', 0))
 
         if mode == 'grille':
             item = GridItem(
@@ -437,20 +438,6 @@ class Navigateur(QtWidgets.QMainWindow):
         painter.drawText(pixmap.rect(), QtCore.Qt.AlignCenter, "Miniature non disponible")
         painter.end()
         return pixmap
-
-
-    @staticmethod
-    def _formater_duree(secondes: Union[int, float]) -> str:
-        if not isinstance(secondes, (int, float)):
-            return "00:00:00"
-        try:
-            heures  = int(secondes // 3600)
-            minutes = int((secondes % 3600) // 60)
-            secs    = int(secondes % 60)
-            return f"{heures:02d}:{minutes:02d}:{secs:02d}"
-        except (ValueError, TypeError) as e:
-            logging.warning(f"Erreur de formatage de durée : {e}")
-            return "00:00:00"
 
 
     def _menu_contextuel(self, pos):
@@ -490,7 +477,7 @@ class Navigateur(QtWidgets.QMainWindow):
 
         # 1) On crée d’abord l’instance du Lecteur avec le chemin fourni
         # On passe self.video_info à Lecteur
-        self.lecteur = Lecteur(chemin_media, video_info=self.video_info)
+        self.lecteur = Lecteur(chemin_media, vm=self.video_manager)
 
         # 2) On ferme la fenêtre Navigateur
         self.hide()
