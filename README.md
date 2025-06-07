@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.4.2
+0.0.4.3
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] interaction film / slide"
+    git commit -m "[FAIT] miniatures"
     ```
 3. Force le push  
     ```bash
@@ -92,4 +92,9 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-miniatures
+- FIX Creation d'images en double, peut-etre mettre en nom le temps
+- bouton play a une ombre bizarre derriere
+- optimisation de creation de sous-titres
+- mettre menu vitesse, audio, sous-titres
+- mettre bar du haut
+- mettre de quoi fermer fenetre, diminuer et revenir en arriere

@@ -35,6 +35,20 @@ class VideoThumbnailManager(QtCore.QObject):
         self.active_processes = {}
         self._shutting_down = False
 
+    def get_thumbnail_for_time(self, titre_video: str, seconds: float) -> str:
+        titre = self.sanitize_title(titre_video)
+        folder = os.path.join(self.thumbnail_dir, titre)
+        if not os.path.exists(folder):
+            return ""
+
+        # 1 miniature toutes les 30 secondes → index = secondes // 30
+        index = int(seconds // 30)
+        filename = f"{index:04d}.jpg"
+        path = os.path.join(folder, filename)
+        if os.path.exists(path):
+            return path
+        return ""
+
     def _load_progress(self):
         progress = {}
         try:

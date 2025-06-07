@@ -15,13 +15,13 @@ from config.config import SRT_DIR
 from database.sous_titre_converter import SousTitreConverter
 from database.sous_titre_manager import SousTitreManager
 from database.video_manager import VideoManager
+from database.video_thumbnail_manager import VideoThumbnailManager
+from pages.lecteur.miniature.miniature_lect import MiniatureLect
 from pages.lecteur.widgets.bar_slide_time.bar_slide_time_lect import BarSlideTimeLect
 from pages.lecteur.widgets.sous_bar.sous_bar_lect import SousBarLect
 from utils.formater_duree import formater_duree
 
 # ======================= CONSTANTES =======================
-
-CONTROL_BAR_HEIGHT = 60
 HIDE_BAR_DELAY_MS = 3000
 MOUSE_CHECK_INTERVAL_MS = 200
 UI_REFRESH_INTERVAL_MS = 1000
@@ -68,6 +68,7 @@ class Lecteur(QtWidgets.QMainWindow):
         self.duree_str       = formater_duree(self.duration_sec)
         self.chapitres       = media.get('chapitres', [])
         self.total_time_ms   = self.duration_sec * 1000  # pour formatage ultérieur
+        self.titre_video     = media.get('nom', None)
 
         # VLC
         self.vlc_instance = None
@@ -79,12 +80,21 @@ class Lecteur(QtWidgets.QMainWindow):
         self.central_widget = QtWidgets.QWidget(self)
         self.videoframe     = QtWidgets.QFrame(self.central_widget)
 
+        self.thumbnail_manager = VideoThumbnailManager()
+
+        self.miniature = MiniatureLect(width=(self.width() / 3), parent=self.central_widget)
+        self.miniature.hide()
+
         # Barre de progression custom (en secondes)
-        self.bar_slide = BarSlideTimeLect(self.central_widget,
-                                         self.chapitres,
-                                         self.duration_sec)
-        # SliderMoved envoie une valeur en secondes
-        self.bar_slide.slider.sliderMoved.connect(self.on_slider_moved)
+        self.bar_slide = BarSlideTimeLect(
+            self.central_widget,
+            self.chapitres,
+            self.duration_sec,
+            self.titre_video
+        )
+        self.bar_slide.slider.sliderPressed.connect(self._on_slider_pressed)
+        self.bar_slide.slider.sliderMoved.connect(self.on_slider_preview)
+        self.bar_slide.slider.sliderReleasedValue.connect(self.on_slider_released)
 
         self.sous_bar   = SousBarLect(self.central_widget)
         self.sous_milieu= self.sous_bar.sous_bar_milieu
@@ -110,17 +120,66 @@ class Lecteur(QtWidgets.QMainWindow):
         self.setWindowTitle("Lecteur")
         self.showFullScreen()
 
-    def on_slider_moved(self, seconds_position: int):
-        """Lorsque l'utilisateur déplace le slider, saute à cette position."""
+    def _on_slider_pressed(self):
+        self.ui_timer.stop()
+        self.ui_timer.timeout.disconnect(self.update_ui)
+
+    def on_slider_preview(self, seconds_position: int):
+        """Pendant le drag : mise à jour du label + vignette, mais PAS la vidéo."""
+        # 1) Calcul des millisecondes + formatage temps en un seul appel
+        ms = seconds_position * 1000
+        time_str = f"{self._format_time(ms)} / {self._format_time(self.total_time_ms)}"
+
+        # 2) Mise à jour de l’overlay temps
+        self.time_display.setText(time_str)
+        self.time_display.adjustSize()
+        self._position_label_top_right(self.time_display, self.videoframe.geometry())
+        self.time_display.show()
+
+        # 3) Récupération et affichage de la miniature (un appel unique)
+        thumb_path = self.thumbnail_manager.get_thumbnail_for_time(self.titre_video, seconds_position)
+        if thumb_path:
+            self.miniature.set_image_path(thumb_path)
+            self._position_miniature(seconds_position)
+            self.miniature.show()
+        else:
+            self.miniature.hide()
+
+    def on_slider_released(self, seconds_position: int):
         if self.player:
             ms = seconds_position * 1000
             self.player.set_time(ms)
-            # Mise à jour immédiate du label temps
+
+            # Mise à jour overlay temps
             current_str = self._format_time(ms)
-            total_str   = self._format_time(self.total_time_ms)
+            total_str = self._format_time(self.total_time_ms)
             self.time_display.setText(f"{current_str} / {total_str}")
             self.time_display.adjustSize()
             self._position_label_top_right(self.time_display, self.videoframe.geometry())
+
+            # On cache la miniature
+            self.miniature.hide()
+
+        self.ui_timer.timeout.connect(self.update_ui)
+        self.ui_timer.start()
+
+    def _position_miniature(self, seconds_position: int):
+        # Récupère la position pixel du handle du slider
+        slider = self.bar_slide.slider
+        opt = QtWidgets.QStyleOptionSlider()
+        slider.initStyleOption(opt)
+        handle_rect = slider.style().subControlRect(
+            QtWidgets.QStyle.ComplexControl.CC_Slider,
+            opt,
+            QtWidgets.QStyle.SubControl.SC_SliderHandle,
+            slider
+        )
+        # Calculer coordonnée globale
+        x = slider.mapTo(self.central_widget, handle_rect.center()).x() - self.miniature.width() // 2
+        y = slider.mapTo(self.central_widget, QtCore.QPoint(0, 0)).y() - self.miniature.height() - 10
+        self.miniature.move(x, y)
+
+
 
     # ----------------------- INITIALISATION UI -----------------------
 
@@ -134,28 +193,19 @@ class Lecteur(QtWidgets.QMainWindow):
         self.videoframe.setStyleSheet("background-color: black;")
         layout.addWidget(self.videoframe)
 
-        # Barre de progression
-        self.bar_slide.setFixedHeight(10)
+        # Progress bar setup
         self.bar_slide.setStyleSheet("background-color: transparent;")
         self.bar_slide.setWindowFlags(
-            QtCore.Qt.WindowType.FramelessWindowHint |
-            QtCore.Qt.WindowType.Tool
+            QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
         )
         self.bar_slide.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        # Barre de contrôle inférieure
-        self.sous_bar.setFixedHeight(CONTROL_BAR_HEIGHT)
+        # Bottom control bar setup
         self.sous_bar.setStyleSheet("background-color: transparent;")
         self.sous_bar.setWindowFlags(
-            QtCore.Qt.WindowType.FramelessWindowHint |
-            QtCore.Qt.WindowType.Tool
+            QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
         )
         self.sous_bar.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-        ctrl = QtWidgets.QHBoxLayout(self.sous_bar)
-        ctrl.setContentsMargins(0,0,0,0)
-        ctrl.setSpacing(30)
-        ctrl.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         self.sous_milieu.rewind_icon.clicked.connect(self.seek_backward)
         self.sous_milieu.play_pause_icon.clicked.connect(self.toggle_play_pause)
@@ -373,8 +423,10 @@ class Lecteur(QtWidgets.QMainWindow):
         return super().eventFilter(watched, event)
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
-        """Réactive le timer de masquage dès que la souris bouge."""
-        if event.position().y() > self.height() - (CONTROL_BAR_HEIGHT + 10):
+        """Restart the hide timer if mouse moves near bottom area."""
+        height = self.height()
+        threshold = self.sous_bar.height() + 10
+        if event.position().y() > height - threshold:
             self._show_control_bar()
         self.hide_bar_timer.start()
         super().mouseMoveEvent(event)
@@ -385,9 +437,11 @@ class Lecteur(QtWidgets.QMainWindow):
         super().enterEvent(event)
 
     def _check_mouse_position(self) -> None:
-        """Vérifie si la souris est proche du bas de la vidéo pour afficher la barre."""
+        """Check if the mouse is near the bottom to show the control bar."""
         local_pos = self.videoframe.mapFromGlobal(QCursor.pos())
-        if (self.videoframe.height() - (CONTROL_BAR_HEIGHT + 30)) <= local_pos.y() <= self.videoframe.height():
+        height = self.videoframe.height()
+        threshold = self.sous_bar.height() + 30
+        if height - threshold <= local_pos.y() <= height:
             self._show_control_bar()
 
     def _show_control_bar(self) -> None:
@@ -400,26 +454,19 @@ class Lecteur(QtWidgets.QMainWindow):
         self.hide_bar_timer.start()
 
     def _position_control_bar(self) -> None:
-        vf_width = self.videoframe.width()
-        vf_height = self.videoframe.height()
+        vf_width = self.width()
+        vf_height = self.height()
 
-        # Position sous_bar en bas
-        self.sous_bar.setGeometry(
-            0,
-            vf_height - CONTROL_BAR_HEIGHT,
-            vf_width,
-            CONTROL_BAR_HEIGHT
-        )
+
+
+        # Position de sous_bar en bas
+        sous_bar_y = vf_height - self.sous_bar.height()
+        self.sous_bar.setGeometry(0, sous_bar_y, vf_width, self.sous_bar.height())
         self.sous_bar.raise_()
 
-        overlap = -5  # nombre de pixels de recouvrement ou d'espacement négatif
-        y_slide = vf_height - CONTROL_BAR_HEIGHT - self.bar_slide.height() + overlap
-        self.bar_slide.setGeometry(
-            0,
-            y_slide,
-            vf_width,
-            CONTROL_BAR_HEIGHT
-        )
+        # Position de bar_slide juste au-dessus avec 10 px d’espace
+        y_slide = vf_height - self.bar_slide.height() - self.sous_bar.height()
+        self.bar_slide.setGeometry(0, y_slide, vf_width, self.bar_slide.height())
         self.bar_slide.raise_()
 
     # ----------------------- FONCTION PRINCIPALE (RUN) -----------------------
