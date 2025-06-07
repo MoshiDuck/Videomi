@@ -1,6 +1,8 @@
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import QSizePolicy
+
+from pages.lecteur.widgets.sous_bar.droite.volume_slider import VolumeSlider
 from widgets.icon_perso import IconPerso
 
 
@@ -28,9 +30,5 @@ class SousBarDroiteLect(QtWidgets.QWidget):
         self.control_layout.addWidget(self.volume)
 
         # === SLIDER DE VOLUME ===
-        self.volume_slider = QtWidgets.QSlider(Qt.Orientation.Horizontal)
-        self.volume_slider.setRange(0, 150)
-        self.volume_slider.setValue(100)
-        self.volume_slider.setFixedWidth(100)
-        self.volume_slider.setToolTip("Volume")
+        self.volume_slider = VolumeSlider(self)
         self.control_layout.addWidget(self.volume_slider)

@@ -52,6 +52,7 @@ class Lecteur(QtWidgets.QMainWindow):
             logging.critical("Exception non interceptée", exc_info=(exctype, value, tb))
 
         sys.excepthook = log_uncaught_exceptions
+        self._last_volume: int = 100
 
         self.video_path: Path | None = Path(video_path) if video_path else None
         self.vlc_instance: vlc.Instance | None = None
@@ -111,7 +112,7 @@ class Lecteur(QtWidgets.QMainWindow):
         # Utilisation :
         self.sous_droite.volume.clicked.connect(self.toggle_mute)
         self.sous_droite.volume.setEnabled(False)
-        self.sous_droite.volume_slider.valueChanged.connect(self.set_volume)
+        self.sous_droite.volume_slider.volumeChanged.connect(self.set_volume)
         self.sous_droite.volume_slider.setEnabled(False)
 
         # Positionnement initial de la barre (cachée)
@@ -119,54 +120,34 @@ class Lecteur(QtWidgets.QMainWindow):
         self.videoframe.installEventFilter(self)
 
     def toggle_mute(self, checked=None):
-        if self.player:
-            muted = self.player.audio_get_volume() == 0
-            if muted:
-                self.player.audio_set_volume(100)
-                self.sous_droite.volume_slider.setValue(100)
-                self._update_volume_slider_style(100)
-            else:
-                self.player.audio_set_volume(0)
-                self.sous_droite.volume_slider.setValue(0)
-                self._update_volume_slider_style(0)
+        """Mute / Unmute en restaurant le dernier volume non nul."""
+        if not self.player:
+            return
+
+        current = self.player.audio_get_volume()
+        if current > 0:
+            # on mute : sauvegarde le volume avant de couper
+            self._last_volume = current
+            self.player.audio_set_volume(0)
+            self.sous_droite.volume_slider.setValue(0)
+        else:
+            # on unmute : on remet au volume précédent
+            restore = max(1, min(self._last_volume, 150))
+            self.player.audio_set_volume(restore)
+            self.sous_droite.volume_slider.setValue(restore)
 
     def set_volume(self, value: int) -> None:
-        try:
-            clamped_value = min(value, 150)  # Cap le volume à 150%
-            if self.player:
-                self.player.audio_set_volume(clamped_value)
-                self._update_volume_slider_style(clamped_value)
-                self.sous_droite.volume.set_state(clamped_value > 0)
-            else:
-                logging.warning("Player non initialisé lors du changement de volume.")
-        except Exception as e:
-            logging.error(f"Erreur lors du changement de volume : {e}", exc_info=True)
+        """Lorsqu’on glisse le slider, on met à jour le dernier volume connu."""
+        if not self.player:
+            logging.warning("Player non initialisé lors du changement de volume.")
+            return
 
-    def _update_volume_slider_style(self, value: int) -> None:
-        if value < 100:
-            # Orange jusqu'à 100%
-            color = PRIMARY_COLOR  # orange
-        else:
-            # Rouge pastel au-delà
-            color = "#FF5C5C"  # rouge clair/pastel
-
-        self.sous_droite.volume_slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: 6px;
-                background: #ccc;
-                border-radius: 3px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {color};
-                width: 12px;
-                margin: -5px 0;
-                border-radius: 6px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {color};
-                border-radius: 3px;
-            }}
-        """)
+        clamped = min(value, 150)
+        self.player.audio_set_volume(clamped)
+        # si on n'est pas muet, on met à jour last_volume
+        if clamped > 0:
+            self._last_volume = clamped
+        self.sous_droite.volume.set_state(clamped > 0)
 
     def _setup_timers(self) -> None:
         """Initialise les timers pour le suivi souris, cache de barre et UI VLC."""

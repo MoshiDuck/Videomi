@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.3.5
+0.0.3.6
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Mettre slide son"
+    git commit -m "[FAIT] Mettre slide dans une class appart "
     ```
 3. Force le push  
     ```bash
@@ -92,4 +92,4 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-Mettre slide dans une class appart 
+Mettre le slide tout à droite 
