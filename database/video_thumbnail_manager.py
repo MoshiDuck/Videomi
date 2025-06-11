@@ -25,7 +25,7 @@ class VideoThumbnailManager(QtCore.QObject):
         os.makedirs(self.thumbnail_dir, exist_ok=True)
         self.cache = ThumbnailCache()
         self._sanitized_cache = {}
-
+        self.num_threads = str(multiprocessing.cpu_count())
         self.progress_file = THUMBNAIL_VIDEO_PROGRESS_DIR
         self.secondary_progress = self._load_progress()
 
@@ -150,14 +150,12 @@ class VideoThumbnailManager(QtCore.QObject):
             self._processing = False
             QtCore.QTimer.singleShot(1000, self._process_next)
 
-    @staticmethod
-    def _build_priority_command(chemin_video: str, folder: str, dur: float):
+    def _build_priority_command(self, chemin_video: str, folder: str, dur: float):
         flag = os.path.join(folder, "thumb_15.done")
         out = os.path.join(folder, "thumb_15.jpg")
 
         t15 = dur * 0.15 if dur > 0 else 0
         filt = "crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
-        num_threads = str(multiprocessing.cpu_count())
         cmd = [
             FFMPEG_PATH, '-hide_banner', '-loglevel', 'error',
             '-hwaccel', 'auto',
@@ -166,8 +164,8 @@ class VideoThumbnailManager(QtCore.QObject):
             '-vf', filt,
             '-vframes', '1',
             '-qscale:v', '2',
-            '-preset', 'fast',
-            '-threads', num_threads,
+            '-preset', 'ultrafast',
+            '-threads', self.num_threads,
             '-nostdin', '-y', out
         ]
         return cmd, flag, out
@@ -185,7 +183,7 @@ class VideoThumbnailManager(QtCore.QObject):
         self._save_progress()
 
         filt2 = "fps=1/5,crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
-        num_threads = str(multiprocessing.cpu_count())
+
         cmd = [
             FFMPEG_PATH,
             '-hide_banner', '-loglevel', 'error',
@@ -195,8 +193,8 @@ class VideoThumbnailManager(QtCore.QObject):
             '-vf', filt2,
             '-vsync', 'vfr',
             '-qscale:v', '5',
-            '-preset', 'fast',
-            '-threads', num_threads,
+            '-preset', 'ultrafast',
+            '-threads', self.num_threads,
             '-start_number', str(start_number),
             '-nostdin', '-y', os.path.join(folder, '%04d.jpg')
         ]

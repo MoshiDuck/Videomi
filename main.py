@@ -1,4 +1,4 @@
-from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtGui import QPalette, QColor, QPixmap
 from PyQt6.QtWidgets import QStyleFactory
 from PySide6.QtWidgets import QApplication
 import sys
@@ -62,6 +62,11 @@ QScrollBar::sub-page:horizontal {
     background: none;
 }
 """
+def test_webp_support():
+    pix = QPixmap()
+    result = pix.load("test.webp")  # Remplace par un vrai fichier WebP si possible
+    print("✅ WebP supporté par Qt ?" if result else "❌ WebP NON supporté")
+
 
 
 def set_dark_palette(app):
@@ -71,6 +76,7 @@ def set_dark_palette(app):
     app.setPalette(dark_palette)
 
 def main():
+
     app = QtWidgets.QApplication(sys.argv)
     set_dark_palette(app)
     app.setStyleSheet(SCROLLBAR_STYLE)
