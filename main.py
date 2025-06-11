@@ -1,3 +1,5 @@
+from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtWidgets import QStyleFactory
 from PySide6.QtWidgets import QApplication
 import sys
 
@@ -62,8 +64,15 @@ QScrollBar::sub-page:horizontal {
 """
 
 
+def set_dark_palette(app):
+    """Applique un thème sombre natif avec le style Fusion."""
+    app.setStyle(QStyleFactory.create("Fusion"))
+    dark_palette = QPalette()
+    app.setPalette(dark_palette)
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
+    set_dark_palette(app)
     app.setStyleSheet(SCROLLBAR_STYLE)
 
     initializer = AppInitializer()
@@ -71,7 +80,6 @@ def main():
 
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()

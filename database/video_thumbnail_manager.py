@@ -1,10 +1,10 @@
-import multiprocessing
 import os
 import re
-import subprocess
 import sqlite3
+import multiprocessing
+import subprocess
 from collections import deque
-
+from threading import Lock
 from PyQt6 import QtCore, QtGui
 from config.config import (
     THUMBNAIL_VIDEO_DIR,
@@ -35,181 +35,160 @@ class VideoThumbnailManager(QtCore.QObject):
         self.active_processes = {}
         self._shutting_down = False
 
-    def get_thumbnail_for_time(self, titre_video: str, seconds: float) -> str:
-        titre = self.sanitize_title(titre_video)
-        folder = os.path.join(self.thumbnail_dir, titre)
-        if not os.path.exists(folder):
-            return ""
+        self._progress_lock = Lock()
+        self._process_lock = Lock()
+        self._progress_timers = {}
 
-        # 1 miniature toutes les 30 secondes → index = secondes // 30
-        index = int(seconds // 30)
-        filename = f"{index:04d}.jpg"
-        path = os.path.join(folder, filename)
-        if os.path.exists(path):
-            return path
-        return ""
+    @staticmethod
+    def _init_progress_db(conn):
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS thumbnail_progress (
+                titre_nettoye TEXT PRIMARY KEY,
+                done INTEGER NOT NULL,
+                last_index INTEGER DEFAULT -1
+            )
+        """)
+        conn.commit()
+
+    def sanitize_title(self, title: str) -> str:
+        if title not in self._sanitized_cache:
+            self._sanitized_cache[title] = re.sub(r'[\\/*?:"<>|]', '-', title)
+        return self._sanitized_cache[title]
 
     def _load_progress(self):
         progress = {}
         try:
-            conn = sqlite3.connect(self.progress_file)
-            c = conn.cursor()
-
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS thumbnail_progress (
-                    titre_nettoye TEXT PRIMARY KEY,
-                    done INTEGER NOT NULL
-                )
-            """)
-            conn.commit()
-
-            c.execute("SELECT titre_nettoye, done FROM thumbnail_progress")
-            for titre_nettoye, done in c.fetchall():
-                progress[titre_nettoye] = {"done": bool(done)}
-            conn.close()
+            with sqlite3.connect(self.progress_file) as conn:
+                self._init_progress_db(conn)
+                cursor = conn.execute("SELECT titre_nettoye, done, last_index FROM thumbnail_progress")
+                for titre, done, last_index in cursor.fetchall():
+                    progress[titre] = {"done": bool(done), "last_index": last_index or -1}
         except Exception as e:
             print("Erreur chargement suivi miniatures:", e)
         return progress
 
     def _save_progress(self):
         try:
-            conn = sqlite3.connect(self.progress_file)
-            c = conn.cursor()
-
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS thumbnail_progress (
-                    titre_nettoye TEXT PRIMARY KEY,
-                    done INTEGER NOT NULL
-                )
-            """)
-            conn.commit()
-
-            for titre_nettoye, data in self.secondary_progress.items():
-                if not titre_nettoye:
-                    continue
-                done_flag = 1 if data.get("done") else 0
-                c.execute(
-                    "INSERT OR REPLACE INTO thumbnail_progress (titre_nettoye, done) VALUES (?, ?)",
-                    (titre_nettoye, done_flag)
-                )
-            conn.commit()
-            conn.close()
+            with self._progress_lock, sqlite3.connect(self.progress_file) as conn:
+                self._init_progress_db(conn)
+                for titre, data in self.secondary_progress.items():
+                    if not titre:
+                        continue
+                    done_flag = 1 if data.get("done") else 0
+                    last_index = data.get("last_index", -1)
+                    conn.execute(
+                        "INSERT OR REPLACE INTO thumbnail_progress (titre_nettoye, done, last_index) VALUES (?, ?, ?)",
+                        (titre, done_flag, last_index)
+                    )
+                conn.commit()
         except Exception as e:
             print("Erreur sauvegarde suivi miniatures:", e)
 
-    def sanitize_title(self, title: str) -> str:
-        if title not in self._sanitized_cache:
-            safe = re.sub(r'[\\/*?:"<>|]', '-', title)
-            self._sanitized_cache[title] = safe
-        return self._sanitized_cache[title]
+    def get_thumbnail_for_time(self, titre_video: str, seconds: float) -> str:
+        titre = self.sanitize_title(titre_video)
+        folder = os.path.join(self.thumbnail_dir, titre)
+        if not os.path.isdir(folder):
+            return ""
+        index = int(seconds // 5)
+        path = os.path.join(folder, f"{index:04d}.jpg")
+        return path if os.path.exists(path) else ""
 
     def stop_all_processes(self):
         self._shutting_down = True
-        for key, process in list(self.active_processes.items()):
-            try:
-                process.finished.disconnect()
-                process.errorOccurred.disconnect()
-                if process.state() == QtCore.QProcess.ProcessState.Running:
-                    process.terminate()
-                    if not process.waitForFinished(1000):
-                        process.kill()
-                        process.waitForFinished(1000)
-            except Exception:
-                pass
-            finally:
-                self.active_processes.pop(key, None)
-                process.deleteLater()
+        with self._process_lock:
+            for titre, process in list(self.active_processes.items()):
+                try:
+                    process.finished.disconnect()
+                    process.errorOccurred.disconnect()
+                    if process.state() == QtCore.QProcess.ProcessState.Running:
+                        process.terminate()
+                        if not process.waitForFinished(1000):
+                            process.kill()
+                            process.waitForFinished(1000)
+                except Exception:
+                    pass
+                finally:
+                    self.active_processes.pop(titre, None)
+                    process.deleteLater()
 
     def get_thumbnail_status(self, titre_video: str) -> dict:
-        titre_nettoye = self.sanitize_title(titre_video)
-        path = os.path.join(self.thumbnail_dir, titre_nettoye, "thumb_15.jpg")
-        return {
-            'exists': os.path.exists(path),
-            'path': path,
-            'in_queue': any(t[1] == titre_video for t in self.priority_queue)
-        }
-
-    def _process_next(self):
-        if self._shutting_down:
-            self._processing = False
-            return
-
-        if self.priority_queue:
-            self._processing = True
-            task = self.priority_queue.popleft()
-            self._run_thumbnail_generation(*task)
-        elif self.secondary_queue:
-            self._processing = True
-            task = self.secondary_queue.popleft()
-            self._run_thumbnail_generation(*task)
-        else:
-            self._processing = False
-            QtCore.QTimer.singleShot(1000, self._process_next)
+        titre = self.sanitize_title(titre_video)
+        path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
+        in_queue = any(t[1] == titre_video for t in self.priority_queue)
+        return {'exists': os.path.exists(path), 'path': path, 'in_queue': in_queue}
 
     def check_and_queue_thumbnail(self, chemin_video: str, titre_video: str):
-        titre_nettoye = self.sanitize_title(titre_video)
-        dossier = os.path.join(self.thumbnail_dir, titre_nettoye)
-        thumb_prio = os.path.join(dossier, "thumb_15.jpg")
+        titre = self.sanitize_title(titre_video)
+        folder = os.path.join(self.thumbnail_dir, titre)
+        thumb_prio = os.path.join(folder, "thumb_15.jpg")
 
-        if titre_nettoye not in self.active_processes and not os.path.exists(thumb_prio):
+        if titre not in self.active_processes and not os.path.exists(thumb_prio):
             self.priority_queue.appendleft((chemin_video, titre_video, "priority"))
             if not self._processing:
                 self._process_next()
             return
 
-        if os.path.exists(thumb_prio):
-            done_flag = self.secondary_progress.get(titre_nettoye, {}).get("done", False)
-            if not done_flag and titre_nettoye not in self.active_processes:
-                self.secondary_queue.appendleft((chemin_video, titre_video, "secondary"))
-                if not self._processing:
-                    self._process_next()
+        if os.path.exists(thumb_prio) and not self.secondary_progress.get(titre, {}).get("done", False) and titre not in self.active_processes:
+            self.secondary_queue.appendleft((chemin_video, titre_video, "secondary"))
+            if not self._processing:
+                self._process_next()
+
+    def _process_next(self):
+        if self._shutting_down:
+            self._processing = False
+            return
+        task = None
+        if self.priority_queue:
+            task = self.priority_queue.popleft()
+        elif self.secondary_queue:
+            task = self.secondary_queue.popleft()
+
+        if task:
+            self._processing = True
+            self._run_thumbnail_generation(*task)
+        else:
+            self._processing = False
+            QtCore.QTimer.singleShot(1000, self._process_next)
 
     def _run_thumbnail_generation(self, chemin_video: str, titre_video: str, task_type: str):
-        if self._shutting_down:
-            return
-
-        ffmpeg = FFMPEG_PATH
-        ffprobe = FFPROBE_PATH
-        if not os.path.exists(ffmpeg):
+        if self._shutting_down or not os.path.exists(FFMPEG_PATH):
             self._process_next()
             return
 
         titre = self.sanitize_title(titre_video)
-        dossier = os.path.join(self.thumbnail_dir, titre)
-        os.makedirs(dossier, exist_ok=True)
+        folder = os.path.join(self.thumbnail_dir, titre)
+        os.makedirs(folder, exist_ok=True)
 
         if titre in self.active_processes:
             self._process_next()
             return
 
         num_threads = str(multiprocessing.cpu_count())
+        ffmpeg = FFMPEG_PATH
+        ffprobe = FFPROBE_PATH
+
+        # Extraction durée vidéo
+        dur = 0.0
+        try:
+            result = subprocess.run(
+                [ffprobe, '-v', 'error', '-show_entries', 'format=duration',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', chemin_video],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+            )
+            dur = float(result.stdout.strip())
+        except Exception:
+            pass
 
         if task_type == "priority":
-            flag = os.path.join(dossier, "thumb_15.done")
-            out = os.path.join(dossier, "thumb_15.jpg")
-
+            flag = os.path.join(folder, "thumb_15.done")
+            out = os.path.join(folder, "thumb_15.jpg")
             if os.path.exists(flag):
                 self._process_next()
                 return
-
-            try:
-                probe = os.path.join(os.path.dirname(ffprobe), "ffprobe")
-                res = subprocess.run(
-                    [probe, '-v', 'error', '-show_entries', 'format=duration',
-                     '-of', 'default=noprint_wrappers=1:nokey=1', chemin_video],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
-                )
-                dur = float(res.stdout.strip())
-            except:
-                dur = 0.0
-
             t15 = dur * 0.15 if dur > 0 else 0
-
             filt = "crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
-
             cmd = [
-                ffmpeg,
-                '-hide_banner', '-loglevel', 'error',
+                ffmpeg, '-hide_banner', '-loglevel', 'error',
                 '-hwaccel', 'auto',
                 '-ss', str(t15),
                 '-i', chemin_video,
@@ -220,48 +199,42 @@ class VideoThumbnailManager(QtCore.QObject):
                 '-threads', num_threads,
                 '-nostdin', '-y', out
             ]
-
         else:
-            if self.secondary_progress.get(titre, {}).get("done", False):
+            progress = self.secondary_progress.get(titre, {"done": False, "last_index": -1})
+            if progress.get("done", False):
                 self._process_next()
                 return
 
-            existing_jpgs = sorted([
-                f for f in os.listdir(dossier)
-                if re.match(r'^\d{4}\.jpg$', f)
-            ])
-            if existing_jpgs:
-                try:
-                    last_index = max(int(name.split('.')[0]) for name in existing_jpgs)
-                except:
-                    last_index = len(existing_jpgs) - 1
-            else:
-                last_index = -1  # aucun JPEG trouvé
-
-            flag = os.path.join(dossier, ".done")
+            flag = os.path.join(folder, ".done")
             if os.path.exists(flag):
-                self.secondary_progress[titre] = {"done": True}
+                self.secondary_progress[titre] = {"done": True, "last_index": progress.get("last_index", -1)}
                 self._save_progress()
                 self._process_next()
                 return
 
-            start_num = last_index + 1
-            print(f"[SECONDARY] Démarrage génération secondaire pour {titre}, start_num={start_num}")
+            estimated_total = int(dur // 5) if dur > 0 else 100
+            self._start_progress_timer(titre, estimated_total)
+            last_index = progress.get("last_index", -1)
+            start_number = last_index + 1 if last_index >= 0 else 0
+            start_time = start_number * 5
 
-            filt2 = "fps=1/30,crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
+            self.secondary_progress[titre] = {"done": False, "last_index": last_index}
+            self._save_progress()
 
+            filt2 = "fps=1/5,crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
             cmd = [
                 ffmpeg,
                 '-hide_banner', '-loglevel', 'error',
                 '-hwaccel', 'auto',
+                '-ss', str(start_time),
                 '-i', chemin_video,
                 '-vf', filt2,
                 '-vsync', 'vfr',
                 '-qscale:v', '5',
                 '-preset', 'fast',
                 '-threads', num_threads,
-                '-start_number', str(start_num),
-                '-nostdin', '-y', os.path.join(dossier, '%04d.jpg')
+                '-start_number', str(start_number),
+                '-nostdin', '-y', os.path.join(folder, '%04d.jpg')
             ]
 
         proc = QtCore.QProcess(self)
@@ -270,49 +243,78 @@ class VideoThumbnailManager(QtCore.QObject):
         proc.setProperty('titre', titre)
         proc.setProperty('path', chemin_video)
         self.active_processes[titre] = proc
-
         proc.finished.connect(lambda ec, es: self._on_process_finished(titre, proc, ec, es))
         proc.errorOccurred.connect(lambda e: self._handle_process_error(titre, proc, e))
-
         proc.start(cmd[0], cmd[1:])
+
+    def _start_progress_timer(self, titre: str, total_estime: int):
+        if titre in self._progress_timers:
+            return
+        timer = QtCore.QTimer(self)
+        timer.setInterval(5000)
+        timer.timeout.connect(lambda: self._save_secondary_progress(titre, total_estime))
+        timer.start()
+        self._progress_timers[titre] = timer
+
+    def _stop_progress_timer(self, titre: str):
+        timer = self._progress_timers.pop(titre, None)
+        if timer:
+            timer.stop()
+            timer.deleteLater()
+
+    def _save_secondary_progress(self, titre: str, total_estime: int):
+        folder = os.path.join(self.thumbnail_dir, titre)
+        if not os.path.isdir(folder):
+            return
+
+        images = [f for f in os.listdir(folder) if re.match(r'^\d{4}\.jpg$', f)]
+        current_index = len(images) - 1
+        if total_estime <= 0:
+            return
+
+        percent = min(int((current_index / total_estime) * 100), 100)
+        print(f"[{titre}] Progression secondaire approximative : {percent}%")
+
+        last_index = self.secondary_progress.get(titre, {}).get("last_index", -1)
+        if current_index > last_index and (percent % 5 == 0 or percent == 100):
+            self.secondary_progress[titre]["last_index"] = current_index
+            self._save_progress()
 
     def _on_process_finished(self, titre: str, proc: QtCore.QProcess, code: int, status):
         if self._shutting_down or not proc:
             return
-
-        self.active_processes.pop(titre, None)
+        with self._process_lock:
+            self.active_processes.pop(titre, None)
 
         try:
             if code == 0:
                 flag = proc.property('flag')
-                with open(flag, 'w', encoding='utf-8') as fh:
-                    fh.write('done')
+                with open(flag, 'w', encoding='utf-8') as f:
+                    f.write('done')
 
                 if proc.property('type') == 'priority':
-                    # — Prioritaire terminé : signal vers l'UI —
-                    p = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
-                    if os.path.exists(p):
-                        pix = QtGui.QPixmap(p)
+                    path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
+                    if os.path.exists(path):
+                        pix = QtGui.QPixmap(path)
                         self.thumbnail_ready.emit(proc.property('path'), pix)
                     self.check_and_queue_thumbnail(proc.property('path'), titre)
-
-                else:
-                    self.secondary_progress[titre] = {"done": True}
-                    self._save_progress()
-
+                else:  # secondary
+                    with self._progress_lock:
+                        self.secondary_progress[titre]["done"] = True
+                        self._save_progress()
+                    self._stop_progress_timer(titre)
             else:
                 print(f"[FFMPEG] Erreur code {code} pour {titre}")
-
         except Exception as e:
             print("Exception dans _on_process_finished:", e)
-
         finally:
             proc.deleteLater()
             self._process_next()
 
     def _handle_process_error(self, titre: str, proc: QtCore.QProcess, error):
         print(f"[ERROR] Process error pour {titre} : {error}")
-        self.active_processes.pop(titre, None)
+        with self._process_lock:
+            self.active_processes.pop(titre, None)
         proc.deleteLater()
         self._process_next()
 
