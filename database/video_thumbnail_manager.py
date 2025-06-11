@@ -113,7 +113,7 @@ class VideoThumbnailManager(QtCore.QObject):
 
     def get_thumbnail_status(self, titre_video: str) -> dict:
         titre = self.sanitize_title(titre_video)
-        path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
+        path = self.get_priority_thumbnail_path(titre)
         in_queue = any(t[1] == titre_video for t in self.priority_queue)
         return {'exists': os.path.exists(path), 'path': path, 'in_queue': in_queue}
 
@@ -150,92 +150,107 @@ class VideoThumbnailManager(QtCore.QObject):
             self._processing = False
             QtCore.QTimer.singleShot(1000, self._process_next)
 
+    @staticmethod
+    def _build_priority_command(chemin_video: str, folder: str, dur: float):
+        flag = os.path.join(folder, "thumb_15.done")
+        out = os.path.join(folder, "thumb_15.jpg")
+
+        t15 = dur * 0.15 if dur > 0 else 0
+        filt = "crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
+        num_threads = str(multiprocessing.cpu_count())
+        cmd = [
+            FFMPEG_PATH, '-hide_banner', '-loglevel', 'error',
+            '-hwaccel', 'auto',
+            '-ss', str(t15),
+            '-i', chemin_video,
+            '-vf', filt,
+            '-vframes', '1',
+            '-qscale:v', '2',
+            '-preset', 'fast',
+            '-threads', num_threads,
+            '-nostdin', '-y', out
+        ]
+        return cmd, flag, out
+
+    def _build_secondary_command(self, chemin_video: str, folder: str, dur: float, titre: str):
+        flag = os.path.join(folder, ".done")
+        progress = self.secondary_progress.get(titre, {"done": False, "last_index": -1})
+        estimated_total = int(dur // 5) if dur > 0 else 100
+        self._start_progress_timer(titre, estimated_total)
+        last_index = progress.get("last_index", -1)
+        start_number = last_index + 1 if last_index >= 0 else 0
+        start_time = start_number * 5
+
+        self.secondary_progress[titre] = {"done": False, "last_index": last_index}
+        self._save_progress()
+
+        filt2 = "fps=1/5,crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
+        num_threads = str(multiprocessing.cpu_count())
+        cmd = [
+            FFMPEG_PATH,
+            '-hide_banner', '-loglevel', 'error',
+            '-hwaccel', 'auto',
+            '-ss', str(start_time),
+            '-i', chemin_video,
+            '-vf', filt2,
+            '-vsync', 'vfr',
+            '-qscale:v', '5',
+            '-preset', 'fast',
+            '-threads', num_threads,
+            '-start_number', str(start_number),
+            '-nostdin', '-y', os.path.join(folder, '%04d.jpg')
+        ]
+        return cmd, flag, progress
+
+    def get_priority_thumbnail_path(self, titre: str) -> str:
+        """
+        Renvoie le chemin absolu vers la miniature prioritaire (thumb_15.jpg) pour un titre donné.
+        """
+        sanitized = self.sanitize_title(titre)
+        return os.path.join(self.thumbnail_dir, sanitized, "thumb_15.jpg")
+
     def _run_thumbnail_generation(self, chemin_video: str, titre_video: str, task_type: str):
         if self._shutting_down or not os.path.exists(FFMPEG_PATH):
             self._process_next()
             return
-
         titre = self.sanitize_title(titre_video)
         folder = os.path.join(self.thumbnail_dir, titre)
         os.makedirs(folder, exist_ok=True)
-
         if titre in self.active_processes:
             self._process_next()
             return
-
         num_threads = str(multiprocessing.cpu_count())
-        ffmpeg = FFMPEG_PATH
-        ffprobe = FFPROBE_PATH
-
-        # Extraction durée vidéo
         dur = 0.0
         try:
             result = subprocess.run(
-                [ffprobe, '-v', 'error', '-show_entries', 'format=duration',
+                [FFPROBE_PATH, '-v', 'error', '-show_entries', 'format=duration',
                  '-of', 'default=noprint_wrappers=1:nokey=1', chemin_video],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
             )
-            dur = float(result.stdout.strip())
+            try:
+                dur = float(result.stdout.strip() or 0)
+            except ValueError:
+                dur = 0.0
         except Exception:
             pass
 
         if task_type == "priority":
-            flag = os.path.join(folder, "thumb_15.done")
-            out = os.path.join(folder, "thumb_15.jpg")
+            cmd, flag, out_path = self._build_priority_command(chemin_video, folder, dur)
             if os.path.exists(flag):
                 self._process_next()
                 return
-            t15 = dur * 0.15 if dur > 0 else 0
-            filt = "crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
-            cmd = [
-                ffmpeg, '-hide_banner', '-loglevel', 'error',
-                '-hwaccel', 'auto',
-                '-ss', str(t15),
-                '-i', chemin_video,
-                '-vf', filt,
-                '-vframes', '1',
-                '-qscale:v', '2',
-                '-preset', 'fast',
-                '-threads', num_threads,
-                '-nostdin', '-y', out
-            ]
         else:
-            progress = self.secondary_progress.get(titre, {"done": False, "last_index": -1})
+            cmd, flag, progress = self._build_secondary_command(chemin_video, folder, dur, titre)
             if progress.get("done", False):
                 self._process_next()
                 return
 
-            flag = os.path.join(folder, ".done")
             if os.path.exists(flag):
                 self.secondary_progress[titre] = {"done": True, "last_index": progress.get("last_index", -1)}
                 self._save_progress()
                 self._process_next()
                 return
 
-            estimated_total = int(dur // 5) if dur > 0 else 100
-            self._start_progress_timer(titre, estimated_total)
-            last_index = progress.get("last_index", -1)
-            start_number = last_index + 1 if last_index >= 0 else 0
-            start_time = start_number * 5
-
-            self.secondary_progress[titre] = {"done": False, "last_index": last_index}
-            self._save_progress()
-
-            filt2 = "fps=1/5,crop='if(gt(iw/ih\\,16/9)\\,ih*16/9\\,iw)':if(gt(iw/ih\\,16/9)\\,ih\\,iw*9/16),scale=320:180"
-            cmd = [
-                ffmpeg,
-                '-hide_banner', '-loglevel', 'error',
-                '-hwaccel', 'auto',
-                '-ss', str(start_time),
-                '-i', chemin_video,
-                '-vf', filt2,
-                '-vsync', 'vfr',
-                '-qscale:v', '5',
-                '-preset', 'fast',
-                '-threads', num_threads,
-                '-start_number', str(start_number),
-                '-nostdin', '-y', os.path.join(folder, '%04d.jpg')
-            ]
 
         proc = QtCore.QProcess(self)
         proc.setProperty('flag', flag)
@@ -293,7 +308,7 @@ class VideoThumbnailManager(QtCore.QObject):
                     f.write('done')
 
                 if proc.property('type') == 'priority':
-                    path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
+                    path = self.get_priority_thumbnail_path(titre)
                     if os.path.exists(path):
                         pix = QtGui.QPixmap(path)
                         self.thumbnail_ready.emit(proc.property('path'), pix)
@@ -320,7 +335,7 @@ class VideoThumbnailManager(QtCore.QObject):
 
     def get_thumbnail_pixmap(self, chemin_video: str, titre_video: str):
         titre = self.sanitize_title(titre_video)
-        path = os.path.join(self.thumbnail_dir, titre, "thumb_15.jpg")
+        path = self.get_priority_thumbnail_path(titre)
         if os.path.exists(path):
             pix = QtGui.QPixmap(path)
             if not pix.isNull():
