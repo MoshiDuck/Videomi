@@ -1,6 +1,6 @@
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import QSizePolicy
+from PyQt6.QtWidgets import QSizePolicy, QLabel
 
 from pages.lecteur.widgets.sous_bar.droite.volume_slider import VolumeSlider
 from widgets.icon_perso import IconPerso
@@ -26,8 +26,11 @@ class SousBarDroiteLect(QtWidgets.QWidget):
             icon_false_name='mdi.volume-mute',
             icon_size=middle_size,
         )
-        self.control_layout.addWidget(self.volume)
-
-        # === SLIDER DE VOLUME ===
         self.volume_slider = VolumeSlider(self)
+        self.volume_label = QLabel("100%")  # Valeur initiale
+        self.volume_label.setFixedWidth(50)
+        self.volume_label.setStyleSheet("color: white; font-size: 18px;")
+
+        self.control_layout.addWidget(self.volume)
         self.control_layout.addWidget(self.volume_slider)
+        self.control_layout.addWidget(self.volume_label)

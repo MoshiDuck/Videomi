@@ -95,12 +95,6 @@ class Lecteur(QtWidgets.QMainWindow):
         self.sous_milieu = self.sous_bar.sous_bar_milieu
         self.sous_droite = self.sous_bar.sous_bar_droite
 
-        # Overlay volume
-        self.volume_display = self._create_overlay_label()
-
-        # Timers
-        self._hide_volume_timer = QtCore.QTimer(self, singleShot=True, interval=1500)
-        self._hide_volume_timer.timeout.connect(self.volume_display.hide)
         self.hide_bar_timer     = QtCore.QTimer(self)
         self.cursor_monitor     = QtCore.QTimer(self)
         self.ui_timer           = QtCore.QTimer(self)
@@ -205,18 +199,17 @@ class Lecteur(QtWidgets.QMainWindow):
         if not self.player:
             logging.warning("Player non initialisé lors du changement de volume.")
             return
+
         clamped = min(value, 150)
         self.player.audio_set_volume(clamped)
         if clamped > 0:
             self._last_volume = clamped
+
         self.sous_droite.volume.set_state(clamped > 0)
-        self.volume_display.setText(f"{clamped}%")
-        self.volume_display.adjustSize()
-        self._position_label_top_right(self.volume_display, self.videoframe.geometry())
-        self.volume_display.raise_()
-        self.volume_display.show()
-        self._hide_volume_timer.stop()
-        self._hide_volume_timer.start()
+
+        # ✅ Mise à jour du label dans la barre du bas
+        if hasattr(self.sous_droite, "volume_label"):
+            self.sous_droite.volume_label.setText(f"{clamped}%")
 
     def update_ui(self) -> None:
         if not self.player:
@@ -228,8 +221,7 @@ class Lecteur(QtWidgets.QMainWindow):
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         super().resizeEvent(event)
-        if self.volume_display.isVisible():
-            self._position_label_top_right(self.volume_display, self.rect(), margin=20)
+
 
     @staticmethod
     def _position_label_top_right(label: QtWidgets.QLabel, parent_rect: QtCore.QRect, margin: int = 10) -> None:
@@ -302,17 +294,10 @@ class Lecteur(QtWidgets.QMainWindow):
         if self.player:
             new_time = self.player.get_time() + SEEK_OFFSET_MS
             self.player.set_time(new_time)
-            self.volume_display.hide()
-            self._hide_volume_timer.stop()
-            self._hide_volume_timer.start()
 
     def seek_backward(self) -> None:
         if self.player:
             new_time = max(0, self.player.get_time() - SEEK_OFFSET_MS)
-            self.player.set_time(new_time)
-            self.volume_display.hide()
-            self._hide_volume_timer.stop()
-            self._hide_volume_timer.start()
 
     def adjust_delay(self, delta_ms: int) -> None:
         if self.player:

@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.4.7
+0.0.4.8
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] FIX Slide volume quand on clique ça va pas la ou on a cliquer "
+    git commit -m "[FAIT] Chercher solution pour affichage volume "
     ```
 3. Force le push  
     ```bash
@@ -92,10 +92,10 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Chercher solution pour affichage volume
 - Bouton passer intro
 - Mettre temps actuel et temps total a gauche et droite du slide
 - Bouton play a une ombre bizarre derriere
+- FIX bouton play ne fonctionne pas parfois
 - Optimisation de creation de sous-titres
 - Mettre menu vitesse, audio, sous-titres
 - Mettre bar du haut
