@@ -19,7 +19,7 @@ class TimeSliderLect(QSlider):
         self.setRange(0, int(self.duree_totale))
         self.update()
 
-    def _pickValue(self, x_pos: int) -> int:
+    def pickValue(self, x_pos: int) -> int:
         """Calcule la valeur du slider en secondes depuis l'abscisse du clic/déplacement."""
         opt = QStyleOptionSlider()
         self.initStyleOption(opt)
@@ -90,7 +90,7 @@ class TimeSliderLect(QSlider):
         painter.end()
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
-            val = self._pickValue(int(event.position().x()))
+            val = self.pickValue(int(event.position().x()))
             self.setValue(val)
             self.setSliderDown(True)
             self.sliderMoved.emit(val)
@@ -101,7 +101,7 @@ class TimeSliderLect(QSlider):
     def mouseMoveEvent(self, event):
         # Quand on glisse avec le bouton enfoncé, on continue à mettre à jour
         if self.isSliderDown():
-            val = self._pickValue(int(event.position().x()))
+            val = self.pickValue(int(event.position().x()))
             self.setValue(val)
             self.sliderMoved.emit(val)
             event.accept()

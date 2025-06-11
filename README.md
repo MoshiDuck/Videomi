@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.4.4
+0.0.4.5
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] FIX Creation d'images en double et optimisation"
+    git commit -m "[FAIT] Mettre miniature lect lorsque l'on survole"
     ```
 3. Force le push  
     ```bash
@@ -92,7 +92,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Mettre miniature lect lorsque l'on survole
+- Mettre temps en dessous miniatures 
 - bouton play a une ombre bizarre derriere
 - optimisation de creation de sous-titres
 - mettre menu vitesse, audio, sous-titres

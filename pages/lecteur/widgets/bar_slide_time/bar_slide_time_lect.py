@@ -41,14 +41,25 @@ class BarSlideTimeLect(QtWidgets.QWidget):
 
         self.slider.setMouseTracking(True)
         self.slider.mouseMoveEvent = self._slider_mouse_move
+        self.slider.leaveEvent = self._slider_leave
 
     def sizeHint(self) -> QtCore.QSize:
         slider_h = self.slider.sizeHint().height()
         total_h  = slider_h
         return QtCore.QSize(200, total_h)
 
+
+
     def _slider_mouse_move(self, event):
-        if self.slider.isSliderDown():
-            val = self.slider._pickValue(int(event.position().x()))
-            self.slider.setValue(val)
-            self.slider.sliderMoved.emit(val)
+        val = self.slider.pickValue(int(event.position().x()))
+        self.slider.setValue(val)
+        self.slider.sliderMoved.emit(val)
+        event.accept()
+
+
+
+    def _slider_leave(self, event):
+     parent = self.parent()
+     if hasattr(parent, 'miniature'):
+         parent.miniature.hide()
+         event.accept()
