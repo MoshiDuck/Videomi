@@ -6,7 +6,7 @@
 
 ## Version :
 
-0.0.4.5
+0.0.4.6
 
 ---
 
@@ -81,7 +81,7 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Mettre miniature lect lorsque l'on survole"
+    git commit -m "[FAIT] Mettre temps en dessous miniatures "
     ```
 3. Force le push  
     ```bash
@@ -92,9 +92,11 @@ Elle combine puissance des outils FFmpeg avec une interface élégante construit
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Mettre temps en dessous miniatures 
-- bouton play a une ombre bizarre derriere
-- optimisation de creation de sous-titres
-- mettre menu vitesse, audio, sous-titres
-- mettre bar du haut
-- mettre de quoi fermer fenetre, diminuer et revenir en arriere
+- Chercher solution pour affichage volume
+- Mettre temps actuel et temps total a gauche et droite du slide
+- FIX Slide volume quand on clique ça va pas la ou on a cliquer 
+- Bouton play a une ombre bizarre derriere
+- Optimisation de creation de sous-titres
+- Mettre menu vitesse, audio, sous-titres
+- Mettre bar du haut
+- Mettre de quoi fermer fenetre, diminuer et revenir en arriere

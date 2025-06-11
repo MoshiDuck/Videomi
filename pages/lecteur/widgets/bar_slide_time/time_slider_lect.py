@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QSlider, QStyleOptionSlider
 
 class TimeSliderLect(QSlider):
     sliderReleasedValue = pyqtSignal(int)
+    hoverValue = pyqtSignal(int)
+    leaveHover = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(Qt.Orientation.Horizontal, parent)
         self.setMouseTracking(True)
@@ -34,14 +36,16 @@ class TimeSliderLect(QSlider):
         )
 
     def enterEvent(self, event):
-        self._hover = True
-        self.update()
         super().enterEvent(event)
+        self._hover = True
+        self.hoverValue.emit(self.value())
+        self.update()
 
     def leaveEvent(self, event):
-        self._hover = False
-        self.update()
         super().leaveEvent(event)
+        self._hover = False
+        self.leaveHover.emit()
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -88,6 +92,7 @@ class TimeSliderLect(QSlider):
                     painter.fillRect(rect_progress, progress_color)
 
         painter.end()
+
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton:
             val = self.pickValue(int(event.position().x()))
@@ -99,14 +104,13 @@ class TimeSliderLect(QSlider):
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        # Quand on glisse avec le bouton enfoncé, on continue à mettre à jour
-        if self.isSliderDown():
-            val = self.pickValue(int(event.position().x()))
-            self.setValue(val)
-            self.sliderMoved.emit(val)
-            event.accept()
+        val = self.pickValue(int(event.position().x()))
+        if not self.isSliderDown():
+            self.hoverValue.emit(val)
         else:
+            # ancien comportement pendant le drag
             super().mouseMoveEvent(event)
+        event.accept()
 
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.MouseButton.LeftButton and self.isSliderDown():
