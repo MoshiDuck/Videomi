@@ -49,7 +49,7 @@ class FichierClient:
                     raise FichierSyntaxError('sharing_user not specified but required')
                 params.update({'sharing_user' : sharing_user})
         #~ print(params)
-        o = self._APIcall('https://api.1fichier.com/v1/download/get_token.cgi', json = params)
+        o = self.api_call('https://api.1fichier.com/v1/download/get_token.cgi', json = params)
         return o['url']
     def _raise_unauthorized(self):
         raise NotAuthorized("Cette fonctionnalité nécessite une clé API.")
@@ -85,12 +85,6 @@ class FichierClient:
         )
 
     def remove_file(self, urls: List[str], codes: List[Union[str, None]] = None) -> dict:
-        """
-        Supprime en batch une liste de fichiers 1fichier identifiés par leurs URLs.
-        Si des codes d'accès sont nécessaires pour certains fichiers, les passer dans `codes`
-        dans le même ordre que `urls`.
-        Retourne un dict {'status': 'OK'|'ERROR', 'removed': nombre_de_fichiers_supprimés}.
-        """
         if not self.authed:
             self._raise_unauthorized()
 

@@ -21,11 +21,8 @@ class ManagerFirebase(QThread):
             data = ref.get() or {}
 
             for title, info in data.items():
-                # 1) Récupère tout le sous‑nœud metadata
                 metadata = info.get("metadata", {})
 
-                # 2) Calcul de la durée (déjà en place)
-                duration = None
                 try:
                     duration = float(
                         metadata.get("duration")
@@ -35,10 +32,8 @@ class ManagerFirebase(QThread):
                 except (TypeError, ValueError):
                     duration = None
 
-                # 3) Extrait le nœud ffprobe complet
                 ffprobe_meta = metadata.get("ffprobe", {})
 
-                # 4) Construit l’info finale en incluant ffprobe
                 self.items[title] = {
                     "thumbnail": info.get("thumbnail_link"),
                     "duration": duration,

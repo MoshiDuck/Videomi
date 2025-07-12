@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.5.6
+0.0.5.8
 
 ---
 
@@ -142,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Gerer Documents, Archives, Executables"
+    git commit -m "[FAIT] Sqlite"
     ```
 3. Force le push  
     ```bash
@@ -153,9 +153,12 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-
-- integrer upload 
-- regler checkbox bug tous si option1
-- integrer list
-- faire en sorte que dans Images et Documents, l'item s'adapte à l'image
-- Quand cloud personnel
+- Faire en sorte que si changement cloud alors changement local
+- Optimiser affichage image
+- Integrer image en local 
+- Integrer upload 
+- Regler checkbox bug tous si option1
+- Integrer list
+- Faire en sorte que dans Images, Documents, l'item s'adapte à l'image
+- Faire en sorte que dans Archives, Executables, il y ait des icons à la place des images
+- Faire défilement plus beau

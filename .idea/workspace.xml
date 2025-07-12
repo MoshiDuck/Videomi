@@ -5,14 +5,24 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/category.py" beforeDir="false" afterPath="$PROJECT_DIR$/Models/category.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Models/upload_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/Models/upload_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Bar_Sec/bar_sec_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Bar_Sec/bar_sec_nav.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Widgets/card_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Widgets/card_nav.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/cache_miniature.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cache/cache_miniature.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/data_sync.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_docx.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_exe.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_generic.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_image.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_manager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_media.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_pdf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_tar.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Extract/extract_zip.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/test3.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Service/manager_firebase.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/manager_firebase.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Service/onefichier_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/onefichier_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/telechargement_image.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/telechargement_image.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

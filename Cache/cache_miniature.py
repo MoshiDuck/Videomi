@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt
 class CacheMiniature:
     def __init__(self, max_size=500):
         self.max_size = max_size
-        self._cache = OrderedDict()  # {url: QPixmap} (pleine taille)
+        self._cache = OrderedDict()
 
     def get(self, url, width=None) -> QPixmap | None:
         if url not in self._cache:
@@ -18,7 +18,6 @@ class CacheMiniature:
         if width is None:
             return pixmap
 
-        # Redimensionnement à la volée, sans modifier le cache principal
         return pixmap.scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
 
     def insert(self, url, pixmap: QPixmap):
@@ -26,7 +25,7 @@ class CacheMiniature:
         self._cache.move_to_end(url)
 
         if len(self._cache) > self.max_size:
-            self._cache.popitem(last=False)  # Supprime le plus ancien
+            self._cache.popitem(last=False)
 
     def clear(self):
         self._cache.clear()

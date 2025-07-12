@@ -27,11 +27,26 @@ class FirebaseAuth:
 
 
     def get_uid(self) -> str | None:
-        if self.user and "localId" in self.user:
+        # 1. Si localId déjà présent, on le renvoie
+        if self.user and self.user.get("localId"):
             return self.user["localId"]
 
-        print("[FirebaseAuth] UID introuvable dans self.user.")
+        # 2. Sinon, on tente de le récupérer via l'idToken
+        if self.user and self.user.get("idToken"):
+            try:
+                info = self.auth.get_account_info(self.user["idToken"])
+                uid = info["users"][0]["localId"]
+                # Stockage pour usages futurs
+                self.user["localId"] = uid
+                self._sauvegarder_token(self.user)
+                return uid
+            except Exception as e:
+                print(f"[FirebaseAuth] Impossible de récupérer UID via get_account_info: {e}")
+
+        # 3. Échec
+        print("[FirebaseAuth] UID introuvable.")
         return None
+
 
     def inscrire(self, email: str, password: str):
         try:
