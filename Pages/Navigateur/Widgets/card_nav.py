@@ -15,7 +15,7 @@ class CardNav(QWidget):
 
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(20)
+        self.layout.setSpacing(0)
         self.layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._buttons: dict[str, QPushButton] = {}

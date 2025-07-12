@@ -54,8 +54,7 @@ class MainWindow(QWidget):
         self.client = FichierClient()
         self.folder_ids_by_name = {}
 
-        # Création des dossiers catégories s'ils n'existent pas
-        for name in ["Videos", "Musiques", "Images", "Documents", "Archives"]:
+        for name in ["Videos", "Musiques", "Images", "Documents", "Archives", "Executables"]:
             try:
                 self.client.create_folder(folder_name=name)
             except FichierResponseNotOk as e:
@@ -66,10 +65,8 @@ class MainWindow(QWidget):
         for folder in folders.get("sub_folders", []):
             self.folder_ids_by_name[folder["name"].lower()] = folder["id"]
 
-        # Récupération fichiers existants depuis 1fichier.com
         existing_files_1fichier = self.get_all_existing_files_by_folder(self.client)
 
-        # Init UploadManager avec fichiers existants de 1fichier
         self.upload_manager = UploadManager(
             self.client,
             cat_manager,
@@ -77,7 +74,6 @@ class MainWindow(QWidget):
             self.folder_ids_by_name,
         )
 
-        # Récupération fichiers uploadés depuis Firebase et fusion
         firebase_files = self.upload_manager.get_uploaded_files_from_firebase()
         for key, files_set in firebase_files.items():
             if key in existing_files_1fichier:
@@ -85,9 +81,7 @@ class MainWindow(QWidget):
             else:
                 existing_files_1fichier[key] = files_set
 
-        # Mise à jour de existing_files avec la fusion
         self.existing_files = existing_files_1fichier
-        # Remettre à jour dans upload_manager (si besoin)
         self.upload_manager.existing_files = self.existing_files
 
         self.label = QLabel("Choisissez un fichier ou un dossier à uploader :")
@@ -100,7 +94,7 @@ class MainWindow(QWidget):
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
 
-        self.label_count = QLabel("0 / 0 fichiers")
+        self.label_count = QLabel(" 0 / 0 fichiers")
 
         layout = QVBoxLayout()
         layout.addWidget(self.label)
@@ -168,11 +162,7 @@ class MainWindow(QWidget):
             folder_name = folder["name"].lower()
             folder_id = folder["id"]
             existing[folder_name] = set()
-
-            # Ajout fichiers du dossier principal
             existing[folder_name].update(get_files_in_folder(folder_id))
-
-            # Parcours des sous-dossiers pour ajouter leurs fichiers aussi
             subfolders = client.get_folders(folder_id).get("sub_folders", [])
             for sub in subfolders:
                 sub_id = sub["id"]

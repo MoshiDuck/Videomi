@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.5.5
+0.0.5.6
 
 ---
 
@@ -41,6 +41,7 @@ Le tout conçu **pour une famille ou un cercle d'amis**, avec un **accès restre
 ## 🌐 Fonctionnalités serveur (Orange Pi 5+ ou Max/Ultra)
 
 - 💽 Stockage haute capacité en **SSD NVMe silencieux**
+  - SSD Secondaire pour backup
 - 🔌 **Alimentation USB-C** + refroidissement passif ou ventilé silencieusement
 - 📡 **Serveur de streaming personnel**, accessible partout dans le monde
 - 🔐 **VPN maison (OpenVPN / Wireguard)** pour accès sécurisé à distance
@@ -69,6 +70,7 @@ Le tout conçu **pour une famille ou un cercle d'amis**, avec un **accès restre
 
 - 🔸 **Orange Pi 5 Max **  
 - 🔸 **SSD NVMe (10 To conseillé)** avec dissipateur thermique  
+- 🔸 **SSD Secondaire NVMe (10 To conseillé)** avec dissipateur thermique   
 - 🔸 **Carte d’extension PCIe (si besoin)** pour SSD en direct  
 - 🔸 **Boîtier silencieux** avec refroidissement adapté  
 - 🔸 **Alimentation USB-C fiable**  
@@ -140,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Gerer image"
+    git commit -m "[FAIT] Gerer Documents, Archives, Executables"
     ```
 3. Force le push  
     ```bash
@@ -151,9 +153,9 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Gerer Documents
-- Gerer Archives
+
 - integrer upload 
 - regler checkbox bug tous si option1
 - integrer list
-- faire filtre
+- faire en sorte que dans Images et Documents, l'item s'adapte à l'image
+- Quand cloud personnel

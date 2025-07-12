@@ -39,6 +39,7 @@ class BarSecNav(QWidget):
             ("Images", "mdi.image-outline"),
             ("Documents", "mdi.file-document-outline"),
             ("Archives", "mdi.zip-box-outline"),
+            ("Executables", "mdi.cog-outline"),
         ], bool_sec=True)
 
         self.slide = SlideTemps()

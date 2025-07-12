@@ -13,6 +13,8 @@ class CatManager:
         'archives': ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
                      '.xz', '.lz', '.iso', '.cab', '.arj', '.z',
                      '.tgz', '.tbz2', '.txz', '.lzma'],
+        'executables': ['.exe', '.msi', '.apk', '.bat', '.cmd', '.sh',
+                        '.bin', '.run', '.app', '.dmg', '.jar', '.com'],
     }
 
     _EXT_TO_CAT = {ext: cat for cat, exts in CATEGORIES.items() for ext in exts}
