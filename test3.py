@@ -2,15 +2,15 @@ import sys
 import traceback
 from pathlib import Path
 
+import yaml
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
     QPushButton, QProgressBar, QFileDialog, QMessageBox
 )
-from pyOneFichierClient.OneFichierAPI.exceptions import FichierResponseNotOk
 
 from Models.category import CatManager
-from Service.onefichier_service import FichierClient
 from Models.upload_manager import UploadManager
+from Service.py1FichierClient import FichierClient
 
 cat_manager = CatManager()
 
@@ -18,8 +18,8 @@ def exception_hook(exc_type, exc_value, exc_tb):
     QMessageBox.critical(None, "Erreur inattendue", str(exc_value))
     traceback.print_exception(exc_type, exc_value, exc_tb)
 
-def get_files_in_folder(folder_id):
-    client = FichierClient()
+def get_files_in_folder(client: FichierClient, folder_id):
+    client = client
     files = set()
     offset = 0
     limit = 100
@@ -27,7 +27,7 @@ def get_files_in_folder(folder_id):
         try:
             resp = client.api_call(
                 "https://api.1fichier.com/v1/file/ls.cgi",
-                json_data={"folder_id": folder_id, "offset": offset, "limit": limit}
+                json={"folder_id": folder_id, "offset": offset, "limit": limit}
             )
             batch = resp.get("files", [])
             if not batch:
@@ -46,19 +46,27 @@ def get_files_in_folder(folder_id):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-
+        with open("Config/config.yaml", "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
         self.setWindowTitle("Uploader 1fichier.com")
         self.resize(500, 400)
         self.total_files = 0
         self.files_done = 0
-        self.client = FichierClient()
+        self.api_key = self.config.get("onefichier", {}).get("api_key", "")
+        self.client = FichierClient(api_key=self.api_key, be_nice=True)
         self.folder_ids_by_name = {}
 
+        # 1) Récupère les sub_folders du root
+        resp = self.client.get_folders(0)
+        existing_names = {f["name"].lower() for f in resp.get("sub_folders", [])}
+
+        # 2) Crée seulement si absent
         for name in ["Videos", "Musiques", "Images", "Documents", "Archives", "Executables"]:
-            try:
-                self.client.create_folder(folder_name=name)
-            except FichierResponseNotOk as e:
-                if "Folder already exist" not in str(e):
+            if name.lower() not in existing_names:
+                try:
+                    self.client.create_folder(folder_name=name)
+                except Exception as e:
+                    print(f"Erreur création dossier '{name}': {e}")
                     raise
 
         folders = self.client.get_folders(0)
@@ -162,11 +170,11 @@ class MainWindow(QWidget):
             folder_name = folder["name"].lower()
             folder_id = folder["id"]
             existing[folder_name] = set()
-            existing[folder_name].update(get_files_in_folder(folder_id))
+            existing[folder_name].update(get_files_in_folder(client, folder_id))
             subfolders = client.get_folders(folder_id).get("sub_folders", [])
             for sub in subfolders:
                 sub_id = sub["id"]
-                files = get_files_in_folder(sub_id)
+                files = get_files_in_folder(client, sub_id)
                 existing[folder_name].update(files)
 
         return existing

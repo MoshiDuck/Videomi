@@ -5,24 +5,80 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/Database/db_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Database/sync_database.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Service/py1FichierClient.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/grid.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cache/cache_miniature.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cache/cache_miniature.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/data_sync.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_docx.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_exe.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_generic.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_image.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_manager.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_media.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_pdf.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_tar.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Extract/extract_zip.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/0419cc16014d035daa43b454cc78c01e.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/0d0881364464f9c9117b2d1371c5604f.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/175a086fee84ecb2f5c9e5a2d543938c.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/17b91f77c9a5e62d1c1db34b54d8c042.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/19164e262b271538f0da26901f5a06bb.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/223edf290933faf1f0d6e25c76418178.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/244e69b7ad353364f59703f6acfb6637.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/24f1f9d53ac5129cc6f9731e57b8fe08.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/294965a2e77ac5d3192879fc1d4db59e.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/2c04e02d3be492264db70f1c58c70ffe.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/3a6b8d1e3e116f0191b0261e287ca099.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/3f8933f6dbc8c8da047ca88ed38a07a4.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/40d459ff8c8ed7cd4bfe40ed3a5dc78d.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/4256f938bc36e440baf1e6fea4b0e08d.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/42be428e584b802bd6f5724a3f9a1f2b.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/4644e29a637c81d6fa973b6ff3857a8a.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/4dd4be2095ded6089552108f723d4b69.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/4e498f72c2dbfee856f7e1353ab9ea1c.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/528804991f1b6985be5cec090efa9742.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/5a1c1ead0cf914073eb37136e98d8eb1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/5a94ea07dcb91a6be44753658c1237a9.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/5ab46dad5a3a2eadc5717f2492f0b674.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/5bf3e1d1e4292cb13ce241d3336abaef.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/5fefb2fd01edc3a67afb7c1856adc3b1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/65fa4247ad97a1b173a2b8a5c525c545.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/68ef1864e01f702e8ed0e6ee67c6afab.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/6b1e27e44a6f2c0a4fdbc72e2c1b58f3.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/71070e35544f164636bc48b4ef52c150.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/75fb7302034f4d6767339ec494093983.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/775764418d1113f1de52eca8bbaf3205.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/78061187459a1c9aa919ff97ccd6d643.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/7cd697053be9b520c6f8f125fdd5396e.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/85139d17483aa459cefe5493bcdb8136.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/8a9d59199a2bcd9876844a1ea939aa8f.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/8ea81a6d91a3f8621435b2dee645fb53.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/91ccde3e292fc64e8e6f67e0c744a168.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/998bd3203cdab1ddcd09543206b3b943.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/9d290228b5e6a50f7f05333f2e9a8477.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/9f45fbfa9c2b8f0199f50bd4974e9bd7.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/a28d1fa1590a4315783f01677b20f7b4.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/a29a9efbbef1834a969e7326c9b67a2c.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/a461e324908cd98170c82b4453230c32.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/b0fcb3ccbf5ac3bacd27a0df326efd9b.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/b2a1f9f93bc1e6b132d8fe8027084d10.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/b2c536a8aca93ee0e21fe84b78269696.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/b924bd0b327a19e7c7d043f947740a75.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/be2e75b02ad043ba26f59c66d58c0fbc.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/c2d495443ead5c2030fdb03cb83ccfd1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/c90f856cb246d947beb91be5c839fabf.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/cc385058a3664f9314c3f7b41d794fd6.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/d06f4ec2aca601ed87d47a7c368a8c13.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/d4623b406678010ccd089ab8b2ee37b0.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/dabf641af69baebd4a21792f8e3f585f.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/e841d854465502a6ef79e5256cc82979.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/eaf703a6921864d76c32eab745eb9936.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/ec4f73a4901c6110d132f14f1adf0cd2.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cache/images/f37b220418b405777477fdede96c8324.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Models/upload_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/Models/upload_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Service/manager_firebase.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/manager_firebase.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Service/onefichier_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/onefichier_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Service/onefichier_service.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/defilement_label.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/defilement_label.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Widgets/telechargement_image.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/telechargement_image.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/local_data.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test3.py" beforeDir="false" afterPath="$PROJECT_DIR$/test3.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -58,6 +114,7 @@
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.onefichier_service.executor&quot;: &quot;Run&quot;,
     &quot;Python.page_inscription.executor&quot;: &quot;Run&quot;,
+    &quot;Python.py1FichierClient.executor&quot;: &quot;Run&quot;,
     &quot;Python.row_widget.executor&quot;: &quot;Run&quot;,
     &quot;Python.test.executor&quot;: &quot;Run&quot;,
     &quot;Python.test2.executor&quot;: &quot;Run&quot;,
@@ -68,7 +125,7 @@
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/Gabriel/PycharmProjects/Videomi/Pages/Navigateur/Widgets&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.grazie&quot;
   }
 }</component>
   <component name="RecentsManager">

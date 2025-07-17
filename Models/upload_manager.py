@@ -1,36 +1,31 @@
 # upload_manager.py
-import fitz
 import json
+import multiprocessing
 import os
 import re
-import yaml
-import zipfile
-import traceback
 import subprocess
-import unicodedata
-
-from PIL import Image
-import multiprocessing
-from typing import List
+import traceback
+from io import BytesIO
 from pathlib import Path
-from docx import Document
+from typing import List
 
-from odf import opendocument
-from mutagen.id3 import APIC
-from pptx import Presentation
-from pyrebase import pyrebase
-from mutagen.flac import Picture
-from mutagen.mp4 import MP4Cover
-from openpyxl import load_workbook
-from odf.draw import Image as ODFImage
-from mutagen import File as MutagenFile, File
+import fitz
+import unicodedata
+import yaml
+from PIL import Image
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QTimer
-from pyOneFichierClient.OneFichierAPI.py1FichierClient import s
+from docx import Document
+from mutagen import File as MutagenFile, File
+from mutagen.flac import Picture
+from mutagen.id3 import APIC
+from mutagen.mp4 import MP4Cover
+from pptx import Presentation
 from pyOneFichierClient.OneFichierAPI.exceptions import FichierResponseNotOk
+from pyrebase import pyrebase
+from Service.py1FichierClient import FichierClient, s
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 
 from Models.category import CatManager
-from Service.onefichier_service import FichierClient
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 FFMPEG_PATH = BASE_DIR / "Ressource" / "ffmpeg" / "bin" / "ffmpeg.exe"
@@ -172,7 +167,7 @@ class UploadManager(QObject):
     error = pyqtSignal(str)
     all_done = pyqtSignal()
 
-    def __init__(self, client: FichierClient, cat_manager: CatManager, existing_files: dict, folder_ids_by_name: dict, root_folder_id: str = '0'):
+    def __init__(self, client, cat_manager: CatManager, existing_files: dict, folder_ids_by_name: dict, root_folder_id: str = '0'):
         super().__init__()
         self.thumb_threads: List[UploadThread] = []
         self._firebase_keys: dict[str, tuple[str, str, str]] = {}
@@ -308,27 +303,99 @@ class UploadManager(QObject):
         self.thread.error.connect(self.error.emit)
         self.thread.start()
 
+    @staticmethod
+    def render_first_page_a4(doc_path: str, dpi: int = 150) -> tuple[bytes, str] | tuple[None, None]:
+        """
+        Rends la première page de doc_path au format A4 @dpi et renvoie (jpeg_bytes, '.jpg').
+        Supporte PDF, PPTX, DOCX.
+        """
+        # Calcul des dimensions
+        mm_to_inch = 25.4
+        a4_w_in = 210 / mm_to_inch
+        a4_h_in = 297 / mm_to_inch
+        a4_w_px = int(a4_w_in * dpi)
+        a4_h_px = int(a4_h_in * dpi)
+
+        ext = Path(doc_path).suffix.lower()
+        # On récupère un PIL.Image en RGBA ou RGB selon source
+        pil_img = None
+
+        if ext == '.pdf':
+            doc = fitz.open(str(doc_path))
+            if doc.page_count:
+                page = doc.load_page(0)
+                # Matrice de zoom dpi/72
+                m = fitz.Matrix(dpi / 72, dpi / 72)
+                pix = page.get_pixmap(matrix=m, alpha=False)
+                pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            doc.close()
+
+        elif ext == '.pptx':
+            from pptx import Presentation
+            pres = Presentation(str(doc_path))
+            if pres.slides:
+                slide = pres.slides[0]
+                # on rend chaque shape image ou tout le slide
+                # plus simple : exporter le slide en image via PIL+fitz hack
+                # on peut enregistrer en temporaire en EMF/WMF puis convertir, mais trop long
+                # on tombe donc sur méthode PDF intermédiaire :
+                tmp_pdf = BytesIO()
+                pres.save(tmp_pdf)
+                tmp_pdf.seek(0)
+                doc = fitz.open(stream=tmp_pdf.read(), filetype="pdf")
+                page = doc.load_page(0)
+                m = fitz.Matrix(dpi / 72, dpi / 72)
+                pix = page.get_pixmap(matrix=m, alpha=False)
+                pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
+
+        elif ext == '.docx':
+            from docx import Document
+            docx = Document(str(doc_path))
+            # on extrait la première image si disponible
+            for rel in docx.part._rels.values():
+                if 'image' in rel.reltype:
+                    data = rel.target_part.blob
+                    pil_img = Image.open(BytesIO(data))
+                    break
+
+        if pil_img is None:
+            return None, None
+
+        # on redimensionne sur fond blanc centré (A4)
+        img = pil_img.convert('RGB')
+        img.thumbnail((a4_w_px, a4_h_px), Image.Resampling.LANCZOS)
+        thumb = Image.new('RGB', (a4_w_px, a4_h_px), (255, 255, 255))
+        x = (a4_w_px - img.width) // 2
+        y = (a4_h_px - img.height) // 2
+        thumb.paste(img, (x, y))
+
+        buf = BytesIO()
+        thumb.save(buf, 'JPEG', quality=90)
+        return buf.getvalue(), '.jpg'
+
     def on_finished(self, link: str, uploaded_file: str, category: str, title: str, is_media: bool):
         try:
             metadata = self.get_all_metadata(uploaded_file, category)
 
+            # --- Détermination du titre final ---
             new_title = title
-            if category.lower() == 'videos':
+            key = category.lower()
+            if key == 'videos':
                 tags = metadata.get('ffprobe', {}).get('format', {}).get('tags', {})
                 if tags.get('title', '').strip():
                     new_title = tags['title'].strip()
-            elif category.lower() == 'musiques':
+            elif key == 'musiques':
                 tags = metadata.get('mutagen_tags', {})
                 if tags.get('title', '').strip():
                     new_title = tags['title'].strip()
 
             firebase_key_raw = sanitize_for_firebase_key(new_title).lower()
             firebase_key = sanitize_folder_name(firebase_key_raw)
-            key = category.lower()
 
+            # --- Préparation du dossier cible ---
             parent_id = self.folder_ids_by_name.get(key)
             folder_id = parent_id
-
             if is_media or key == 'documents':
                 sub_key = f"{key}/{firebase_key}"
                 folder_id = self._get_or_create_folder(
@@ -337,7 +404,6 @@ class UploadManager(QObject):
                     name=firebase_key,
                     parent_folder_id=parent_id
                 )
-
                 if key != 'documents':
                     try:
                         self.client.move_file([link], destination_folder=folder_id)
@@ -345,9 +411,9 @@ class UploadManager(QObject):
                         if '#604' not in str(e):
                             raise
 
+            # --- Gestion par catégorie ---
             if key == 'images':
-                self._firebase_keys[uploaded_file] = (category, firebase_key, '')
-                thumb_path = str(Path(uploaded_file).with_suffix('.thumb.jpg'))
+                # Stockage metadata sans miniature
                 self.store_metadata_in_firebase(
                     main_link='',
                     metadata=metadata,
@@ -355,37 +421,76 @@ class UploadManager(QObject):
                     category=category,
                     title=firebase_key
                 )
-                if self.resize_image_thumbnail(uploaded_file, thumb_path):
-                    self.upload_and_move_thumb(thumb_path, folder_id, uploaded_file)
-                    return
-                else:
-                    print(f"[Thumbnail] Impossible de générer la miniature image pour {uploaded_file}")
-                    self.store_metadata_in_firebase(
-                        main_link='',
-                        metadata=metadata,
-                        thumb_link=link,
-                        category=category,
-                        title=firebase_key
-                    )
-                    self.files_done += 1
-                    self.progress.emit(int(self.files_done / self.total_files * 100))
-                    self.finished.emit(link, uploaded_file)
-                    QTimer.singleShot(0, self.upload_next_file)
 
-            else:
-                self.store_metadata_in_firebase(
-                    main_link=link,
-                    metadata=metadata,
-                    thumb_link='',
-                    category=category,
-                    title=firebase_key
+                # Génération de la miniature au ratio original
+                thumb_bytes, suffix = self.generate_image_thumbnail(
+                    uploaded_file,
+                    max_width=480,
+                    max_height=480,
+                    quality=95
                 )
+                if thumb_bytes:
+                    # Upload de la miniature
+                    m = MultipartEncoder({
+                        'file[]': (Path(uploaded_file).stem + suffix, thumb_bytes, 'image/jpeg')
+                    })
+                    monitor = MultipartEncoderMonitor(m, lambda mon: None)
+                    headers = {'Content-Type': monitor.content_type}
+                    if self.client.authed:
+                        headers.update(self.client.auth_nc)
 
+                    # Récupérer serveur 1Fichier
+                    resp = self.client.api_call(
+                        'https://api.1fichier.com/v1/upload/get_upload_server.cgi', method='GET'
+                    )
+                    up_srv, upload_id = resp['url'], resp['id']
+                    r = s.post(
+                        f'https://{up_srv}/upload.cgi?id={upload_id}',
+                        data=monitor, headers=headers, allow_redirects=False
+                    )
+                    loc = r.headers['Location']
+                    r2 = s.get(f'https://{up_srv}{loc}')
+                    link_img = re.search(
+                        r'<td class="normal"><a href="(.+)"', r2.text
+                    ).group(1)
+
+                    # Déplacer miniature et mettre à jour Firebase
+                    self.client.move_file([link_img], destination_folder=folder_id)
+                    thumb_link = inject_affiliation(link_img)
+                    self._get_db_ref(category, firebase_key).update(
+                        {'thumbnail_link': thumb_link}, self.token
+                    )
+                else:
+                    # Échec miniature → on utilise le lien principal
+                    thumb_link = inject_affiliation(link)
+                    self._get_db_ref(category, firebase_key).update(
+                        {'thumbnail_link': thumb_link}, self.token
+                    )
+
+                # Émettre fin et passer au suivant
+                self.files_done += 1
+                self.progress.emit(int(self.files_done / self.total_files * 100))
+                self.finished.emit(link, uploaded_file)
+                QTimer.singleShot(0, self.upload_next_file)
+                return
+
+            # --- Pour les autres catégories (documents, vidéos, musiques, archives…) ---
+            # Stockage metadata
+            self.store_metadata_in_firebase(
+                main_link=link if key != 'images' else '',
+                metadata=metadata,
+                thumb_link='',
+                category=category,
+                title=firebase_key
+            )
+
+            # Mémoriser le lien principal
             link_with_aff = inject_affiliation(link)
             self._firebase_keys[uploaded_file] = (category, firebase_key, link_with_aff)
             self.existing_files.setdefault(key, set()).add(firebase_key)
 
             if key == 'videos':
+                # Génération miniature 16:9 pour vidéo
                 thumb = str(Path(uploaded_file).with_suffix('.thumb.jpg'))
                 try:
                     generate_thumbnail(uploaded_file, thumb)
@@ -395,36 +500,61 @@ class UploadManager(QObject):
                     self._on_thumb_finished('', uploaded_file)
 
             elif key == 'musiques':
+                # Extraction cover audio
                 cover_path = str(Path(uploaded_file).with_suffix('.thumb.jpg'))
                 if extract_audio_cover(uploaded_file, cover_path):
                     self.upload_and_move_thumb(cover_path, folder_id, uploaded_file)
                     return
+                # Pas de cover → on conclut
                 self.files_done += 1
                 self.progress.emit(int(self.files_done / self.total_files * 100))
                 self.finished.emit(link_with_aff, uploaded_file)
                 QTimer.singleShot(0, self.upload_next_file)
 
             elif key == 'documents':
-                tmp_dir = BASE_DIR / 'temp_extracted' / firebase_key
-                images = self.extract_images_from_document(uploaded_file, str(tmp_dir))
+                # Rendu A4 de la 1ère page
+                img_bytes, suffix = self.render_first_page_a4(uploaded_file, dpi=150)
                 try:
                     self.client.move_file([link], destination_folder=folder_id)
                 except FichierResponseNotOk as e:
                     if '#604' not in str(e):
                         raise
-                if not images:
-                    self._complete_document_upload(link, uploaded_file)
-                    return
-                preview_path = images[0]
-                self._firebase_keys[preview_path] = (category, firebase_key, link)
-                thumb_path = str(Path(preview_path).with_suffix('.jpg'))
-                if self.resize_image_thumbnail(preview_path, thumb_path):
-                    self.upload_and_move_thumb(thumb_path, folder_id, preview_path)
-                else:
-                    self._complete_document_upload(link, uploaded_file)
+                thumb_link = ''
+                if img_bytes:
+                    m = MultipartEncoder({
+                        'file[]': (Path(uploaded_file).stem + suffix, img_bytes, 'image/jpeg')
+                    })
+                    monitor = MultipartEncoderMonitor(m, lambda mon: None)
+                    headers = {'Content-Type': monitor.content_type}
+                    if self.client.authed:
+                        headers.update(self.client.auth_nc)
+                    resp = self.client.api_call(
+                        'https://api.1fichier.com/v1/upload/get_upload_server.cgi', method='GET'
+                    )
+                    up_srv, upload_id = resp['url'], resp['id']
+                    r = s.post(f'https://{up_srv}/upload.cgi?id={upload_id}',
+                               data=monitor, headers=headers, allow_redirects=False)
+                    loc = r.headers.get('Location')
+                    r2 = s.get(f'https://{up_srv}{loc}')
+                    link_img = re.search(r'<td class="normal"><a href="(.+)"', r2.text).group(1)
+                    thumb_link = link_img
+
+                # Mettre à jour Firebase
+                self.store_metadata_in_firebase(
+                    main_link=link,
+                    metadata=metadata,
+                    thumb_link=thumb_link,
+                    category=category,
+                    title=firebase_key
+                )
+                self.files_done += 1
+                self.progress.emit(int(self.files_done / self.total_files * 100))
+                self.finished.emit(link, uploaded_file)
+                QTimer.singleShot(0, self.upload_next_file)
                 return
 
             else:
+                # Archives, exécutables, etc.
                 try:
                     self.client.move_file([link], destination_folder=folder_id)
                 except FichierResponseNotOk as e:
@@ -441,6 +571,40 @@ class UploadManager(QObject):
             self.progress.emit(int(self.files_done / self.total_files * 100))
             self.finished.emit(link, uploaded_file)
             QTimer.singleShot(0, self.upload_next_file)
+
+    @staticmethod
+    def generate_image_thumbnail(input_path: str,
+                                 max_width: int = 480,
+                                 max_height: int = 480,
+                                 quality: int = 95) -> tuple[bytes, str] | tuple[None, None]:
+        """
+        Miniature JPEG avec ratio original, haute résolution et haute qualité.
+        - max_width, max_height : dimensions max de la miniature
+        - quality : 0-100, plus c'est élevé meilleure est la qualité
+        """
+        try:
+            with Image.open(input_path) as img:
+                # Conversion en RGB si nécessaire
+                if img.mode == 'RGBA':
+                    bg = Image.new('RGB', img.size, (255, 255, 255))
+                    bg.paste(img, mask=img.split()[3])
+                    img = bg
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+
+                # Redimensionnement (ratio conservé)
+                img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+
+                # Sauvegarde en JPEG sans sous‑échantillonnage (subsampling=0)
+                buf = BytesIO()
+                img.save(buf, 'JPEG',
+                         quality=quality,
+                         optimize=True,
+                         subsampling=0)
+                return buf.getvalue(), '.jpg'
+        except Exception as e:
+            print(f"[Thumbnail Images] Erreur génération miniature : {e}")
+            return None, None
 
     def _get_or_create_folder(self, base_key: str, sub_key: str, name: str, parent_folder_id: str) -> str:
         if sub_key in self.folder_ids_by_name:
@@ -465,79 +629,66 @@ class UploadManager(QObject):
         self.finished.emit(link, uploaded_file)
         QTimer.singleShot(0, self.upload_next_file)
 
-    def extract_images_from_document(self, doc_path: str, output_dir: str) -> list[str]:
+    @staticmethod
+    def extract_first_image_bytes(doc_path: str) -> tuple[bytes, str] | tuple[None, None]:
         path = Path(doc_path)
         ext = path.suffix.lower()
-        out = Path(output_dir)
-        out.mkdir(parents=True, exist_ok=True)
-        saved = []
-        base = path.stem  # <-- nom de base pour la miniature
 
-        def save_bytes(data: bytes, suffix: str):
-            name = f"{base}.thumb{suffix}"
-            dest = out / name
-            with open(dest, "wb") as f:
-                f.write(data)
-            saved.append(str(dest))
-
-        # --- PDF : rendre uniquement la première page
-        if ext == ".pdf":
+        if ext == '.pdf':
             doc = fitz.open(str(path))
             if len(doc) > 0:
-                page = doc.load_page(0)
-                pix = page.get_pixmap()
-                suffix = ".png"
-                preview_path = out / f"{base}.thumb{suffix}"
-                pix.save(str(preview_path))
-                saved.append(str(preview_path))
+                pix = doc.load_page(0).get_pixmap()
+                data = pix.tobytes('png')
+                return data, '.png'
             doc.close()
 
-        # --- DOCX : extraire seulement la première image trouvée
-        elif ext == ".docx":
+        elif ext == '.docx':
             doc = Document(str(path))
             for rel in doc.part._rels.values():
-                if "image" in rel.reltype:
+                if 'image' in rel.reltype:
                     data = rel.target_part.blob
                     suffix = Path(rel.target_part.partname).suffix
-                    save_bytes(data, suffix)
-                    break  # on s’arrête après la première image
+                    return data, suffix
 
-        # --- PPTX : extraire seulement la première image du premier slide
-        elif ext == ".pptx":
+        elif ext == '.pptx':
             pres = Presentation(str(path))
             if pres.slides:
-                slide = pres.slides[0]
-                for shape in slide.shapes:
-                    if hasattr(shape, "image"):
+                for shape in pres.slides[0].shapes:
+                    if hasattr(shape, 'image'):
                         data = shape.image.blob
-                        suffix = f".{shape.image.ext}"
-                        save_bytes(data, suffix)
-                        break  # on s’arrête après la première image
+                        suffix = f'.{shape.image.ext}'
+                        return data, suffix
 
-        else:
-            # Pour les autres formats, on ne fait rien ou on peut logguer
-            print(f"Preview extraction non géré pour {ext}")
+        return None, None
 
-        return saved
-
-    def resize_image_thumbnail(self, input_path: str, output_path: str, target_size=(320, 180)) -> bool:
-        from PIL import Image
-
+    @staticmethod
+    def resize_image_thumbnail(input_path: str, output_path: str, target_size=(640, 360)) -> bool:
         try:
+
             with Image.open(input_path) as img:
-                if img.mode != 'RGB':
+                if img.mode == 'RGBA':
+                    bg = Image.new('RGB', img.size, (0, 0, 0))
+                    bg.paste(img, mask=img.split()[3])
+                    img = bg
+                elif img.mode != 'RGB':
                     img = img.convert('RGB')
 
                 img.thumbnail(target_size, Image.Resampling.LANCZOS)
-                background = Image.new('RGB', target_size, (0, 0, 0))
+
+                thumb = Image.new('RGB', target_size, (0, 0, 0))
                 x = (target_size[0] - img.width) // 2
                 y = (target_size[1] - img.height) // 2
-                background.paste(img, (x, y))
-                background.save(output_path, 'JPEG', quality=90)
+                thumb.paste(img, (x, y))
+
+            thumb.save(output_path, 'JPEG',
+                       quality=100,
+                       subsampling=0,
+                       optimize=False)
+
             return True
 
         except Exception as e:
-            print(f"[Thumbnail] Erreur redimensionnement image (fit) : {e}")
+            print(f"[Thumbnail] Erreur redimensionnement image : {e}")
             return False
 
     def upload_and_move_thumb(self, thumb_path: str, dest_folder_id: str, parent_file: str):

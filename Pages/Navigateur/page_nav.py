@@ -1,6 +1,6 @@
 # page_nav.py
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 
 from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
@@ -10,17 +10,17 @@ from Widgets.base_fenetre import BaseFenetre
 
 
 class PageNav(BaseFenetre):
-    def __init__(self,firebase_auth, taille_ecran):
+    def __init__(self,firebase_auth,db_manager, taille_ecran):
         super().__init__(
             largeur=taille_ecran.width(),
             hauteur=taille_ecran.height()
         )
-
+        self.db_manager = db_manager
         self.nav_bar = BarNav(self)
         self.nav_sec_bar = BarSecNav(self)
         self.nav_sec_bar.triple.pan1.hide()
         self.nav_sec_bar.triple.pan3.hide()
-        self.catalogue = Catalogue(firebase_auth, taille_ecran,self.nav_bar, self.nav_sec_bar)
+        self.catalogue = Catalogue(self.db_manager,self.nav_bar, self.nav_sec_bar)
         self.publication = Publication()
         self.publication.hide()
 

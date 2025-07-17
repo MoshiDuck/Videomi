@@ -142,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Sqlite"
+    git commit -m "[FAIT] Mettre document en upload format A4, Faire en sorte que si changement cloud alors changement local,  Integrer image en local ,Faire défilement plus beau "
     ```
 3. Force le push  
     ```bash
@@ -153,12 +153,6 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Faire en sorte que si changement cloud alors changement local
-- Optimiser affichage image
-- Integrer image en local 
 - Integrer upload 
-- Regler checkbox bug tous si option1
+- Integrer filtre et trie
 - Integrer list
-- Faire en sorte que dans Images, Documents, l'item s'adapte à l'image
-- Faire en sorte que dans Archives, Executables, il y ait des icons à la place des images
-- Faire défilement plus beau
