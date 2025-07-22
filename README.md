@@ -142,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Mettre document en upload format A4, Faire en sorte que si changement cloud alors changement local,  Integrer image en local ,Faire défilement plus beau "
+    git commit -m "[FAIT] Filtre bar et slide"
     ```
 3. Force le push  
     ```bash

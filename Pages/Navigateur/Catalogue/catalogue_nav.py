@@ -4,46 +4,75 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QScrollArea,
-    QStackedWidget, QGridLayout, QListWidget, QListWidgetItem, QSizePolicy, QLabel, QFrame
+    QStackedWidget, QGridLayout, QLabel, QFrame
 )
 
+from Pages.Navigateur.Bar.bar_nav import BarNav
+from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Widgets.defilement_label import DefilementLabel
 
 
 class ItemWidget(QFrame):
-    # Cache pour pixmap scalés: {(path, width): QPixmap}
     _scaled_cache = {}
 
-    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str):
+    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str, mode="grid"):
         super().__init__()
-        self.setObjectName("itemCard")
+
+        self.title_label = None
+        self.duration_label = None
+        self.image_label = QLabel()
         self.min_width = width
         self.category = category
         self.image_path = image_path
         self.original_pixmap = None
+        self.mode = mode
         self.init_ui(image_path, title, duration)
 
     def init_ui(self, image_path, title, duration):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        if self.mode == "list":
+            self.setObjectName("itemListCard")
+            main_layout = QHBoxLayout(self)
+            main_layout.setContentsMargins(10, 5, 10, 5)
+            main_layout.setSpacing(10)
 
-        # Image
-        self.image_label = QLabel()
-        self.load_pixmap(image_path)
+            self.image_label = QLabel()
+            self.load_pixmap(image_path)
 
-        # Title (défilement)
-        self.title_label = DefilementLabel(title)
-        self.title_label.setFixedHeight(20)
+            text_layout = QVBoxLayout()
+            text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            self.title_label = DefilementLabel(title)
+            self.title_label.setFixedHeight(20)
+            self.title_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            text_layout.addWidget(self.title_label)
+            main_layout.addWidget(self.image_label)
+            main_layout.addLayout(text_layout)
 
-        # Duration
-        self.duration_label = QLabel(duration)
-        self.duration_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.duration_label.setFixedHeight(20)
+            self.duration_label = QLabel(duration)
+            self.duration_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.duration_label.setFixedWidth(60)
+            self.duration_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            main_layout.addWidget(self.duration_label)
 
-        layout.addWidget(self.image_label)
-        layout.addWidget(self.title_label)
-        layout.addWidget(self.duration_label)
+        else:
+            self.setObjectName("itemGridCard")
+            main_layout = QVBoxLayout(self)
+            main_layout.setContentsMargins(0, 0, 0, 0)
+            main_layout.setSpacing(0)
+
+            self.load_pixmap(image_path)
+
+            self.title_label = DefilementLabel(title)
+            self.title_label.setFixedHeight(20)
+            self.title_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+            self.duration_label = QLabel(duration)
+            self.duration_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.duration_label.setFixedHeight(20)
+            self.duration_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+            main_layout.addWidget(self.image_label)
+            main_layout.addWidget(self.title_label)
+            main_layout.addWidget(self.duration_label)
 
     def load_pixmap(self, image_path):
         pixmap = QPixmap(image_path)
@@ -54,22 +83,38 @@ class ItemWidget(QFrame):
         self._update_scaled(self.min_width)
 
     def _update_scaled(self, width):
-        key = (self.image_path, width)
+        key = (self.image_path, width, self.mode)
         if key in ItemWidget._scaled_cache:
             scaled = ItemWidget._scaled_cache[key]
         else:
             w0, h0 = self.original_pixmap.width(), self.original_pixmap.height()
-            ratio = (h0 / w0) if w0 else 9/16
-            ih = int(width * ratio)
-            scaled = self.original_pixmap.scaled(
-                width, ih,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
+            if self.mode == "list":
+                target_h = 80
+                ratio = w0 / h0 if h0 else 16 / 9
+                target_w = int(target_h * ratio)
+                scaled = self.original_pixmap.scaled(
+                    target_w, target_h,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+            else:
+                ratio = (h0 / w0) if w0 else 9 / 16
+                ih = int(width * ratio)
+                scaled = self.original_pixmap.scaled(
+                    width, ih,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+
             ItemWidget._scaled_cache[key] = scaled
+
         self.image_label.setPixmap(scaled)
         self.image_label.setFixedSize(scaled.width(), scaled.height())
-        self.setFixedSize(scaled.width(), scaled.height() + 40)
+
+        if self.mode == "list":
+            self.setFixedHeight(scaled.height() + 10)
+        else:
+            self.setFixedSize(scaled.width(), scaled.height() + 40)
 
     def resize_image(self, width):
         if self.image_label.width() == width:
@@ -80,19 +125,53 @@ class ItemWidget(QFrame):
 class ItemsFactory:
     def __init__(self, db_manager):
         self.db_manager = db_manager
+        self._items_data = []
+        self._load_items_data()
 
-    def create_item_widgets(self, min_width=320):
-        item_widgets = []
-        all_items = self.db_manager.fetch_all()
-        for (category, title), data in all_items.items():
-            duration = self._extract_duration(data.get("metadata_json"))
-            thumbnail_path = data.get("thumbnail_path") or ""
-            widget = ItemWidget(thumbnail_path, title, duration, min_width, category)
-            item_widgets.append(widget)
-        return item_widgets
+    def _load_items_data(self):
+        self._items_data.clear()
+        raw = self.db_manager.fetch_all()
+        for (category, title), data in raw.items():
+            metadata = data.get("metadata_json")
+            duration_str = self.extract_duration(metadata)
+            duration_sec = self._duration_str_to_seconds(duration_str)
+            thumbnail = data.get("thumbnail_path") or ""
+            self._items_data.append({
+                "category": category,
+                "title": title,
+                "duration_str": duration_str,
+                "duration_sec": duration_sec,
+                "thumbnail_path": thumbnail
+            })
+
+    def create_item_widgets(self, min_width=320, mode="grid", sort_key=None, reverse=False, filter_func=None):
+        items = self._items_data
+        # Filtrer
+        if filter_func:
+            items = [item for item in items if filter_func(item)]
+        # Trier
+        if sort_key:
+            items = sorted(items, key=sort_key, reverse=reverse)
+
+        widgets = []
+        for item in items:
+            widget = ItemWidget(
+                item["thumbnail_path"],
+                item["title"],
+                item["duration_str"],
+                min_width,
+                item["category"],
+                mode=mode
+            )
+            widgets.append(widget)
+        return widgets
 
     @staticmethod
-    def _extract_duration(metadata_json):
+    def title_contains_filter(keyword):
+        return lambda item: keyword.lower() in item["title"].lower()
+
+    @staticmethod
+    def extract_duration(metadata_json):
         if not metadata_json:
             return ""
         try:
@@ -108,9 +187,22 @@ class ItemsFactory:
             pass
         return ""
 
+    @staticmethod
+    def _duration_str_to_seconds(duration_str):
+        if not duration_str:
+            return 0
+        try:
+            parts = list(map(int, duration_str.split(':')))
+            while len(parts) < 3:
+                parts.insert(0, 0)
+            h, m, s = parts
+            return h * 3600 + m * 60 + s
+        except Exception:
+            return 0
+
 
 class Catalogue(QWidget):
-    def __init__(self, db_manager, nav_bar, nav_sec_bar):
+    def __init__(self, db_manager, nav_bar: BarNav, nav_sec_bar: BarSecNav):
         super().__init__()
         self.db_manager = db_manager
         self.nav_bar = nav_bar
@@ -120,32 +212,35 @@ class Catalogue(QWidget):
         self.item_widgets = []
         self.current_category = "Videos"
         self.view_mode = 'grid'
+        self.sort_ascending = True
+        self.sort_key = lambda item: item['title'].lower()
+        self.sort_reverse = False
 
-        # list and grid containers
-        self.list_container = QListWidget()
-        self.list_container.setSpacing(10)
+        # Conteneurs liste et grille
+        self.list_container = QWidget()
+        self.list_layout = QVBoxLayout(self.list_container)
+        self.list_layout.setSpacing(10)
+        self.list_layout.setContentsMargins(10, 10, 10, 10)
+        self.list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         self.grid_container = QWidget()
-        self.grid_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-
-        # grid layout
         self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setContentsMargins(10, 10, 10, 10)
         self.grid_layout.setHorizontalSpacing(15)
         self.grid_layout.setVerticalSpacing(15)
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
-        # stacked widget
         self.mode_stack = QStackedWidget()
         self.mode_stack.addWidget(self.list_container)
         self.mode_stack.addWidget(self.grid_container)
+        self.mode_stack.setCurrentWidget(self.grid_container)
 
-        # scroll area
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.mode_stack)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        # main layout
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -154,77 +249,144 @@ class Catalogue(QWidget):
         main_layout.addWidget(self.nav_sec_bar)
         self.setLayout(main_layout)
 
-        # toggle grid/list
+        # Signaux
         self.nav_bar.icon_grid_list.clicked.connect(self.toggle_grid_list)
+        self.nav_bar.icon_sortAZ.clicked.connect(self.toggle_sort_az)
+        self.nav_bar.icon_sortTime.clicked.connect(self.toggle_sort_time)
+
+        self.nav_sec_bar.recherche_bar.on_text_changed.connect(self.apply_title_filter)
         self.nav_sec_bar.card.selection_changed.connect(self.toggle_category)
-
-    def toggle_grid_list(self):
-        if self.view_mode == 'grid':
-            self.mode_stack.setCurrentWidget(self.list_container)
-            self.view_mode = 'list'
-        else:
-            self.mode_stack.setCurrentWidget(self.grid_container)
-            self.view_mode = 'grid'
-
-
-    def toggle_category(self, category_label: str):
-        self.current_category = category_label
-        self.position_items()
+        self.nav_sec_bar.slide.valueChanged.connect(self.filter_by_max_duration)
 
     def load_items(self):
         if not self.item_widgets:
-            self.item_widgets = self.items_factory.create_item_widgets()
+            self.item_widgets = self.items_factory.create_item_widgets(
+                min_width=320,
+                mode=self.view_mode,
+                sort_key=self.sort_key,
+                reverse=self.sort_reverse
+            )
+            self.configure_slider_range()
+        self.position_items()
+
+    def configure_slider_range(self):
+        durations = [item['duration_sec'] for item in self.items_factory._items_data if item['duration_sec'] > 0]
+        if durations:
+            self.nav_sec_bar.slide.set_range(min(durations), max(durations))
+            self.nav_sec_bar.slide.set_value(max(durations))
+
+    def apply_title_filter(self, keyword: str):
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse,
+            filter_func=self.items_factory.title_contains_filter(keyword)
+        )
+        self.position_items()
+
+    def filter_by_max_duration(self, max_duration):
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse,
+            filter_func=lambda itm: itm['duration_sec'] <= max_duration
+        )
+        self.position_items()
+
+    def toggle_sort_time(self):
+        self.sort_ascending = not self.sort_ascending
+        self.sort_key = lambda item: item['duration_sec']
+        self.sort_reverse = not self.sort_ascending
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse
+        )
+        self.position_items()
+
+    def toggle_sort_az(self):
+        self.sort_ascending = not self.sort_ascending
+        self.sort_key = lambda item: item['title'].lower()
+        self.sort_reverse = not self.sort_ascending
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse
+        )
+        self.position_items()
+
+    def toggle_grid_list(self):
+        self.view_mode = 'list' if self.view_mode == 'grid' else 'grid'
+        self.mode_stack.setCurrentWidget(
+            self.list_container if self.view_mode == 'list' else self.grid_container
+        )
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse
+        )
+        self.position_items()
+
+    def toggle_category(self, category_label: str):
+        self.current_category = category_label
+        self.nav_bar.icon_sortTime.setVisible(category_label in ("Videos", "Musiques"))
         self.position_items()
 
     def position_items(self):
-        # disable updates
         self.setUpdatesEnabled(False)
-        # clear list
-        self.list_container.clear()
-        # clear grid
+        # vider layouts
+        while self.list_layout.count():
+            item = self.list_layout.takeAt(0)
+            if widget := item.widget():
+                widget.setParent(None)
         while self.grid_layout.count():
-            itm = self.grid_layout.takeAt(0)
-            w = itm.widget()
-            if w:
-                w.setParent(None)
+            item = self.grid_layout.takeAt(0)
+            if widget := item.widget():
+                widget.setParent(None)
 
-        # compute grid
         min_w = 320
         vp = self.scroll.viewport().width()
         sbw = self.scroll.verticalScrollBar().sizeHint().width()
-        eff = max(min_w, vp - sbw)
+        eff = max(min_w, vp - sbw) if sbw > 0 else vp
         cols = max(1, eff // min_w)
         spacing = self.grid_layout.horizontalSpacing()
         total_spacing = spacing * (cols - 1)
         item_w = (eff - total_spacing) / cols
-        self.grid_container.setFixedWidth(eff)
 
-        # populate
-        row = col = 0
-        for w in self.item_widgets:
-            if w.category != self.current_category:
-                continue
-            # list
-            item = QListWidgetItem()
-            item.setSizeHint(w.size())
-            self.list_container.addItem(item)
-            self.list_container.setItemWidget(item, w)
-            # grid
-            w.resize_image(int(item_w))
-            self.grid_layout.addWidget(w, row, col)
-            col += 1
-            if col >= cols:
-                col = 0
-                row += 1
+        # filtrer catégorie
+        widgets = [w for w in self.item_widgets if w.category == self.current_category]
 
-        self.mode_stack.setCurrentWidget(self.grid_container)
+        if self.view_mode == 'grid':
+            self.grid_container.setFixedWidth(eff)
+            row = col = 0
+            for w in widgets:
+                w.resize_image(int(item_w))
+                self.grid_layout.addWidget(w, row, col)
+                col += 1
+                if col >= cols:
+                    col = 0
+                    row += 1
+        else:
+            list_w = min(eff, 200)
+            for w in widgets:
+                w.resize_image(int(list_w))
+                self.list_layout.addWidget(w)
+
         self.setUpdatesEnabled(True)
 
     def showEvent(self, ev):
         super().showEvent(ev)
-        self.load_items()
+        if not self.item_widgets:
+            self.load_items()
+        else:
+            self.position_items()
 
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
-        if self.item_widgets:
+        if self.item_widgets and self.isVisible():
             self.position_items()

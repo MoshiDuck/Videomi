@@ -577,11 +577,6 @@ class UploadManager(QObject):
                                  max_width: int = 480,
                                  max_height: int = 480,
                                  quality: int = 95) -> tuple[bytes, str] | tuple[None, None]:
-        """
-        Miniature JPEG avec ratio original, haute résolution et haute qualité.
-        - max_width, max_height : dimensions max de la miniature
-        - quality : 0-100, plus c'est élevé meilleure est la qualité
-        """
         try:
             with Image.open(input_path) as img:
                 # Conversion en RGB si nécessaire
