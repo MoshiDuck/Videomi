@@ -142,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Filtre bar et slide"
+    git commit -m "[FAIT] Filtre audio"
     ```
 3. Force le push  
     ```bash
@@ -153,6 +153,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
+- Finir filtre audio 
 - Integrer upload 
 - Integrer filtre et trie
 - Integrer list

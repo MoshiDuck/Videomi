@@ -15,9 +15,8 @@ from Widgets.defilement_label import DefilementLabel
 class ItemWidget(QFrame):
     _scaled_cache = {}
 
-    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str, mode="grid"):
+    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str, audio_languages: list, subtitle_languages: list, mode="grid"):
         super().__init__()
-
         self.title_label = None
         self.duration_label = None
         self.image_label = QLabel()
@@ -26,6 +25,8 @@ class ItemWidget(QFrame):
         self.image_path = image_path
         self.original_pixmap = None
         self.mode = mode
+        self.audio_languages = audio_languages
+        self.subtitle_languages = subtitle_languages
         self.init_ui(image_path, title, duration)
 
     def init_ui(self, image_path, title, duration):
@@ -35,9 +36,7 @@ class ItemWidget(QFrame):
             main_layout.setContentsMargins(10, 5, 10, 5)
             main_layout.setSpacing(10)
 
-            self.image_label = QLabel()
             self.load_pixmap(image_path)
-
             text_layout = QVBoxLayout()
             text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             self.title_label = DefilementLabel(title)
@@ -60,7 +59,6 @@ class ItemWidget(QFrame):
             main_layout.setSpacing(0)
 
             self.load_pixmap(image_path)
-
             self.title_label = DefilementLabel(title)
             self.title_label.setFixedHeight(20)
             self.title_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -125,31 +123,34 @@ class ItemWidget(QFrame):
 class ItemsFactory:
     def __init__(self, db_manager):
         self.db_manager = db_manager
-        self._items_data = []
+        self.items_data = []
         self._load_items_data()
 
     def _load_items_data(self):
-        self._items_data.clear()
+        self.items_data.clear()
         raw = self.db_manager.fetch_all()
         for (category, title), data in raw.items():
             metadata = data.get("metadata_json")
             duration_str = self.extract_duration(metadata)
             duration_sec = self._duration_str_to_seconds(duration_str)
             thumbnail = data.get("thumbnail_path") or ""
-            self._items_data.append({
+            audio_langs = self.extract_audio_languages(metadata)
+            subtitle_langs = self.extract_subtitle_languages(metadata)
+
+            self.items_data.append({
                 "category": category,
                 "title": title,
                 "duration_str": duration_str,
                 "duration_sec": duration_sec,
-                "thumbnail_path": thumbnail
+                "thumbnail_path": thumbnail,
+                "audio_languages": audio_langs,
+                "subtitle_languages": subtitle_langs
             })
 
     def create_item_widgets(self, min_width=320, mode="grid", sort_key=None, reverse=False, filter_func=None):
-        items = self._items_data
-        # Filtrer
+        items = self.items_data
         if filter_func:
             items = [item for item in items if filter_func(item)]
-        # Trier
         if sort_key:
             items = sorted(items, key=sort_key, reverse=reverse)
 
@@ -161,6 +162,8 @@ class ItemsFactory:
                 item["duration_str"],
                 min_width,
                 item["category"],
+                audio_languages=item.get("audio_languages", []),
+                subtitle_languages=item.get("subtitle_languages", []),
                 mode=mode
             )
             widgets.append(widget)
@@ -183,7 +186,8 @@ class ItemsFactory:
                 m = int((secs % 3600) // 60)
                 s = int(secs % 60)
                 return f"{h:02d}:{m:02d}:{s:02d}"
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
         return ""
 
@@ -197,8 +201,47 @@ class ItemsFactory:
                 parts.insert(0, 0)
             h, m, s = parts
             return h * 3600 + m * 60 + s
-        except Exception:
+        except Exception as e:
+            print(e)
             return 0
+
+    @staticmethod
+    def extract_audio_languages(metadata_json):
+        if not metadata_json:
+            return []
+        try:
+            meta = json.loads(metadata_json)
+            streams = meta.get("ffprobe", {}).get("streams", [])
+            audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
+            langs = []
+            for stream in audio_streams:
+                tags = stream.get("tags", {})
+                lang = tags.get("language") or tags.get("LANGUAGE")
+                if lang and lang not in langs:
+                    langs.append(lang)
+            return langs
+        except Exception as e:
+            print(e)
+            return []
+
+    @staticmethod
+    def extract_subtitle_languages(metadata_json):
+        if not metadata_json:
+            return []
+        try:
+            meta = json.loads(metadata_json)
+            streams = meta.get("ffprobe", {}).get("streams", [])
+            subtitle_streams = [s for s in streams if s.get("codec_type") in ("subtitle", "text")]
+            langs = []
+            for stream in subtitle_streams:
+                tags = stream.get("tags", {})
+                lang = tags.get("language") or tags.get("LANGUAGE")
+                if lang and lang not in langs:
+                    langs.append(lang)
+            return langs
+        except Exception as e:
+            print(e)
+            return []
 
 
 class Catalogue(QWidget):
@@ -257,6 +300,7 @@ class Catalogue(QWidget):
         self.nav_sec_bar.recherche_bar.on_text_changed.connect(self.apply_title_filter)
         self.nav_sec_bar.card.selection_changed.connect(self.toggle_category)
         self.nav_sec_bar.slide.valueChanged.connect(self.filter_by_max_duration)
+        self.nav_sec_bar.box1.selectionChanged.connect(self.apply_audio_filter)
 
     def load_items(self):
         if not self.item_widgets:
@@ -267,10 +311,36 @@ class Catalogue(QWidget):
                 reverse=self.sort_reverse
             )
             self.configure_slider_range()
+            self.configure_box_audio()
+        self.apply_audio_filter(self.nav_sec_bar.box1.get_checked_items())
+        self.position_items()
+
+    def configure_box_audio(self):
+        langs = sorted(
+            {lang for item in self.items_factory.items_data for lang in item['audio_languages']}
+        )
+        self.nav_sec_bar.box1.set_items(langs)
+
+    def apply_audio_filter(self, selected_langs: list[str]):
+        # si rien de coché, on affiche tout
+        if not selected_langs:
+            filtered = self.items_factory.items_data
+        else:
+            filtered = [
+                itm for itm in self.items_factory.items_data
+                if any(lang in itm['audio_languages'] for lang in selected_langs)
+            ]
+        self.item_widgets = self.items_factory.create_item_widgets(
+            min_width=320,
+            mode=self.view_mode,
+            sort_key=self.sort_key,
+            reverse=self.sort_reverse,
+            filter_func=lambda itm: itm in filtered
+        )
         self.position_items()
 
     def configure_slider_range(self):
-        durations = [item['duration_sec'] for item in self.items_factory._items_data if item['duration_sec'] > 0]
+        durations = [item['duration_sec'] for item in self.items_factory.items_data if item['duration_sec'] > 0]
         if durations:
             self.nav_sec_bar.slide.set_range(min(durations), max(durations))
             self.nav_sec_bar.slide.set_value(max(durations))
