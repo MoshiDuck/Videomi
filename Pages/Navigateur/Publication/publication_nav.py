@@ -1,4 +1,5 @@
 import os
+
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtWidgets import (
@@ -13,8 +14,8 @@ from Models.category import CatManager
 from Models.upload_manager import UploadManager
 from Pages.Auth.firebase_auth import FirebaseAuth
 from Pages.Navigateur.Catalogue.catalogue_nav import Catalogue
-from Pages.Navigateur.Widgets.item import ItemsFactory
 from Service.py1FichierClient import FichierClient
+
 
 
 class ProportionalTree(QTreeWidget):
@@ -29,34 +30,6 @@ class ProportionalTree(QTreeWidget):
 
 
 class Publication(QWidget):
-    ICONS = {
-        "Videos": "mdi.video-outline",
-        "Musiques": "mdi.music-note-outline",
-        "Images": "mdi.image-outline",
-        "Documents": "mdi.file-document-outline",
-        "Archives": "mdi.zip-box-outline",
-        "Executables": "mdi.cog-outline",
-    }
-
-    BUTTON_STYLE = (
-        "QPushButton { background-color:#3a3a3a; color:white; border:none;"
-        " border-radius:8px; font-size:14px; }"
-        "QPushButton:hover { background-color:#505050; }"
-    )
-    PUBLISH_STYLE = (
-        "QPushButton { background-color:#007acc; color:white; border:none;"
-        " border-radius:8px; font-size:14px; }"
-        "QPushButton:hover { background-color:#0099ff; }"
-    )
-    TREE_STYLE = (
-        "QTreeWidget { background-color:#2d2d2d; color:white; border-radius:8px;"
-        " padding:10px; font-size:14px; }"
-        "QTreeWidget::item { padding:6px 6px 6px 0; }"
-        "QHeaderView::section { background-color:#3a3a3a; padding:4px;"
-        " border:none; font-weight:bold; color:white; }"
-        "QTreeWidget::item:hover { background-color:#3a3a3a; }"
-        "QTreeWidget::item:selected { background-color:#505050; }"
-    )
 
     def __init__(self, firebase_auth: FirebaseAuth, client: FichierClient, db_manager: DatabaseManager, catalogue: Catalogue):
         super().__init__()
@@ -70,6 +43,16 @@ class Publication(QWidget):
         self.folder_ids = {}
         self.uploaded_links = {}
 
+        self.ICONS = {
+            "Videos": "mdi.video-outline",
+            "Musiques": "mdi.music-note-outline",
+            "Images": "mdi.image-outline",
+            "Documents": "mdi.file-document-outline",
+            "Archives": "mdi.zip-box-outline",
+            "Executables": "mdi.cog-outline",
+        }
+
+        self.setObjectName("publication_page")
         # → 1. Instancie ton thread SyncDatabase
         self.sync_thread = SyncDatabase(
             firebase_auth=firebase_auth,
@@ -142,10 +125,11 @@ class Publication(QWidget):
         self.btn_file.clicked.connect(self._pick_file)
         self.btn_folder = QPushButton("📁 Choisir un dossier")
         self.btn_folder.clicked.connect(self._pick_folder)
+        self.btn_file.setObjectName("btn_file")
+        self.btn_folder.setObjectName("btn_folder")
         for btn in (self.btn_file, self.btn_folder):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setFixedHeight(40)
-            btn.setStyleSheet(self.BUTTON_STYLE)
             btn_layout.addWidget(btn)
         main.addLayout(btn_layout)
 
@@ -154,7 +138,7 @@ class Publication(QWidget):
         self.tree.setHeaderLabels(["Statut", "Catégorie", "Nom de fichier"])
         self.tree.setIndentation(0)
         self.tree.setIconSize(QSize(16, 16))
-        self.tree.setStyleSheet(self.TREE_STYLE)
+        self.tree.setObjectName("files_tree")
         self._setup_header(self.tree.header())
         self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main.addWidget(self.tree)
@@ -162,6 +146,7 @@ class Publication(QWidget):
         # Progress
         main.addWidget(self._separator())
         self.progress = QProgressBar()
+        self.progress.setObjectName("progress_bar")
         self.progress.setRange(0, 0)
         self.progress.setValue(0)
         main.addWidget(self.progress)
@@ -172,13 +157,12 @@ class Publication(QWidget):
         self.clear_btn = QPushButton("🗑️ Vider la liste")
         self.clear_btn.clicked.connect(self._clear_list)
         self.clear_btn.setFixedHeight(40)
-        self.clear_btn.setStyleSheet(self.BUTTON_STYLE)
+        self.clear_btn.setObjectName("clear_btn")
         action_layout.addWidget(self.clear_btn)
 
         self.pub_btn = QPushButton("🚀 Publier")
         self.pub_btn.clicked.connect(self._publish)
         self.pub_btn.setFixedHeight(40)
-        self.pub_btn.setStyleSheet(self.PUBLISH_STYLE)
         action_layout.addWidget(self.pub_btn)
 
         main.addLayout(action_layout)
@@ -197,8 +181,8 @@ class Publication(QWidget):
     @staticmethod
     def _separator():
         sep = QFrame()
+        sep.setObjectName("separator_line")
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color:#444444;")
         return sep
 
     def _add_files(self, paths):
