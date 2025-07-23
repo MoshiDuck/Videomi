@@ -5,13 +5,9 @@ from PyQt6.QtWidgets import (
 )
 
 from Database.db_manager import DatabaseManager
-from Database.sync_database import SyncDatabase
-from Pages.Auth.firebase_auth import FirebaseAuth
 from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Widgets.item import ItemsFactory
-from Service.py1FichierClient import FichierClient
-
 
 class Catalogue(QWidget):
     def __init__(self, db_manager : DatabaseManager, nav_bar: BarNav, nav_sec_bar: BarSecNav):
@@ -31,8 +27,6 @@ class Catalogue(QWidget):
         self.sub_filter_active = True
         self.filter_active = False
 
-
-        # Conteneurs liste et grille
         self.list_container = QWidget()
         self.list_layout = QVBoxLayout(self.list_container)
         self.list_layout.setSpacing(10)
@@ -86,14 +80,11 @@ class Catalogue(QWidget):
         self.apply_all_filters()
 
     def load_items(self):
-        print(f"Total items: {len(self.item_widgets)}")
-        # Toujours recharger les données même si des widgets existent déjà
-        self.items_factory._load_items_data()
+        self.items_factory.load_items_data()
         self.configure_slider_range()
         self.configure_box_audio()
         self.configure_box_sub()
 
-        # Appliquer les filtres avant d'afficher les nouveaux éléments
         self.apply_all_filters()
         self.position_items()
 
@@ -136,15 +127,12 @@ class Catalogue(QWidget):
             self.position_items()
             return
 
-        # 1) Titre
         keyword = self.nav_sec_bar.recherche_bar.text()
         title_filter = (lambda itm: keyword.lower() in itm['title'].lower()) if keyword else None
 
-        # 2) Durée
         max_dur = self.nav_sec_bar.slide.value()
         duration_filter = (lambda itm: itm['duration_sec'] <= max_dur)
 
-        # 3) Audio
         audio_filter = None
         if self.audio_filter_active:
             sel_audio = self.nav_sec_bar.box1.get_checked_items() or []
@@ -157,7 +145,6 @@ class Catalogue(QWidget):
             else:
                 audio_filter = lambda itm: False
 
-        # 4) Sous‑titres
         sub_filter = None
         if self.sub_filter_active:
             sel_sub = self.nav_sec_bar.box2.get_checked_items()
@@ -170,8 +157,6 @@ class Catalogue(QWidget):
             else:
                 sub_filter = lambda itm: False
 
-
-        # ===== Combinaison de tous les filtres =====
         def combined(itm):
             # catégorie déjà gérée ailleurs
             for f in (title_filter, duration_filter, audio_filter, sub_filter):
@@ -179,7 +164,6 @@ class Catalogue(QWidget):
                     return False
             return True
 
-        # Appliquer
         self.item_widgets = self.items_factory.create_item_widgets(
             min_width=320,
             mode=self.view_mode,
@@ -196,8 +180,7 @@ class Catalogue(QWidget):
             self.nav_sec_bar.slide.set_value(max(durations))
 
     def reload_items(self, filter_func=None):
-        """Recharge complètement les items depuis la base de données"""
-        self.items_factory._load_items_data()
+        self.items_factory.load_items_data()
         self.item_widgets = self.items_factory.create_item_widgets(
             min_width=320,
             mode=self.view_mode,
@@ -247,7 +230,6 @@ class Catalogue(QWidget):
 
     def position_items(self):
         self.setUpdatesEnabled(False)
-        # vider layouts
         while self.list_layout.count():
             item = self.list_layout.takeAt(0)
             if widget := item.widget():
@@ -266,7 +248,6 @@ class Catalogue(QWidget):
         total_spacing = spacing * (cols - 1)
         item_w = (eff - total_spacing) / cols
 
-        # filtrer catégorie
         widgets = [w for w in self.item_widgets if w.category == self.current_category]
 
         if self.view_mode == 'grid':

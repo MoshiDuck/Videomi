@@ -119,9 +119,9 @@ class ItemsFactory:
     def __init__(self, db_manager):
         self.db_manager = db_manager
         self.items_data = []
-        self._load_items_data()
+        self.load_items_data()
 
-    def _load_items_data(self):
+    def load_items_data(self):
         self.items_data.clear()
         raw = self.db_manager.fetch_all()
         for (category, title), data in raw.items():
