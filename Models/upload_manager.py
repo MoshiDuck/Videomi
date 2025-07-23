@@ -167,7 +167,7 @@ class UploadManager(QObject):
     error = pyqtSignal(str)
     all_done = pyqtSignal()
 
-    def __init__(self, client, cat_manager: CatManager, existing_files: dict, folder_ids_by_name: dict, root_folder_id: str = '0'):
+    def __init__(self, client: FichierClient, cat_manager: CatManager, existing_files: dict, folder_ids_by_name: dict, root_folder_id: str = '0'):
         super().__init__()
         self.thumb_threads: List[UploadThread] = []
         self._firebase_keys: dict[str, tuple[str, str, str]] = {}

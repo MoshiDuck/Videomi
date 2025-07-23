@@ -2,15 +2,17 @@
 
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 
+from Database.db_manager import DatabaseManager
 from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Catalogue.catalogue_nav import Catalogue
 from Pages.Navigateur.Publication.publication_nav import Publication
+from Service.py1FichierClient import FichierClient
 from Widgets.base_fenetre import BaseFenetre
 
 
 class PageNav(BaseFenetre):
-    def __init__(self,firebase_auth,db_manager, taille_ecran):
+    def __init__(self,firebase_auth, db_manager: DatabaseManager, client_1fichier:FichierClient, taille_ecran):
         super().__init__(
             largeur=taille_ecran.width(),
             hauteur=taille_ecran.height()
@@ -20,8 +22,8 @@ class PageNav(BaseFenetre):
         self.nav_sec_bar = BarSecNav(self)
         self.nav_sec_bar.triple.pan1.hide()
         self.nav_sec_bar.triple.pan3.hide()
-        self.catalogue = Catalogue(self.db_manager,self.nav_bar, self.nav_sec_bar)
-        self.publication = Publication()
+        self.catalogue = Catalogue(self.db_manager, self.nav_bar, self.nav_sec_bar)
+        self.publication = Publication(firebase_auth, client_1fichier, db_manager, self.catalogue)
         self.publication.hide()
 
         main = self.central_layout

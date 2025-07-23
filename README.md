@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.0
+0.0.6.1
 
 ---
 
@@ -90,7 +90,6 @@ Le tout conçu **pour une famille ou un cercle d'amis**, avec un **accès restre
 
 ## 📌 Objectifs futurs
 
-- Finalisation de l’upload dans l'app  
 - Synchronisation automatique app ↔ serveur  
 - Intégration totale du VPN dans l’interface utilisateur  
 - Interface TV maison avec télécommande Python (ou autre)  
@@ -142,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Integrer filtre et trie"
+    git commit -m "[FAIT] Integrer Publication"
     ```
 3. Force le push  
     ```bash
@@ -153,7 +152,6 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Integrer upload 
 - Lire Document
 - Lire Videos et Musiques
 - Lire Photos

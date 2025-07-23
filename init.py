@@ -4,6 +4,7 @@ import os
 
 from Database.db_manager import DatabaseManager
 from Database.sync_database import SyncDatabase
+from Service.py1FichierClient import FichierClient
 
 os.environ["QT_LOGGING_RULES"] = "*.debug=true"
 import sys
@@ -11,7 +12,6 @@ import sys
 import yaml
 from PyQt6.QtCore import QFile, QTextStream, Qt
 from PyQt6.QtWidgets import QApplication
-from pyOneFichierClient.OneFichierAPI import FichierClient
 
 from Pages.Auth.Connexion.page_connexion import PageConnexion
 from Pages.Auth.Inscription.page_inscription import PageInscription
@@ -51,7 +51,7 @@ class Init:
         firebase_config = self.config.get("firebase", {})
         self.api_key = self.config.get("onefichier", {}).get("api_key", "")
         self.auth = FirebaseAuth(firebase_config)
-        self.client_1fichier = FichierClient(APIkey=self.api_key, be_nice=True)
+        self.client_1fichier = FichierClient(api_key=self.api_key, be_nice=True)
         self.fenetre = None
 
         self.sync_thread = SyncDatabase(self.auth,self.db_manager, self.client_1fichier)
@@ -89,7 +89,7 @@ class Init:
         self.sync_thread.start()
 
     def _on_sync_finished(self) -> None:
-        self.fenetre = PageNav(self.auth,self.db_manager, self.taille_ecran)
+        self.fenetre = PageNav(self.auth,self.db_manager,self.client_1fichier, self.taille_ecran)
         self.fenetre.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.fenetre.show()
 

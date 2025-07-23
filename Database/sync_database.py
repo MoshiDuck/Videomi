@@ -111,6 +111,8 @@ class SyncDatabase(QObject):
 
         local_data = local_db.fetch_all()
         thumbnails_to_dl: Dict[tuple, str] = {}
+
+        # Vérification des miniatures mises à jour
         for category, titles in root.items():
             if not isinstance(titles, dict):
                 continue
@@ -119,15 +121,19 @@ class SyncDatabase(QObject):
                     continue
                 thumb_link = entry.get("thumbnail_link", "")
                 key = (category, title)
+
+                # Si la miniature a changé ou si elle n'existe pas, on doit la télécharger à nouveau
                 if thumb_link and (key not in local_data or local_data[key]["thumbnail_url"] != thumb_link):
                     thumbnails_to_dl[key] = thumb_link
 
+        # Télécharger les miniatures mises à jour
         local_thumbnails = self._download_thumbnails_async(thumbnails_to_dl)
         purge_cache(CACHE_DIR)
 
         updated = 0
         inserted = 0
 
+        # Mise à jour de la base de données locale
         for category, titles in root.items():
             if not isinstance(titles, dict):
                 continue
@@ -148,15 +154,18 @@ class SyncDatabase(QObject):
                     local_hash = local_entry.get("entry_hash", "")
                     if local_hash != entry_hash:
                         logger.info(f"[SYNC] Mise à jour locale pour {category} → {title}")
-                        local_db.update_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json, entry_hash)
+                        local_db.update_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json,
+                                             entry_hash)
                         updated += 1
                     else:
                         logger.debug(f"[SKIP] Aucun changement détecté pour {category} → {title}")
                 else:
                     logger.info(f"[SYNC] Nouvelle entrée ajoutée : {category} → {title}")
-                    local_db.insert_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json, entry_hash)
+                    local_db.insert_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json,
+                                         entry_hash)
                     inserted += 1
 
+        # Suppression des fichiers supprimés de la base de données locale
         firebase_keys = {(cat, tit) for cat, ts in root.items() if isinstance(ts, dict) for tit in ts.keys()}
         local_keys = set(local_data.keys())
         to_delete = local_keys - firebase_keys

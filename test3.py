@@ -18,31 +18,6 @@ def exception_hook(exc_type, exc_value, exc_tb):
     QMessageBox.critical(None, "Erreur inattendue", str(exc_value))
     traceback.print_exception(exc_type, exc_value, exc_tb)
 
-def get_files_in_folder(client: FichierClient, folder_id):
-    client = client
-    files = set()
-    offset = 0
-    limit = 100
-    while True:
-        try:
-            resp = client.api_call(
-                "https://api.1fichier.com/v1/file/ls.cgi",
-                json={"folder_id": folder_id, "offset": offset, "limit": limit}
-            )
-            batch = resp.get("files", [])
-            if not batch:
-                break
-            for f in batch:
-                name_clean = f["name"].strip().lower()
-                files.add(name_clean)
-            if len(batch) < limit:
-                break
-            offset += limit
-        except Exception as e:
-            print(f"❌ Erreur récupération fichiers dossier {folder_id} : {e}")
-            break
-    return files
-
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -170,11 +145,11 @@ class MainWindow(QWidget):
             folder_name = folder["name"].lower()
             folder_id = folder["id"]
             existing[folder_name] = set()
-            existing[folder_name].update(get_files_in_folder(client, folder_id))
+            existing[folder_name].update(client.get_files_in_folder(folder_id))
             subfolders = client.get_folders(folder_id).get("sub_folders", [])
             for sub in subfolders:
                 sub_id = sub["id"]
-                files = get_files_in_folder(client, sub_id)
+                files = client.get_files_in_folder(sub_id)
                 existing[folder_name].update(files)
 
         return existing

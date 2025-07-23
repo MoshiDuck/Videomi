@@ -185,6 +185,30 @@ class FichierClient(object):
 
         return o
 
+    def get_files_in_folder(self, folder_id):
+        files = set()
+        offset = 0
+        limit = 100
+        while True:
+            try:
+                resp = self.api_call(
+                    "https://api.1fichier.com/v1/file/ls.cgi",
+                    json={"folder_id": folder_id, "offset": offset, "limit": limit}
+                )
+                batch = resp.get("files", [])
+                if not batch:
+                    break
+                for f in batch:
+                    name_clean = f["name"].strip().lower()
+                    files.add(name_clean)
+                if len(batch) < limit:
+                    break
+                offset += limit
+            except Exception as e:
+                print(f"❌ Erreur récupération fichiers dossier {folder_id} : {e}")
+                break
+        return files
+
     def get_folder(self, id=0, only_subfolders=False):
         o = self._get_folders(id)
 

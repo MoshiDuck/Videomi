@@ -4,12 +4,17 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QGridLayout
 )
 
+from Database.db_manager import DatabaseManager
+from Database.sync_database import SyncDatabase
+from Pages.Auth.firebase_auth import FirebaseAuth
 from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Widgets.item import ItemsFactory
+from Service.py1FichierClient import FichierClient
+
 
 class Catalogue(QWidget):
-    def __init__(self, db_manager, nav_bar: BarNav, nav_sec_bar: BarSecNav):
+    def __init__(self, db_manager : DatabaseManager, nav_bar: BarNav, nav_sec_bar: BarSecNav):
         super().__init__()
         self.db_manager = db_manager
         self.nav_bar = nav_bar
@@ -60,8 +65,6 @@ class Catalogue(QWidget):
         main_layout.addWidget(self.nav_sec_bar)
         self.setLayout(main_layout)
 
-
-        # Signaux
         self.nav_bar.icon_grid_list.clicked.connect(self.toggle_grid_list)
         self.nav_bar.icon_sortAZ.clicked.connect(self.toggle_sort_az)
         self.nav_bar.icon_sortTime.clicked.connect(self.toggle_sort_time)
@@ -78,25 +81,19 @@ class Catalogue(QWidget):
         self.nav_sec_bar.box2.selectionChanged.connect(self.apply_all_filters)
 
     def on_toggle_filter(self):
-        # inverse l’état du filtrage
         self.filter_active = not self.filter_active
-        # change l’aspect de l’icône si c’est un QPushButton checkable
         self.nav_bar.icon_search.setChecked(self.filter_active)
-        # rela un passage de tous les filtres
         self.apply_all_filters()
 
-
     def load_items(self):
-        if not self.item_widgets:
-            self.item_widgets = self.items_factory.create_item_widgets(
-                min_width=320,
-                mode=self.view_mode,
-                sort_key=self.sort_key,
-                reverse=self.sort_reverse
-            )
-            self.configure_slider_range()
-            self.configure_box_audio()
-            self.configure_box_sub()
+        print(f"Total items: {len(self.item_widgets)}")
+        # Toujours recharger les données même si des widgets existent déjà
+        self.items_factory._load_items_data()
+        self.configure_slider_range()
+        self.configure_box_audio()
+        self.configure_box_sub()
+
+        # Appliquer les filtres avant d'afficher les nouveaux éléments
         self.apply_all_filters()
         self.position_items()
 
@@ -199,6 +196,8 @@ class Catalogue(QWidget):
             self.nav_sec_bar.slide.set_value(max(durations))
 
     def reload_items(self, filter_func=None):
+        """Recharge complètement les items depuis la base de données"""
+        self.items_factory._load_items_data()
         self.item_widgets = self.items_factory.create_item_widgets(
             min_width=320,
             mode=self.view_mode,
