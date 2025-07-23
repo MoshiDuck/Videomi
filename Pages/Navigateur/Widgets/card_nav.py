@@ -4,7 +4,6 @@ from PyQt6.QtCore import Qt, QSize, pyqtSignal
 
 from Widgets.icon_perso import IconPerso
 
-
 class CardNav(QWidget):
     selection_changed = pyqtSignal(str)
     def __init__(self, items: list[tuple[str, str]], bool_sec = False, parent=None):

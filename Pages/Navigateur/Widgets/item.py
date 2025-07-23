@@ -1,0 +1,306 @@
+import json
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import (
+    QHBoxLayout, QVBoxLayout, QLabel, QFrame
+)
+
+from Widgets.defilement_label import DefilementLabel
+
+class ItemWidget(QFrame):
+    _scaled_cache = {}
+
+    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str, audio_languages: list, subtitle_languages: list, mode="grid"):
+        super().__init__()
+        self.title_label = None
+        self.duration_label = None
+        self.image_label = QLabel()
+        self.min_width = width
+        self.category = category
+        self.image_path = image_path
+        self.original_pixmap = None
+        self.mode = mode
+        self.audio_languages = audio_languages
+        self.subtitle_languages = subtitle_languages
+        self.init_ui(image_path, title, duration)
+
+    def init_ui(self, image_path, title, duration):
+        if self.mode == "list":
+            self.setObjectName("itemListCard")
+            main_layout = QHBoxLayout(self)
+            main_layout.setContentsMargins(10, 5, 10, 5)
+            main_layout.setSpacing(10)
+
+            self.load_pixmap(image_path)
+            text_layout = QVBoxLayout()
+            text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            self.title_label = DefilementLabel(title)
+            self.title_label.setFixedHeight(20)
+            self.title_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            text_layout.addWidget(self.title_label)
+            main_layout.addWidget(self.image_label)
+            main_layout.addLayout(text_layout)
+
+            self.duration_label = QLabel(duration)
+            self.duration_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.duration_label.setFixedWidth(60)
+            self.duration_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            main_layout.addWidget(self.duration_label)
+
+        else:
+            self.setObjectName("itemGridCard")
+            main_layout = QVBoxLayout(self)
+            main_layout.setContentsMargins(0, 0, 0, 0)
+            main_layout.setSpacing(0)
+
+            self.load_pixmap(image_path)
+            self.title_label = DefilementLabel(title)
+            self.title_label.setFixedHeight(20)
+            self.title_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+            self.duration_label = QLabel(duration)
+            self.duration_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.duration_label.setFixedHeight(20)
+            self.duration_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+            main_layout.addWidget(self.image_label)
+            main_layout.addWidget(self.title_label)
+            main_layout.addWidget(self.duration_label)
+
+    def load_pixmap(self, image_path):
+        pixmap = QPixmap(image_path)
+        if pixmap.isNull():
+            pixmap = QPixmap(self.min_width, self.min_width)
+            pixmap.fill(Qt.GlobalColor.black)
+        self.original_pixmap = pixmap
+        self._update_scaled(self.min_width)
+
+    def _update_scaled(self, width):
+        key = (self.image_path, width, self.mode)
+        if key in ItemWidget._scaled_cache:
+            scaled = ItemWidget._scaled_cache[key]
+        else:
+            w0, h0 = self.original_pixmap.width(), self.original_pixmap.height()
+            if self.mode == "list":
+                target_h = 80
+                ratio = w0 / h0 if h0 else 16 / 9
+                target_w = int(target_h * ratio)
+                scaled = self.original_pixmap.scaled(
+                    target_w, target_h,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+            else:
+                ratio = (h0 / w0) if w0 else 9 / 16
+                ih = int(width * ratio)
+                scaled = self.original_pixmap.scaled(
+                    width, ih,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+
+            ItemWidget._scaled_cache[key] = scaled
+
+        self.image_label.setPixmap(scaled)
+        self.image_label.setFixedSize(scaled.width(), scaled.height())
+
+        if self.mode == "list":
+            self.setFixedHeight(scaled.height() + 10)
+        else:
+            self.setFixedSize(scaled.width(), scaled.height() + 40)
+
+    def resize_image(self, width):
+        if self.image_label.width() == width:
+            return
+        self._update_scaled(width)
+
+class ItemsFactory:
+    def __init__(self, db_manager):
+        self.db_manager = db_manager
+        self.items_data = []
+        self._load_items_data()
+
+    def _load_items_data(self):
+        self.items_data.clear()
+        raw = self.db_manager.fetch_all()
+        for (category, title), data in raw.items():
+            metadata = data.get("metadata_json")
+            duration_str = self.extract_duration(metadata)
+            duration_sec = self._duration_str_to_seconds(duration_str)
+            thumbnail = data.get("thumbnail_path") or ""
+            audio_langs = self.extract_audio_languages(metadata)
+            subtitle_langs = self.extract_subtitle_languages(metadata)
+
+            self.items_data.append({
+                "category": category,
+                "title": title,
+                "duration_str": duration_str,
+                "duration_sec": duration_sec,
+                "thumbnail_path": thumbnail,
+                "audio_languages": audio_langs,
+                "subtitle_languages": subtitle_langs
+            })
+
+    def create_item_widgets(self, min_width=320, mode="grid", sort_key=None, reverse=False, filter_func=None):
+        items = self.items_data
+        if filter_func:
+            items = [item for item in items if filter_func(item)]
+        if sort_key:
+            items = sorted(items, key=sort_key, reverse=reverse)
+
+        widgets = []
+        for item in items:
+            widget = ItemWidget(
+                item["thumbnail_path"],
+                item["title"],
+                item["duration_str"],
+                min_width,
+                item["category"],
+                audio_languages=item.get("audio_languages", []),
+                subtitle_languages=item.get("subtitle_languages", []),
+                mode=mode
+            )
+            widgets.append(widget)
+        return widgets
+
+    @staticmethod
+    def title_contains_filter(keyword):
+        return lambda item: keyword.lower() in item["title"].lower()
+
+    @staticmethod
+    def extract_duration(metadata_json):
+        if not metadata_json:
+            return ""
+        try:
+            meta = json.loads(metadata_json)
+            dur = meta.get("ffprobe", {}).get("format", {}).get("duration")
+            if dur:
+                secs = float(dur)
+                h = int(secs // 3600)
+                m = int((secs % 3600) // 60)
+                s = int(secs % 60)
+                return f"{h:02d}:{m:02d}:{s:02d}"
+        except Exception as e:
+            print(e)
+            pass
+        return ""
+
+    @staticmethod
+    def _duration_str_to_seconds(duration_str):
+        if not duration_str:
+            return 0
+        try:
+            parts = list(map(int, duration_str.split(':')))
+            while len(parts) < 3:
+                parts.insert(0, 0)
+            h, m, s = parts
+            return h * 3600 + m * 60 + s
+        except Exception as e:
+            print(e)
+            return 0
+
+    @staticmethod
+    def normaliser_langue(lang: str | None) -> str:
+        if not lang:
+            return "Pas défini"
+
+        lang = lang.lower().strip()
+
+        # Mapping noms/codes ISO 639-1 et 639-2 (2/3 lettres), anglais/français, vers label français
+        mapping = {
+            # Français
+            "fr": "Français", "fre": "Français", "fra": "Français", "français": "Français", "francais": "Français",
+            "french": "Français",
+            # Anglais
+            "en": "Anglais", "eng": "Anglais", "anglais": "Anglais", "english": "Anglais",
+            # Espagnol
+            "es": "Espagnol", "esp": "Espagnol", "spa": "Espagnol", "espagnol": "Espagnol", "español": "Espagnol",
+            "spanish": "Espagnol",
+            # Allemand
+            "de": "Allemand", "ger": "Allemand", "deu": "Allemand", "allemand": "Allemand", "german": "Allemand",
+            # Italien
+            "it": "Italien", "ita": "Italien", "italien": "Italien", "italian": "Italien",
+            # Portugais
+            "pt": "Portugais", "por": "Portugais", "portugais": "Portugais", "portuguese": "Portugais",
+            # Russe
+            "ru": "Russe", "rus": "Russe", "russe": "Russe", "russian": "Russe",
+            # Chinois
+            "zh": "Chinois", "chi": "Chinois", "zho": "Chinois", "chinois": "Chinois", "chinese": "Chinois",
+            # Japonais
+            "ja": "Japonais", "jpn": "Japonais", "japonais": "Japonais", "japanese": "Japonais",
+            # Coréen
+            "ko": "Coréen", "kor": "Coréen", "coréen": "Coréen", "korean": "Coréen",
+            # Arabe
+            "ar": "Arabe", "ara": "Arabe", "arabe": "Arabe", "arabic": "Arabe",
+        }
+
+        # Si on a directement un label exact (ex: "Français"), on retourne la version capitalisée correcte
+        labels_acceptes = {
+            "français": "Français",
+            "anglais": "Anglais",
+            "espagnol": "Espagnol",
+            "allemand": "Allemand",
+            "italien": "Italien",
+            "portugais": "Portugais",
+            "russe": "Russe",
+            "chinois": "Chinois",
+            "japonais": "Japonais",
+            "coréen": "Coréen",
+            "arabe": "Arabe"
+        }
+
+        # Normalisation directe si label reçu
+        if lang in labels_acceptes:
+            return labels_acceptes[lang]
+
+        # Sinon chercher dans le mapping
+        if lang in mapping:
+            return mapping[lang]
+
+        # On peut aussi gérer certains cas courants où mutagen ou ffprobe renvoient None ou ""
+        if lang in ("und", "undefined", ""):
+            return "Pas défini"
+
+        # Si aucune correspondance : retourner tel quel (capitalisé) ou "Pas défini"
+        return lang.capitalize() if lang.isalpha() else "Pas défini"
+
+    @staticmethod
+    def extract_audio_languages(metadata_json):
+        if not metadata_json:
+            return []
+        try:
+            meta = json.loads(metadata_json)
+            streams = meta.get("ffprobe", {}).get("streams", [])
+            audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
+            langs = []
+            for stream in audio_streams:
+                tags = stream.get("tags", {})
+                lang = tags.get("language") or tags.get("LANGUAGE")
+                norm = ItemsFactory.normaliser_langue(lang)
+                if norm and norm not in langs:
+                    langs.append(norm)
+            return langs
+        except Exception as e:
+            print(e)
+            return []
+
+    @staticmethod
+    def extract_subtitle_languages(metadata_json):
+        if not metadata_json:
+            return []
+        try:
+            meta = json.loads(metadata_json)
+            streams = meta.get("ffprobe", {}).get("streams", [])
+            subtitle_streams = [s for s in streams if s.get("codec_type") in ("subtitle", "text")]
+            langs = []
+            for stream in subtitle_streams:
+                tags = stream.get("tags", {})
+                lang = tags.get("language") or tags.get("LANGUAGE")
+                norm = ItemsFactory.normaliser_langue(lang)
+                if norm and norm not in langs:
+                    langs.append(norm)
+            return langs
+        except Exception as e:
+            print(e)
+            return []

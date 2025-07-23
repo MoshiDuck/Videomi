@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.5.8
+0.0.6.0
 
 ---
 
@@ -142,7 +142,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Filtre audio"
+    git commit -m "[FAIT] Integrer filtre et trie"
     ```
 3. Force le push  
     ```bash
@@ -153,7 +153,12 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Finir filtre audio 
 - Integrer upload 
-- Integrer filtre et trie
-- Integrer list
+- Lire Document
+- Lire Videos et Musiques
+- Lire Photos
+- Lire Archives
+- Lancer Executables
+- Mettre bouton supprimer avec validation dans card
+- Mettre bouton télécharger dans card
+    
