@@ -67,8 +67,8 @@ class Init:
         self.fenetre = PageInscription(
             self.auth,
             self.taille_ecran,
-            switch_callback=self.switch_to_connexion,
-            on_success=self.switch_to_navigateur,
+            self.switch_to_connexion,
+            self.switch_to_navigateur,
         )
         self.fenetre.show()
 
@@ -78,10 +78,21 @@ class Init:
         self.fenetre = PageConnexion(
             self.auth,
             self.taille_ecran,
-            switch_callback=self.switch_to_inscription,
-            on_success=self.switch_to_navigateur,
+            self.switch_to_inscription,
+            self.switch_to_navigateur,
         )
         self.fenetre.show()
+
+    def switch_to_lecteur(self, stream_url: str) -> None:
+        if self.fenetre:
+            self.fenetre.hide()
+        from Pages.Lecteur.lecteur import Lecteur
+
+        def on_finished():
+            self.fenetre.show()
+
+        lecteur = Lecteur(stream_url, on_finished=on_finished)
+        lecteur.show()
 
     def switch_to_navigateur(self) -> None:
         if self.fenetre:
@@ -89,7 +100,13 @@ class Init:
         self.sync_thread.start()
 
     def _on_sync_finished(self) -> None:
-        self.fenetre = PageNav(self.auth,self.db_manager,self.client_1fichier, self.taille_ecran)
+        self.fenetre = PageNav(
+            self.auth,
+            self.db_manager,
+            self.client_1fichier,
+            self.taille_ecran,
+            self.switch_to_lecteur
+        )
         self.fenetre.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.fenetre.show()
 

@@ -117,7 +117,7 @@ class FichierClient(object):
             else:
                 return o
         else:
-            return
+            return None
 
     def remote_upload_info(self, id=None, only_data=False):
         if not self.authed:
@@ -131,7 +131,7 @@ class FichierClient(object):
             else:
                 return o
         else:
-            return
+            return None
 
     def remote_upload_create(self, urls=None, headers=None):
         if not self.authed:
@@ -149,7 +149,7 @@ class FichierClient(object):
             # ~ else:
             return o
         else:
-            return
+            return None
 
     def create_folder(self, folder_name, parent_folder_id=0):
         return self.api_call(

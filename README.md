@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.1
+0.0.6.2
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] Integrer Publication"
+    git commit -m "[FAIT] - Lire Document Lire Videos et Musiques Lire Photos Lire Archives Lancer Executables"
     ```
 3. Force le push  
     ```bash
@@ -152,11 +152,9 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Lire Document
-- Lire Videos et Musiques
-- Lire Photos
-- Lire Archives
-- Lancer Executables
+- Ajoutez lire lien via streaming
+
+- 
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
     

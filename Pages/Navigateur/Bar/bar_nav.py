@@ -50,7 +50,8 @@ class BarNav(QWidget):
 
         self.card = CardNav(items=[
             ("Catalogue", "mdi.view-dashboard-outline"),
-            ("Publication", "mdi.cloud-upload-outline"),
+            ("Streaming", "mdi.play-circle-outline"),
+            ("Publication", "mdi.cloud-upload-outline")
         ])
         self.card.selection_changed.connect(self.on_card_selection_changed)
         milieu_layout.addWidget(self.card)

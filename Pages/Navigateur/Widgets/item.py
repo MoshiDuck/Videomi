@@ -1,29 +1,203 @@
 import json
+import logging
+import os
+import platform
+import subprocess
+import tempfile
+import time
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QHBoxLayout, QVBoxLayout, QLabel, QFrame
 )
 
+from Service.py1FichierClient import FichierClient
 from Widgets.defilement_label import DefilementLabel
+
+class ClickableLabel(QLabel):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
 
 class ItemWidget(QFrame):
     _scaled_cache = {}
 
-    def __init__(self, image_path: str, title: str, duration: str, width: int, category: str, audio_languages: list, subtitle_languages: list, mode="grid"):
+    def __init__(
+            self,
+            switch_to_lecteur,
+            client_1fichier:FichierClient,
+            image_path: str,
+            title: str,
+            duration: str,
+            width: int,
+            category: str,
+            audio_languages: list,
+            subtitle_languages: list,
+            file_link: str,
+            mode="grid"
+    ):
         super().__init__()
+        self.switch_to_lecteur = switch_to_lecteur
+        self.client_1fichier = client_1fichier
         self.title_label = None
+        self.title = title
         self.duration_label = None
-        self.image_label = QLabel()
+        self.image_label = ClickableLabel()
+        self.image_label.clicked.connect(self.on_image_clicked)
         self.min_width = width
         self.category = category
         self.image_path = image_path
         self.original_pixmap = None
         self.mode = mode
+        self.file_link = file_link
         self.audio_languages = audio_languages
         self.subtitle_languages = subtitle_languages
         self.init_ui(image_path, title, duration)
+
+    def on_image_clicked(self):
+        try:
+            if self.category == "Images":
+                if hasattr(self, "image_path") and os.path.exists(self.image_path):
+                    logging.debug(f"Ouverture image locale : {self.image_path}")
+                    self.open_file_with_default_application(self.image_path)
+                else:
+                    logging.warning("Image marquée comme locale mais introuvable.")
+                return
+
+            if not self.file_link:
+                logging.warning("Aucun lien de fichier fourni.")
+                return
+
+            logging.debug(f"Téléchargement depuis : {self.file_link}")
+
+            if self.category in {"Videos", "Musiques"}:
+                dl_url = self.get_direct_download_url(inline=True)
+                if not dl_url:
+                    logging.warning("Lien direct non obtenu.")
+                    return
+
+                logging.debug(f"Lecture via lecteur avec URL : {dl_url}")
+                if self.switch_to_lecteur:
+                    self.switch_to_lecteur(dl_url)
+                else:
+                    logging.warning("Callback switch_to_lecteur non défini.")
+            else:
+                dl_url = self.get_direct_download_url(inline=False)
+                if not dl_url:
+                    logging.warning("Lien direct non obtenu.")
+                    return
+
+                tmp_dir = tempfile.gettempdir()
+                tmp_path_raw = os.path.join(tmp_dir, f"fichier_temp_{int(time.time())}")
+                success = self._download_from_direct_url(dl_url, tmp_path_raw)
+                if not success:
+                    logging.warning("Échec du téléchargement.")
+                    return
+
+                import magic
+                mime_type = magic.from_file(tmp_path_raw, mime=True)
+                logging.debug(f"MIME détecté : {mime_type}")
+
+                import mimetypes
+                extension = mimetypes.guess_extension(mime_type) or ".bin"
+                tmp_path_final = tmp_path_raw + extension
+                os.rename(tmp_path_raw, tmp_path_final)
+
+                logging.debug(f"Fichier renommé en : {tmp_path_final}")
+                self.open_file_with_default_application(tmp_path_final)
+
+        except Exception as e:
+            logging.exception(f"Erreur dans on_image_clicked : {e}")
+
+    def get_page_nav_widget(self):
+        parent = self.parent()
+        while parent:
+            if parent.__class__.__name__ == "PageNav":
+                return parent
+            parent = parent.parent()
+        return None
+
+    @staticmethod
+    def clean_file_link(file_link):
+        cleaned_url = file_link.split('&')[0]
+        return cleaned_url
+
+    def get_direct_download_url(self, inline: bool = False, cdn: bool = True, restrict_ip: bool = False,
+                                no_ssl: bool = False) -> str | None:
+        try:
+            if not self.client_1fichier or not self.file_link:
+                logging.error("Client 1fichier ou lien manquant.")
+                return None
+
+            clean_link = self.clean_file_link(self.file_link)
+
+            logging.debug("Récupération du lien de téléchargement direct...")
+
+            options = {
+                'inline': int(inline),
+                'cdn': int(cdn),
+                'restrict_ip': int(restrict_ip),
+                'no_ssl': int(no_ssl),
+            }
+
+            download_url = self.client_1fichier.get_download_link(clean_link, **options)
+            logging.debug(f"Lien direct récupéré : {download_url}")
+            return download_url
+        except Exception as e:
+            logging.warning(f"Échec récupération lien direct : {e}")
+            return None
+
+    @staticmethod
+    def _download_from_direct_url(url: str, local_path: str) -> bool:
+        import requests
+        try:
+            with requests.get(url, stream=True, timeout=30) as r:
+                r.raise_for_status()
+                with open(local_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            return True
+        except Exception as e:
+            logging.error(f"Erreur téléchargement via URL directe : {e}")
+            return False
+
+    def _guess_file_extension(self):
+        from urllib.parse import urlparse
+        import os
+
+        parsed = urlparse(self.file_link)
+        filename = os.path.basename(parsed.path)
+
+        _, ext = os.path.splitext(filename)
+        if ext and len(ext) <= 5:
+            return ext.lower()
+        return ".bin"
+
+    @staticmethod
+    def open_file_with_default_application(file_path):
+        try:
+            logging.debug(f"Taille du fichier à ouvrir : {os.path.getsize(file_path)} octets")
+            if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+                logging.error("Fichier inexistant ou vide. Annulation.")
+                return
+
+            ext = os.path.splitext(file_path)[1].lower()
+
+            if ext == ".exe" and platform.system() == "Windows":
+                logging.debug("Exécution directe d'un .exe détecté")
+                subprocess.Popen([file_path], shell=True)
+            elif platform.system() == "Windows":
+                os.startfile(file_path)
+            elif platform.system() == "Darwin":
+                subprocess.run(["open", file_path], check=False)
+            else:
+                subprocess.run(["xdg-open", file_path], check=False)
+        except Exception as e:
+            logging.exception(f"Erreur lors de l'ouverture du fichier : {e}")
 
     def init_ui(self, image_path, title, duration):
         if self.mode == "list":
@@ -116,8 +290,10 @@ class ItemWidget(QFrame):
         self._update_scaled(width)
 
 class ItemsFactory:
-    def __init__(self, db_manager):
+    def __init__(self,switch_to_lecteur, db_manager, client_1fichier:FichierClient):
+        self.switch_to_lecteur= switch_to_lecteur
         self.db_manager = db_manager
+        self.client_1fichier = client_1fichier
         self.items_data = []
         self.load_items_data()
 
@@ -131,6 +307,7 @@ class ItemsFactory:
             thumbnail = data.get("thumbnail_path") or ""
             audio_langs = self.extract_audio_languages(metadata)
             subtitle_langs = self.extract_subtitle_languages(metadata)
+            file_link = data.get("file_link") or ""
 
             self.items_data.append({
                 "category": category,
@@ -139,7 +316,8 @@ class ItemsFactory:
                 "duration_sec": duration_sec,
                 "thumbnail_path": thumbnail,
                 "audio_languages": audio_langs,
-                "subtitle_languages": subtitle_langs
+                "subtitle_languages": subtitle_langs,
+                "file_link": file_link
             })
 
     def create_item_widgets(self, min_width=320, mode="grid", sort_key=None, reverse=False, filter_func=None):
@@ -152,14 +330,17 @@ class ItemsFactory:
         widgets = []
         for item in items:
             widget = ItemWidget(
+                self.switch_to_lecteur,
+                self.client_1fichier,
                 item["thumbnail_path"],
                 item["title"],
                 item["duration_str"],
                 min_width,
                 item["category"],
-                audio_languages=item.get("audio_languages", []),
-                subtitle_languages=item.get("subtitle_languages", []),
-                mode=mode
+                item.get("audio_languages", []),
+                item.get("subtitle_languages", []),
+                item["file_link"],
+                mode
             )
             widgets.append(widget)
         return widgets

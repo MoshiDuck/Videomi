@@ -8,15 +8,18 @@ from Database.db_manager import DatabaseManager
 from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Widgets.item import ItemsFactory
+from Service.py1FichierClient import FichierClient
+
 
 class Catalogue(QWidget):
-    def __init__(self, db_manager : DatabaseManager, nav_bar: BarNav, nav_sec_bar: BarSecNav):
+    def __init__(self,switch_to_lecteur, db_manager : DatabaseManager,client_1fichier:FichierClient, nav_bar: BarNav, nav_sec_bar: BarSecNav):
         super().__init__()
+        self.switch_to_lecteur = switch_to_lecteur
         self.db_manager = db_manager
         self.nav_bar = nav_bar
         self.nav_sec_bar = nav_sec_bar
 
-        self.items_factory = ItemsFactory(self.db_manager)
+        self.items_factory = ItemsFactory(self.switch_to_lecteur, self.db_manager, client_1fichier)
         self.item_widgets = []
         self.current_category = "Videos"
         self.view_mode = 'grid'

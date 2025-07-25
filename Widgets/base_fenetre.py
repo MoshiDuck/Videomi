@@ -19,3 +19,12 @@ class BaseFenetre(QWidget):
             self.central_layout.addWidget(widget)
 
         self.central_layout.setStretch(1, 1)
+
+    @staticmethod
+    def find_ancestor(widget, cls):
+        parent = widget.parent()
+        while parent:
+            if isinstance(parent, cls):
+                return parent
+            parent = parent.parent()
+        return None
