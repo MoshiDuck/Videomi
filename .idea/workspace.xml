@@ -5,23 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Pages/Lecteur/chapter_slider.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Pages/Lecteur/mpv_controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cache/local_data.db" beforeDir="false" afterPath="$PROJECT_DIR$/Cache/local_data.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Auth/Inscription/page_inscription.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/Inscription/page_inscription.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Widgets/bar_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/bar_fenetre.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Widgets/base_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/base_fenetre.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Widgets/icon_perso.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/icon_perso.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,10 +41,13 @@
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "Python.bar_fenetre.executor": "Run",
+    "Python.bar_sec_lect.executor": "Run",
     "Python.catalogue_nav.executor": "Run",
+    "Python.chapter_slider.executor": "Run",
     "Python.icon_perso.executor": "Run",
     "Python.lecteur.executor": "Run",
     "Python.main.executor": "Run",
+    "Python.mpv_controller.executor": "Run",
     "Python.onefichier_service.executor": "Run",
     "Python.page_inscription.executor": "Run",
     "Python.publication_nav.executor": "Run",
@@ -71,7 +62,7 @@
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/Gabriel/PycharmProjects/Videomi/Ressource/mpv",
-    "settings.editor.selected.configurable": "reference.settingsdialog.project.grazie"
+    "settings.editor.selected.configurable": "advanced.settings"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -90,7 +81,30 @@
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Config" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.lecteur">
+    <configuration name="lecteur" type="PythonConfigurationType" factoryName="Python">
+      <module name="Videomi" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.13 (Videomi)" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="main" type="PythonConfigurationType" factoryName="Python">
       <module name="Videomi" />
       <option name="ENV_FILES" value="" />
@@ -114,6 +128,10 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.main" />
+      <item itemvalue="Python.lecteur" />
+    </list>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>

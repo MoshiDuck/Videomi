@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.4
+0.0.6.6
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Bouton play et prochaine vidéos"
+    git commit -m "[FAIT] - Slide"
     ```
 3. Force le push  
     ```bash
@@ -152,6 +152,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
+- Moderniser slide
 - Ajoutez lire lien via streaming
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
