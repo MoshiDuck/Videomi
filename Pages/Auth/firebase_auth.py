@@ -1,21 +1,11 @@
 import os
 import json
 import requests
-import firebase_admin
 import pyrebase
-
-from firebase_admin import credentials
 
 
 class FirebaseAuth:
     def __init__(self, firebase_config: dict):
-        cred_path = "Config/config.json"
-        db_url = "https://videomi-2ee1c-default-rtdb.firebaseio.com/"
-
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred, {'databaseURL': db_url})
-
         self.firebase = pyrebase.initialize_app(firebase_config)
         self.auth = self.firebase.auth()
 

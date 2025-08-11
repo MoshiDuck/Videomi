@@ -5,18 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cache/local_data.db" beforeDir="false" afterPath="$PROJECT_DIR$/Cache/local_data.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Auth/Inscription/page_inscription.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/Inscription/page_inscription.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Auth/firebase_auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/page_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Service/py1FichierClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/py1FichierClient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/bar_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/bar_fenetre.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Widgets/base_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/base_fenetre.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/icon_perso.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/icon_perso.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,35 +49,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.catalogue_nav.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.onefichier_service.executor&quot;: &quot;Run&quot;,
-    &quot;Python.page_inscription.executor&quot;: &quot;Run&quot;,
-    &quot;Python.publication_nav.executor&quot;: &quot;Run&quot;,
-    &quot;Python.py1FichierClient.executor&quot;: &quot;Run&quot;,
-    &quot;Python.row_widget.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test2.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test3.executor&quot;: &quot;Run&quot;,
-    &quot;Python.upload_manager.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Gabriel/PycharmProjects/Videomi/Pages/Navigateur/Widgets&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.grazie&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.bar_fenetre.executor": "Run",
+    "Python.catalogue_nav.executor": "Run",
+    "Python.icon_perso.executor": "Run",
+    "Python.lecteur.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.onefichier_service.executor": "Run",
+    "Python.page_inscription.executor": "Run",
+    "Python.publication_nav.executor": "Run",
+    "Python.py1FichierClient.executor": "Run",
+    "Python.row_widget.executor": "Run",
+    "Python.test.executor": "Run",
+    "Python.test2.executor": "Run",
+    "Python.test3.executor": "Run",
+    "Python.upload_manager.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/Gabriel/PycharmProjects/Videomi/Ressource/mpv",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.grazie"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Ressource\mpv" />
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Pages\Navigateur\Widgets" />
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Pages\Navigateur\Widgets\Bar\Widgets" />
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Pages\Navigateur\Widgets\Bar_Sec" />
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Widgets" />
-      <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Ressource\mpv" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Pages\Navigateur" />

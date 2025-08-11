@@ -83,7 +83,7 @@ class Init:
         )
         self.fenetre.show()
 
-    def switch_to_lecteur(self, stream_url: str) -> None:
+    def switch_to_lecteur(self, stream_url) -> None:
         if self.fenetre:
             self.fenetre.hide()
         from Pages.Lecteur.lecteur import Lecteur
@@ -91,7 +91,7 @@ class Init:
         def on_finished():
             self.fenetre.show()
 
-        lecteur = Lecteur(stream_url, on_finished=on_finished)
+        lecteur = Lecteur(stream_urls=stream_url, on_finished=on_finished, taille_ecran=self.taille_ecran)
         lecteur.show()
 
     def switch_to_navigateur(self) -> None:

@@ -28,7 +28,7 @@ class BarFenetre(QWidget):
 
         for btn in (self.btn_minimize, self.btn_close):
             btn.setFixedSize(30, 30)
-            btn.setIconSize(btn.size() * 0.6)  # icône un peu plus petite que le bouton
+            btn.setIconSize(btn.size() * 0.6)
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
 
         # Layout boutons

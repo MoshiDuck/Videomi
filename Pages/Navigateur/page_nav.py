@@ -6,6 +6,7 @@ from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Catalogue.catalogue_nav import Catalogue
 from Pages.Navigateur.Publication.publication_nav import Publication
+from Pages.Navigateur.Streaming.streaming_nav import Streaming
 from Widgets.base_fenetre import BaseFenetre
 
 class PageNav(BaseFenetre):
@@ -21,6 +22,8 @@ class PageNav(BaseFenetre):
         self.nav_sec_bar.triple.pan1.hide()
         self.nav_sec_bar.triple.pan3.hide()
         self.catalogue = Catalogue(switch_to_lecteur, self.db_manager,fichier_client, self.nav_bar, self.nav_sec_bar)
+        self.streaming = Streaming(switch_to_lecteur)
+        self.streaming.hide()
         self.publication = Publication(auth, fichier_client, db_manager, self.catalogue)
         self.publication.hide()
 
@@ -33,6 +36,7 @@ class PageNav(BaseFenetre):
         main.addWidget(self.nav_sec_bar)
         main.addWidget(self.catalogue, stretch=1)
         main.addWidget(self.publication, stretch=1)
+        main.addWidget(self.streaming, stretch=1)
 
         self.nav_bar.icon_search.clicked.connect(self.toggle_bar_sec)
         self.nav_bar.card.selection_changed.connect(self.on_card_selection_changed)
@@ -48,6 +52,7 @@ class PageNav(BaseFenetre):
 
     def on_card_selection_changed(self, selected_label: str):
         if selected_label == "Catalogue":
+            self.streaming.hide()
             self.publication.hide()
             self.catalogue.show()
             self.nav_sec_bar.show()
@@ -55,11 +60,15 @@ class PageNav(BaseFenetre):
             self.nav_bar.icon_search.set_state(False)
             self.nav_sec_bar.hide()
             self.catalogue.hide()
-            self.publication.show()
+            self.publication.hide()
+            self.streaming.show()
         elif selected_label == "Publication":
             self.nav_bar.icon_search.set_state(False)
             self.nav_sec_bar.hide()
             self.catalogue.hide()
+            self.streaming.hide()
             self.publication.show()
+
+
 
 

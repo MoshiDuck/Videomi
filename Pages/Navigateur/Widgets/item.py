@@ -81,7 +81,7 @@ class ItemWidget(QFrame):
 
                 logging.debug(f"Lecture via lecteur avec URL : {dl_url}")
                 if self.switch_to_lecteur:
-                    self.switch_to_lecteur(dl_url)
+                    self.switch_to_lecteur([dl_url])
                 else:
                     logging.warning("Callback switch_to_lecteur non défini.")
             else:
