@@ -101,3 +101,4 @@ class BarSecLect(QFrame):
                     print(e)
                     pass
         self.slider.set_chapters(normalized)
+

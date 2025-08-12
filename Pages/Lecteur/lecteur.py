@@ -103,19 +103,9 @@ class Lecteur(QMainWindow):
                     self.position_timer.stop()
                 return
             if proc.poll() is not None:
-                print(f"MPV process terminé avec code {proc.returncode}. Arrêt du timer.")
                 try:
-                    log_path = Path.cwd() / "mpv_debug.log"
-                    if log_path.exists():
-                        print("==== mpv_debug.log (début) ====")
-                        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-                            data = f.read()
-                            print(data[-4000:])
-                        print("==== mpv_debug.log (fin) ====")
-                except Exception as e:
-                    print(f"Impossible de lire mpv_debug.log: {e}")
-                try:
-                    self.position_timer.stop()
+                    if getattr(self, "position_timer", None):
+                        self.position_timer.stop()
                 except Exception:
                     pass
                 return
@@ -127,7 +117,7 @@ class Lecteur(QMainWindow):
                 pass
             return
 
-        # récupérer duration / pos de façon tolérante
+        # récupérer duration / pos
         dur = None
         pos = None
         try:
@@ -147,7 +137,7 @@ class Lecteur(QMainWindow):
         if not hasattr(self, "_last_position"):
             self._last_position = None
 
-        # update duration
+        # --- update duration ---
         try:
             if dur is not None:
                 try:
@@ -168,7 +158,7 @@ class Lecteur(QMainWindow):
             print(e)
             pass
 
-        # update position (update only if change >=1s)
+        # --- update position (mise à jour effective du slider/UI) ---
         try:
             if pos is not None:
                 try:
@@ -180,12 +170,27 @@ class Lecteur(QMainWindow):
                 pos_int = None
 
             if pos_int is not None:
-                do_update = False
-                if self._last_position is None:
-                    do_update = True
-                else:
-                    if abs(self._last_position - pos_int) >= 1:
-                        do_update = True
+                # mettre à jour si première fois ou changement >= 1s
+                if self._last_position is None or abs(self._last_position - pos_int) >= 1:
+                    try:
+                        # update UI directement sur le slider tout en bloquant les signaux
+                        slider = getattr(self.bottom_bar, "slider", None)
+                        if slider is not None:
+                            slider.blockSignals(True)
+                            slider.setValue(pos_int)
+                            slider.update()
+                            slider.blockSignals(False)
+                        else:
+                            # fallback : tenter la méthode set_position si un jour ajoutée
+                            if hasattr(self.bottom_bar, "set_position"):
+                                try:
+                                    self.bottom_bar.set_position(pos_int)
+                                except Exception as e:
+                                    print(f"Erreur bottom_bar.set_position fallback: {e}")
+                    except Exception as e:
+                        print(f"Erreur lors mise à jour UI position: {e}")
+
+                    # mettre à jour le dernier position connu
                     self._last_position = pos_int
         except Exception as e:
             print(e)
@@ -196,10 +201,38 @@ class Lecteur(QMainWindow):
         pass
 
     def _on_slider_released(self, pos: int):
+        """
+        L'utilisateur a lâché le slider : mise à jour immédiate de l'UI puis seek mpv.
+        """
         try:
-            self.mpv.seek_to(pos)
+            # Mise à jour immédiate de l'UI (block signals pour éviter position_changed -> feed)
+            try:
+                slider = getattr(self.bottom_bar, "slider", None)
+                if slider is not None:
+                    slider.blockSignals(True)
+                    slider.setValue(pos)
+                    slider.update()
+                    slider.blockSignals(False)
+                else:
+                    if hasattr(self.bottom_bar, "set_position"):
+                        self.bottom_bar.set_position(pos)
+            except Exception as e:
+                print(f"Erreur mise à jour UI (released): {e}")
+
+            # Demander à mpv de se positionner
+            try:
+                self.mpv.seek_to(pos)
+            except Exception as e:
+                print(f"Erreur seek (released): {e}")
+
+            # mettre à jour la variable interne pour éviter des retours immédiats
+            try:
+                self._last_position = int(pos)
+            except Exception:
+                pass
+
         except Exception as e:
-            print(f"Erreur seek (released): {e}")
+            print(f"_on_slider_released erreur globale: {e}")
 
     def _on_chapter_selected(self, seconds: int):
         try:

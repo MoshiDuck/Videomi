@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.6
+0.0.6.7
 
 ---
 
@@ -152,7 +152,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Moderniser slide
+- Finir slide
 - Ajoutez lire lien via streaming
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
