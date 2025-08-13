@@ -1,77 +1,91 @@
 # ---------- FILE: lecteur.py ----------
-# Version modifiée : récupération asynchrone de duration + chapters via yt_dlp
 import os
 import sys
+import threading
 import time
 from pathlib import Path
-import threading
 
-from PyQt6.QtCore import QTimer, QSize
+from PyQt6.QtCore import QTimer, QSize, Qt
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QFrame,
+    QFrame,
     QSizePolicy, QApplication
 )
 
 from Pages.Lecteur.Bar_Sec.bar_sec_lect import BarSecLect
 from Pages.Lecteur.mpv_controller import MPVController
 from Widgets.bar_fenetre import BarFenetre
+from Widgets.base_fenetre import BaseFenetre
 
-# Constantes
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MPV_DIR = PROJECT_ROOT / "Ressource" / "mpv"
 MPV_EXE = MPV_DIR / "mpv.exe"
 
+MAX_VOLUME = 200
+
 os.environ["PATH"] = f"{MPV_DIR}{os.pathsep}{os.environ.get('PATH', '')}"
 
 
-class Lecteur(QMainWindow):
+class Lecteur(BaseFenetre):
     def __init__(self, stream_urls: list[str], taille_ecran: QSize | None = None):
-        super().__init__()
+        super().__init__(bar=False)
 
+        self.position_timer = None
         self.stream_urls = stream_urls.copy()
         self.current_index = 0
-        # self.youtube_chapters contiendra désormais la liste normalisée (dicts avec start/end/duration/title)
         self.youtube_chapters = []
-        # drapeau pour indiquer si yt_dlp a déjà appliqué duration/chapters à l'UI
         self._youtube_info_applied = False
+
+        self._last_volume = None
+        self._previous_volume = 50
+        self._muted = False
 
         self.resize(taille_ecran if taille_ecran else QSize(800, 600))
 
         self._setup_ui()
 
-        # Controller mpv
         self.mpv = MPVController()
+
+        self._volume_timer = QTimer(self)
+        self._volume_timer.setInterval(1000)
+        self._volume_timer.timeout.connect(self._poll_volume)
 
         QTimer.singleShot(200, self.lancer_video)
 
     def _setup_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        self.central_layout = QVBoxLayout(central_widget)
         self.central_layout.setContentsMargins(0, 0, 0, 0)
         self.central_layout.setSpacing(0)
 
         self.video_frame = QFrame()
-        self.video_frame.setStyleSheet("background-color: black;")
+        self.video_frame.setStyleSheet("background-color: transparent")
         self.video_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.central_layout.addWidget(self.video_frame, 1)
 
-        self.top_bar = BarFenetre(parent=self)
+        self.top_bar = BarFenetre(parent=None, main_window=self)
+        self.top_bar.setWindowFlags(self.top_bar.windowFlags() |
+                                    Qt.WindowType.Tool |
+                                    Qt.WindowType.FramelessWindowHint |
+                                    Qt.WindowType.WindowStaysOnTopHint)
+        self.top_bar.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.top_bar.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.top_bar.setAutoFillBackground(False)
         self.top_bar.setVisible(False)
-        self.top_bar.setGeometry(0, 0, self.width(), 30)
+        self.top_bar.show()
         self.top_bar.raise_()
 
-        self.bottom_bar = BarSecLect(parent=self)
+        self.bottom_bar = BarSecLect(parent=None)
+        self.bottom_bar.setWindowFlags(self.bottom_bar.windowFlags() |
+                                       Qt.WindowType.Tool |
+                                       Qt.WindowType.FramelessWindowHint |
+                                       Qt.WindowType.WindowStaysOnTopHint)
+        self.bottom_bar.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.bottom_bar.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.bottom_bar.setAutoFillBackground(False)
         self.bottom_bar.setVisible(False)
-        self.bottom_bar.setGeometry(0, self.height() - self.bottom_bar.height(), self.width(), self.bottom_bar.height())
+        self.bottom_bar.show()
         self.bottom_bar.raise_()
-
         self.hide_bar_timer = QTimer(self)
         self.hide_bar_timer.setInterval(1500)
         self.hide_bar_timer.timeout.connect(self.cacher_barre)
-
-        # connect signals
         self.bottom_bar.play_pause_clicked.connect(self.toggle_play_pause)
         self.bottom_bar.prev_clicked.connect(self.video_precedente)
         self.bottom_bar.next_clicked.connect(self.video_suivante)
@@ -83,16 +97,47 @@ class Lecteur(QMainWindow):
         self.bottom_bar.slider.position_released.connect(self._on_slider_released)
         self.bottom_bar.chapter_selected.connect(self._on_chapter_selected)
 
+
+        try:
+            if hasattr(self.bottom_bar, "volume_changed") and hasattr(self.bottom_bar, "mute_toggled"):
+                self.bottom_bar.volume_changed.connect(self._on_volume_changed)
+                self.bottom_bar.mute_toggled.connect(self._on_mute_toggled)
+            elif hasattr(self.bottom_bar, "volume_control"):
+                vc = getattr(self.bottom_bar, "volume_control")
+                if hasattr(vc, "volume_changed"):
+                    vc.volume_changed.connect(self._on_volume_changed)
+                if hasattr(vc, "mute_toggled"):
+                    vc.mute_toggled.connect(self._on_mute_toggled)
+        except Exception as e:
+            print(f"Erreur connexion volume UI: {e}")
+
         self.position_timer = QTimer(self)
         self.position_timer.setInterval(500)
         self.position_timer.timeout.connect(self._update_position)
 
         self.setMouseTracking(True)
-        self.centralWidget().setMouseTracking(True)
         self.video_frame.setMouseTracking(True)
-        self.top_bar.setMouseTracking(True)
-        self.bottom_bar.setMouseTracking(True)
         self.showFullScreen()
+
+        QTimer.singleShot(0, self._update_bars_geometry)
+
+    def _update_bars_geometry(self):
+        try:
+            geo = self.geometry()
+            # top bar : en haut
+            if getattr(self, "top_bar", None):
+                self.top_bar.setGeometry(geo.x(), geo.y(), geo.width(), 30)
+            # bottom bar : en bas
+            if getattr(self, "bottom_bar", None):
+                self.bottom_bar.setGeometry(
+                    geo.x(),
+                    geo.y() + geo.height() - self.bottom_bar.height(),
+                    geo.width(),
+                    self.bottom_bar.height()
+                )
+        except Exception as e:
+            print(e)
+            pass
 
     # ------------- position / durée --------------
     def _update_position(self):
@@ -106,20 +151,20 @@ class Lecteur(QMainWindow):
                 try:
                     if getattr(self, "position_timer", None):
                         self.position_timer.stop()
-                except Exception:
+                except Exception as e:
+                    print(e)
                     pass
                 return
-        except Exception:
+        except Exception as e:
+            print(e)
             try:
                 if getattr(self, "position_timer", None):
                     self.position_timer.stop()
-            except Exception:
+            except Exception as e:
+                print(e)
                 pass
             return
 
-        # récupérer duration / pos
-        dur = None
-        pos = None
         try:
             dur = self.mpv.get_duration()
         except Exception as e:
@@ -142,7 +187,8 @@ class Lecteur(QMainWindow):
             if dur is not None:
                 try:
                     dur_int = int(float(dur))
-                except Exception:
+                except Exception as e:
+                    print(e)
                     dur_int = None
             else:
                 dur_int = None
@@ -151,7 +197,8 @@ class Lecteur(QMainWindow):
                 if self._last_duration != dur_int:
                     try:
                         self.bottom_bar.set_duration(dur_int)
-                    except Exception:
+                    except Exception as e:
+                        print(e)
                         pass
                     self._last_duration = dur_int
         except Exception as e:
@@ -187,14 +234,290 @@ class Lecteur(QMainWindow):
                                     self.bottom_bar.set_position(pos_int)
                                 except Exception as e:
                                     print(f"Erreur bottom_bar.set_position fallback: {e}")
+
+                        # --- NOUVEAU : mettre à jour le label temps courant si disponible ---
+                        try:
+                            if hasattr(self, "bottom_bar") and hasattr(self.bottom_bar, "set_current_time"):
+                                # mettre à jour immédiatement le label de temps courant (gauche)
+                                self.bottom_bar.set_current_time(pos_int)
+                        except Exception as e:
+                            # ne pas interrompre l'affichage si erreur
+                            print(f"Erreur mise à jour label temps courant: {e}")
+
                     except Exception as e:
                         print(f"Erreur lors mise à jour UI position: {e}")
 
-                    # mettre à jour le dernier position connu
+                    # mettre à jour la dernier position connu
                     self._last_position = pos_int
         except Exception as e:
             print(e)
             pass
+
+    # ---------- volume management ----------
+    def _on_volume_changed(self, value: int):
+        """
+        Reçoit la valeur depuis l'UI (0-150) et l'applique à mpv.
+        Empêche les boucles de feedback en mettant à jour self._last_volume.
+        """
+        try:
+            # clamp
+            try:
+                vol_int = int(max(0, min(MAX_VOLUME, int(value))))
+            except Exception as e:
+                print(e)
+                vol_int = 0
+
+            # store previous (for unmute restore)
+            if vol_int > 0:
+                self._previous_volume = vol_int
+            self._last_volume = vol_int
+            self._muted = (vol_int == 0)
+
+            # apply to mpv using best available API
+            self._set_mpv_volume(vol_int)
+        except Exception as e:
+            print(f"_on_volume_changed erreur: {e}")
+
+    def _on_mute_toggled(self, muted: bool):
+        """
+        Reçoit l'action mute depuis l'UI. Essaie d'utiliser la propriété 'mute' si dispo,
+        sinon simule via volume = 0 / restore previous.
+        """
+        try:
+            self._muted = bool(muted)
+            if self._muted:
+                # store previous if not already zero
+                if self._last_volume and self._last_volume > 0:
+                    self._previous_volume = self._last_volume
+                # try to set mpv mute property
+                if not self._set_mpv_mute(True):
+                    # fallback: force volume 0
+                    self._set_mpv_volume(0)
+                self._last_volume = 0
+            else:
+                # unmute: try to clear mute property or restore previous volume
+                if not self._set_mpv_mute(False):
+                    self._set_mpv_volume(self._previous_volume or 50)
+                self._last_volume = self._previous_volume or 50
+        except Exception as e:
+            print(f"_on_mute_toggled erreur: {e}")
+
+    def _set_mpv_volume(self, value: int) -> bool:
+        """
+        Tente plusieurs méthodes pour définir le volume sur self.mpv.
+        Retourne True si une méthode a été utilisée sans exception.
+        """
+        success = False
+        try:
+            v = int(max(0, min(MAX_VOLUME, int(value))))
+        except Exception as e:
+            print(e)
+            v = 0
+        try:
+            # prefer dedicated helper
+            if hasattr(self.mpv, "set_volume"):
+                try:
+                    self.mpv.set_volume(v)
+                    success = True
+                except Exception as e:
+                    print(e)
+                    success = False
+            # try generic set_property
+            if not success and hasattr(self.mpv, "set_property"):
+                try:
+                    # mpv volume usually expects a number 0-100 (but we allow 0-150)
+                    self.mpv.set_property("volume", float(v))
+                    success = True
+                except Exception as e:
+                    print(e)
+                    success = False
+            # try to call via 'command' if implemented
+            if not success and hasattr(self.mpv, "command"):
+                try:
+                    self.mpv.command("set_property", "volume", float(v))
+                    success = True
+                except Exception as e:
+                    print(e)
+                    success = False
+        except Exception as e:
+            print(f"_set_mpv_volume erreur: {e}")
+            success = False
+
+        return success
+
+    def _set_mpv_mute(self, muted: bool) -> bool:
+        """
+        Tente de définir la propriété 'mute' si disponible.
+        Retourne True si une méthode a été utilisée sans exception.
+        """
+        success = False
+        try:
+            if hasattr(self.mpv, "set_property"):
+                try:
+                    # mpv accepts 1/0 or true/false depending on wrapper; use int
+                    self.mpv.set_property("mute", int(bool(muted)))
+                    success = True
+                except Exception as e:
+                    print(e)
+                    success = False
+            if not success and hasattr(self.mpv, "command"):
+                try:
+                    self.mpv.command("set_property", "mute", int(bool(muted)))
+                    success = True
+                except Exception as e:
+                    print(e)
+                    success = False
+        except Exception as e:
+            print(f"_set_mpv_mute erreur: {e}")
+            success = False
+        return success
+
+    def _poll_volume(self):
+        """
+        Poll mpv for current volume/mute and update UI if changed.
+        S'exécute régulièrement par _volume_timer.
+        """
+        try:
+            proc = getattr(self.mpv, "process", None)
+            if proc is None:
+                if getattr(self, "_volume_timer", None):
+                    self._volume_timer.stop()
+                return
+            if proc.poll() is not None:
+                # mpv stopped
+                if getattr(self, "_volume_timer", None):
+                    self._volume_timer.stop()
+                return
+        except Exception as e:
+            print(e)
+            return
+
+        vol = None
+        muted = None
+
+        # try to get 'mute' property
+        try:
+            if hasattr(self.mpv, "get_property"):
+                try:
+                    m = self.mpv.get_property("mute")
+                    if m is not None:
+                        # convert to boolean if possible
+                        try:
+                            muted = bool(int(m))
+                        except Exception as e:
+                            print(e)
+                            try:
+                                muted = bool(m)
+                            except Exception as e:
+                                print(e)
+                                muted = None
+                except Exception as e:
+                    print(e)
+                    pass
+        except Exception as e:
+            print(e)
+            pass
+
+        # try to get 'volume' property / helper
+        try:
+            if hasattr(self.mpv, "get_property"):
+                try:
+                    v = self.mpv.get_property("volume")
+                    if v is not None:
+                        vol = float(v)
+                except Exception as e:
+                    print(e)
+                    pass
+        except Exception as e:
+            print(e)
+            pass
+
+        # fallback to dedicated get_volume()
+        if vol is None:
+            try:
+                if hasattr(self.mpv, "get_volume"):
+                    try:
+                        v2 = self.mpv.get_volume()
+                        if v2 is not None:
+                            vol = float(v2)
+                    except Exception as e:
+                        print(e)
+                        pass
+            except Exception as e:
+                print(e)
+                pass
+
+        # normalize and clamp
+        if vol is not None:
+            try:
+                vol_int = int(round(float(vol)))
+            except Exception as e:
+                print(e)
+                vol_int = int(float(vol)) if isinstance(vol, (int, float)) else 0
+            vol_int = max(0, min(MAX_VOLUME, vol_int))
+        else:
+            vol_int = None
+
+
+        # if mute unknown but vol == 0, we consider muted
+        if muted is None and vol_int is not None:
+            muted = (vol_int == 0)
+
+        # update UI if there's any change
+        try:
+            changed = False
+            if vol_int is not None and vol_int != self._last_volume:
+                self._last_volume = vol_int
+                changed = True
+            if muted is not None and muted != self._muted:
+                self._muted = muted
+                changed = True
+
+            if changed:
+                # update bottom_bar UI safely (block signals to avoid feedback)
+                try:
+                    # preferred: bottom_bar exposes set_volume / set_mute methods
+                    if hasattr(self.bottom_bar, "set_volume"):
+                        try:
+                            self.bottom_bar.set_volume(int(self._last_volume or 0))
+                        except Exception as e:
+                            print(e)
+                            pass
+                    if hasattr(self.bottom_bar, "set_mute"):
+                        try:
+                            self.bottom_bar.set_mute(bool(self._muted))
+                        except Exception as e:
+                            print(e)
+                            pass
+
+                    # fallback: bottom_bar has a nested volume_control widget
+                    elif hasattr(self.bottom_bar, "volume_control"):
+                        vc = getattr(self.bottom_bar, "volume_control")
+                        try:
+                            vc.slider.blockSignals(True)
+                            vc.slider.setValue(int(self._last_volume or 0))
+                            vc.icon.set_state(not bool(self._muted))
+                            vc._update_icon()
+                            vc.slider.blockSignals(False)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    else:
+                        # last resort: try to find a slider attribute
+                        for name in ("volume_slider", "volume", "slider_volume", "slider"):
+                            if hasattr(self.bottom_bar, name):
+                                s = getattr(self.bottom_bar, name)
+                                try:
+                                    s.blockSignals(True)
+                                    s.setValue(int(self._last_volume or 0))
+                                    s.blockSignals(False)
+                                except Exception as e:
+                                    print(e)
+                                    pass
+                except Exception as e:
+                    print(f"_poll_volume mise a jour UI erreur: {e}")
+        except Exception as e:
+            print(f"_poll_volume erreur globale: {e}")
 
     # ---------- slider / chapters ----------
     def _on_slider_moved(self, pos: int):
@@ -228,7 +551,8 @@ class Lecteur(QMainWindow):
             # mettre à jour la variable interne pour éviter des retours immédiats
             try:
                 self._last_position = int(pos)
-            except Exception:
+            except Exception as e:
+                print(e)
                 pass
 
         except Exception as e:
@@ -248,8 +572,13 @@ class Lecteur(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.top_bar.setGeometry(0, 0, self.width(), 30)
-        self.bottom_bar.setGeometry(0, self.height() - self.bottom_bar.height(), self.width(), self.bottom_bar.height())
+        # repositionner barres top-level
+        self._update_bars_geometry()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        # repositionner barres top-level quand la fenêtre bouge
+        self._update_bars_geometry()
 
     # helper pour trouver index chapitre YouTube à partir du temps courant
     def _youtube_current_chapter_index(self, pos_seconds: float):
@@ -259,7 +588,6 @@ class Lecteur(QMainWindow):
         # youtube_chapters peut être list de dicts normalisés ou de seconds
         chap_secs = []
         for ch in self.youtube_chapters:
-            st = None
             if isinstance(ch, dict):
                 st = ch.get("start_time") or ch.get("start") or ch.get("time")
             else:
@@ -267,7 +595,8 @@ class Lecteur(QMainWindow):
             try:
                 if st is not None:
                     chap_secs.append(float(st))
-            except Exception:
+            except Exception as e:
+                print(e)
                 pass
         chap_secs = sorted(list(dict.fromkeys(chap_secs)))
         if not chap_secs:
@@ -287,16 +616,16 @@ class Lecteur(QMainWindow):
             idx = 0
         return idx
 
-    def _normalize_chapters(self, chapters, total_duration=None):
+    @staticmethod
+    def _normalize_chapters(chapters, total_duration=None):
         """
         Normalise une liste de chapitres (list[dict] ou list[starts]) en
-        list[{"start" : float, "end" : float|None, "duration" : float|None, "title" : str|None}].
+        list[{"start" : float, "end" : float|None, "duration" : float|None, "title" : str|None}].
         Total_duration (float) sert à fermer le dernier chapitre si nécessaire.
         """
         parsed = []
         for ch in chapters or []:
             title = None
-            start = None
             end = None
             if isinstance(ch, dict):
                 start = ch.get("start_time") or ch.get("start") or ch.get("time")
@@ -308,11 +637,13 @@ class Lecteur(QMainWindow):
 
             try:
                 start_f = float(start) if start is not None else None
-            except Exception:
+            except Exception as e:
+                print(e)
                 start_f = None
             try:
                 end_f = float(end) if end is not None else None
-            except Exception:
+            except Exception as e:
+                print(e)
                 end_f = None
 
             if start_f is not None:
@@ -339,7 +670,8 @@ class Lecteur(QMainWindow):
 
         return parsed
 
-    def _format_time(self, seconds):
+    @staticmethod
+    def _format_time(seconds):
         """Retourne HH:MM:SS depuis des secondes (float|int|None)."""
         try:
             if seconds is None:
@@ -351,7 +683,8 @@ class Lecteur(QMainWindow):
             if h:
                 return f"{h:d}:{m:02d}:{sec:02d}"
             return f"{m:d}:{sec:02d}"
-        except Exception:
+        except Exception as e:
+            print(e)
             return "—"
 
     def chapter_precedent(self):
@@ -360,7 +693,6 @@ class Lecteur(QMainWindow):
                 pos = self.mpv.get_time_pos() or 0
                 chap_secs = []
                 for ch in self.youtube_chapters:
-                    st = None
                     if isinstance(ch, dict):
                         st = ch.get("start_time") or ch.get("start") or ch.get("time")
                     else:
@@ -368,11 +700,12 @@ class Lecteur(QMainWindow):
                     try:
                         if st is not None:
                             chap_secs.append(float(st))
-                    except Exception:
+                    except Exception as e:
+                        print(e)
                         pass
                 chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                 if not chap_secs:
-                    print("Aucun chapitre YouTube valide")
+                    print("Aucun chapitre YouTube valable")
                     return
                 cur_idx = self._youtube_current_chapter_index(pos) or 0
                 prev_idx = (cur_idx - 1) % len(chap_secs)
@@ -403,7 +736,6 @@ class Lecteur(QMainWindow):
                 pos = self.mpv.get_time_pos() or 0
                 chap_secs = []
                 for ch in self.youtube_chapters:
-                    st = None
                     if isinstance(ch, dict):
                         st = ch.get("start_time") or ch.get("start") or ch.get("time")
                     else:
@@ -411,7 +743,8 @@ class Lecteur(QMainWindow):
                     try:
                         if st is not None:
                             chap_secs.append(float(st))
-                    except Exception:
+                    except Exception as e:
+                        print(e)
                         pass
                 chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                 if not chap_secs:
@@ -453,7 +786,6 @@ class Lecteur(QMainWindow):
                 # youtube_chapters peut être normalisée (dicts) ; extraire start
                 chap_secs = []
                 for ch in self.youtube_chapters:
-                    st = None
                     if isinstance(ch, dict):
                         st = ch.get("start_time") or ch.get("start") or ch.get("time")
                     else:
@@ -480,7 +812,8 @@ class Lecteur(QMainWindow):
             print("Pas de chapitres MPV.")
             try:
                 self.bottom_bar.set_chapters([])
-            except Exception:
+            except Exception as e:
+                print(e)
                 pass
             return
 
@@ -493,7 +826,8 @@ class Lecteur(QMainWindow):
                     t = ch
                 if t is not None:
                     chap_secs.append(int(float(t)))
-            except Exception:
+            except Exception as e:
+                print(e)
                 pass
 
         chap_secs = sorted(list(dict.fromkeys(chap_secs)))
@@ -562,10 +896,8 @@ class Lecteur(QMainWindow):
                         print(
                             f"  [{i:02d}] {title!s} — start: {st} ({st_h}), end: {end if end is not None else 'None'} ({end_h}), duration: {dur if dur is not None else 'None'} ({dur_h})")
 
-                    # envoyer la liste normalisée (dicts avec start/end/duration/title) au bottom_bar/slider
                     QTimer.singleShot(0, lambda norm=norm: self.bottom_bar.set_chapters(norm))
 
-                    # si bottom_bar supporte des infos plus riches, on les transmet aussi
                     if hasattr(self.bottom_bar, "set_chapter_infos"):
                         QTimer.singleShot(0, lambda infos=norm: self.bottom_bar.set_chapter_infos(infos))
                     elif hasattr(self.bottom_bar, "set_chapter_durations"):
@@ -575,10 +907,8 @@ class Lecteur(QMainWindow):
                     print(f"Duration (yt_dlp) récupérée et appliquée : {int(float(duration)) if duration else 'None'}s")
                     print(f"Chapitres (yt_dlp) appliqués ({len(norm)})")
 
-                    # marquer que l'info yt_dlp a été appliquée (faire le set depuis le thread UI pour être Qt-safe)
                     QTimer.singleShot(0, lambda: setattr(self, "_youtube_info_applied", True))
                 else:
-                    # même si pas de chapitres, on peut appliquer duration seule
                     if duration and duration > 0:
                         QTimer.singleShot(0, lambda d=int(float(duration)): self.bottom_bar.set_duration(d))
                         QTimer.singleShot(0, lambda: setattr(self, "_youtube_info_applied", True))
@@ -608,6 +938,15 @@ class Lecteur(QMainWindow):
             self.position_timer.setInterval(500)
             self.position_timer.timeout.connect(self._update_position)
         self.position_timer.start()
+
+
+        try:
+
+            if getattr(self, "_volume_timer", None):
+                QTimer.singleShot(300, lambda: self._volume_timer.start())
+                QTimer.singleShot(500, self._poll_volume)
+        except Exception as e:
+            print(f"Erreur démarrage _volume_timer: {e}")
 
         QTimer.singleShot(2000, self.get_chapter_list)
 
@@ -660,7 +999,8 @@ class Lecteur(QMainWindow):
                                         t = ch
                                     if t is not None:
                                         chap_secs.append(int(float(t)))
-                                except Exception:
+                                except Exception as e:
+                                    print(e)
                                     pass
                             chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                             try:
@@ -677,14 +1017,12 @@ class Lecteur(QMainWindow):
                 if attempts_left > 0:
                     QTimer.singleShot(500, lambda: _poll_duration(attempts_left - 1))
                 else:
-                    # si yt_dlp a déjà appliqué infos, NE PAS réappliquer la branche "sans durée connue".
                     if getattr(self, "_youtube_info_applied", False):
                         print("Chapitres YouTube déjà appliqués via yt_dlp; pas de réapplication.")
                     else:
                         if self.youtube_chapters:
                             chap_secs = []
                             for ch in self.youtube_chapters:
-                                st = None
                                 if isinstance(ch, dict):
                                     st = ch.get("start_time") or ch.get("start") or ch.get("time")
                                 else:
@@ -692,12 +1030,12 @@ class Lecteur(QMainWindow):
                                 try:
                                     if st is not None:
                                         chap_secs.append(float(st))
-                                except Exception:
+                                except Exception as e:
+                                    print(e)
                                     pass
                             chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                             try:
                                 self.bottom_bar.set_chapters(chap_secs)
-                                # Forcer la mise à jour
                                 self.bottom_bar.slider.update()
                                 print(f"Chapitres YouTube appliqués sans durée connue ({len(chap_secs)})")
                             except Exception as e:
@@ -710,19 +1048,40 @@ class Lecteur(QMainWindow):
 
     # ---------- UI interactions ----------
     def mouseMoveEvent(self, event):
-        pos = event.pos()
-        height = self.height()
+        try:
+            gpos = event.globalPosition().toPoint()
+        except Exception as e:
+            print(e)
+            gpos = None
 
-        if pos.y() <= 30:
+        main_geo = self.geometry()
+
+        top_over = False
+        bottom_over = False
+        try:
+            if gpos is not None:
+                if getattr(self, "top_bar", None):
+                    top_over = self.top_bar.geometry().contains(gpos)
+                if getattr(self, "bottom_bar", None):
+                    bottom_over = self.bottom_bar.geometry().contains(gpos)
+        except Exception as e:
+            print(e)
+            top_over = False
+            bottom_over = False
+
+        # si le curseur est tout en haut ou au-dessus de la barre top de la fenêtre principale
+        if (gpos is not None and gpos.y() <= main_geo.y() + 30) or top_over:
             if not self.top_bar.isVisible():
                 self.top_bar.setVisible(True)
             self.hide_bar_timer.start()
-        elif pos.y() >= height - 30:
+        # si curseur tout en bas de la fenêtre principale ou sur la barre bottom
+        elif (gpos is not None and gpos.y() >= main_geo.y() + main_geo.height() - 30) or bottom_over:
             if not self.bottom_bar.isVisible():
                 self.bottom_bar.setVisible(True)
             self.hide_bar_timer.start()
         else:
-            if not self.top_bar.underMouse() and not self.bottom_bar.underMouse():
+            # vérifier si la souris est sur aucune des deux barres
+            if not top_over and not bottom_over:
                 if not self.hide_bar_timer.isActive():
                     self.hide_bar_timer.start()
             else:
@@ -730,27 +1089,67 @@ class Lecteur(QMainWindow):
 
         super().mouseMoveEvent(event)
 
-    def toggle_play_pause(self, is_playing=None):
+    def toggle_play_pause(self):
         delay = 100
         QTimer.singleShot(delay, self.mpv.toggle_play_pause)
 
     def cacher_barre(self):
-        if not self.top_bar.underMouse() and not self.bottom_bar.underMouse():
-            self.top_bar.setVisible(False)
-            self.bottom_bar.setVisible(False)
-            self.hide_bar_timer.stop()
+        # si la souris n'est sur aucune des barres -> cacher
+        try:
+            # on vérifie la position globale du curseur
+            from PyQt6.QtGui import QCursor
+            g = QCursor.pos()
+            on_top = getattr(self, "top_bar", None) and self.top_bar.geometry().contains(g)
+            on_bottom = getattr(self, "bottom_bar", None) and self.bottom_bar.geometry().contains(g)
+            if not on_top and not on_bottom:
+                if getattr(self, "top_bar", None):
+                    self.top_bar.setVisible(False)
+                if getattr(self, "bottom_bar", None):
+                    self.bottom_bar.setVisible(False)
+                self.hide_bar_timer.stop()
+        except Exception as e:
+            print(e)
+            try:
+                if getattr(self, "top_bar", None):
+                    self.top_bar.setVisible(False)
+                if getattr(self, "bottom_bar", None):
+                    self.bottom_bar.setVisible(False)
+                self.hide_bar_timer.stop()
+            except Exception as e:
+                print(e)
+                pass
 
     def closeEvent(self, event):
         try:
             if hasattr(self, "position_timer") and self.position_timer is not None:
                 self.position_timer.stop()
-        except Exception:
+        except Exception as e:
+            print(e)
+            pass
+
+        try:
+            # stop volume polling
+            if getattr(self, "_volume_timer", None):
+                self._volume_timer.stop()
+        except Exception as e:
+            print(e)
             pass
 
         try:
             self.mpv.stop()
         except Exception as e:
             print(f"Erreur fermeture mpv: {e}")
+
+        # fermer explicitement les barres top-level
+        try:
+            if getattr(self, "top_bar", None):
+                self.top_bar.close()
+            if getattr(self, "bottom_bar", None):
+                self.bottom_bar.close()
+        except Exception as e:
+            print(e)
+            pass
+
         super().closeEvent(event)
 
 

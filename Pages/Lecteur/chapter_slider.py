@@ -63,7 +63,6 @@ class _Segment(QWidget):
                 self._handle_size // 2
             )
 
-
 class ChapterSlider(QWidget):
     position_changed = pyqtSignal(int)
     position_released = pyqtSignal(int)

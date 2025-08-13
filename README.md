@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.7
+0.0.6.8
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Slide"
+    git commit -m "[FAIT] - Slide Volume + Temps videos"
     ```
 3. Force le push  
     ```bash
@@ -152,7 +152,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Finir slide
+- Menu Langage / Sous-Titres
 - Ajoutez lire lien via streaming
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card

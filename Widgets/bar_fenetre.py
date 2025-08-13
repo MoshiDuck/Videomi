@@ -3,9 +3,9 @@ from PyQt6.QtCore import Qt
 import qtawesome as qta
 
 class BarFenetre(QWidget):
-    def __init__(self, parent=None, widget=None):
+    def __init__(self, parent=None, widget=None, main_window=None):
         super().__init__(parent)
-        self.parent = parent
+        self.main_window = main_window
         self.setFixedHeight(30)
 
         self.widget = widget
@@ -58,9 +58,9 @@ class BarFenetre(QWidget):
             self.widget.setGeometry(cx, cy, cw, ch)
 
     def on_minimize(self):
-        if self.parent:
-            self.parent.showMinimized()
+        if getattr(self, "main_window", None):
+            self.main_window.showMinimized()
 
     def on_close(self):
-        if self.parent:
-            self.parent.close()
+        if getattr(self, "main_window", None):
+            self.main_window.close()

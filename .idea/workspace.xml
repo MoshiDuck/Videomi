@@ -9,6 +9,9 @@
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/chapter_slider.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/chapter_slider.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/bar_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/bar_fenetre.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/base_fenetre.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/base_fenetre.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Widgets/icon_perso.py" beforeDir="false" afterPath="$PROJECT_DIR$/Widgets/icon_perso.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mpv_debug.log" beforeDir="false" afterPath="$PROJECT_DIR$/mpv_debug.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
