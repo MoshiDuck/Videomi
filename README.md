@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.7.0
+0.0.7.1
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Menu Langage / Sous-Titres"
+    git commit -m "[FAIT] - Double sous-titres"
     ```
 3. Force le push  
     ```bash
@@ -152,7 +152,6 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Double sous-titres
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
     

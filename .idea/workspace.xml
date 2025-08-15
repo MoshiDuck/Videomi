@@ -9,7 +9,8 @@
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/mpv_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_debug.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_stdout_stderr.log" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/mpv.log" beforeDir="false" afterPath="$PROJECT_DIR$/mpv.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

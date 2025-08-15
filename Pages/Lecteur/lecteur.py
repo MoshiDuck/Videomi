@@ -113,11 +113,6 @@ class _BackgroundCallable(QRunnable):
 
 # ---------------- Main class ----------------
 class Lecteur(BaseFenetre):
-    """Fenêtre principale du lecteur.
-
-    Conserve l'API publique du lecteur original — méthode/nommages compatibles.
-    """
-
     def __init__(self, stream_urls: List[str], taille_ecran: Optional[QSize] = None):
         super().__init__(bar=False)
 
@@ -166,7 +161,8 @@ class Lecteur(BaseFenetre):
         QTimer.singleShot(200, self.lancer_video)
 
     # ---------------- Helpers ----------------
-    def _resolve_mpv_exe(self) -> Optional[Path]:
+    @staticmethod
+    def _resolve_mpv_exe() -> Optional[Path]:
         """Retourne le Path vers l'exécutable mpv ou None si introuvable.
 
         Cherche d'abord dans MPV_EXE, puis tente shutil.which sur PATH.
@@ -281,12 +277,16 @@ class Lecteur(BaseFenetre):
         except Exception:
             logger.exception("Erreur connexion volume UI")
 
-        # optional language/sub widgets
         try:
             bls = getattr(self.bottom_bar, "barLangueSub", None)
             if bls:
                 bls.audio_selected.connect(lambda aid: QTimer.singleShot(0, partial(self._apply_audio_track, aid)))
-                bls.subtitle_selected.connect(lambda sid: QTimer.singleShot(0, partial(self._apply_subtitle_track, sid)))
+                bls.subtitle_selected.connect(
+                    lambda sid: QTimer.singleShot(0, partial(self._apply_subtitle_track, sid, False))
+                )
+                bls.subtitle2_selected.connect(
+                    lambda sid: QTimer.singleShot(0, partial(self._apply_subtitle_track, sid, True))
+                )
                 try:
                     if hasattr(bls, "link_with_bar"):
                         bls.link_with_bar(self.bottom_bar)
@@ -467,21 +467,26 @@ class Lecteur(BaseFenetre):
         try:
             self.mpv.set_audio_track(aid)
             logger.debug("Piste audio changée: %s", aid)
+            logger.debug("Piste audio changée: %s", aid)
         except Exception:
             logger.exception("Erreur application piste audio")
 
     @safe_slot
-    def _apply_subtitle_track(self, sid: Any) -> None:
+    def _apply_subtitle_track(self, sid: Any, secondary: bool = False) -> None:
         if sid is None:
             return
         try:
-            self.mpv.set_subtitle_track(sid)
-            logger.debug("Piste sous-titre changée: %s", sid)
+            self.mpv.set_subtitle_track(sid, secondary=secondary)
+            logger.debug(
+                "Piste sous-titre changée (%s): %s",
+                "secondaire" if secondary else "principale", sid
+            )
         except Exception:
             logger.exception("Erreur application piste sous-titre")
 
     # ---------------- Track list parsing & application ----------------
-    def _parse_track_list(self, tracks: Optional[List[Dict[str, Any]]]) -> Tuple[List[Dict], List[Dict]]:
+    @staticmethod
+    def _parse_track_list(tracks: Optional[List[Dict[str, Any]]]) -> Tuple[List[Dict], List[Dict]]:
         audios: List[Dict] = []
         subs: List[Dict] = []
         if not tracks:

@@ -409,8 +409,9 @@ class MPVController:
     def set_audio_track(self, aid: int) -> None:
         self.set_property("aid", aid)
 
-    def set_subtitle_track(self, sid: int) -> None:
-        self.set_property("sid", "no" if sid == -1 else sid)
+    def set_subtitle_track(self, sid: int, secondary: bool = False) -> None:
+        prop = "secondary-sid" if secondary else "sid"
+        self.set_property(prop, "no" if sid == -1 else sid)
 
     def get_track_list(self) -> List[Dict]:
         return self.get_property("track-list") or []

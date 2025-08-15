@@ -1,6 +1,4 @@
-# bar_sec_lect.py - version modifiée pour que la barre langue/sub n'affecte plus la mise en page
-import time
-
+# bar_sec_lect.py
 from PyQt6.QtCore import QSize, pyqtSignal, QPoint, QTimer
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -20,6 +18,7 @@ logging.basicConfig(level=logging.DEBUG)
 class BarLangueSub(QFrame):
     audio_selected = pyqtSignal(object)
     subtitle_selected = pyqtSignal(object)
+    subtitle2_selected = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -28,7 +27,6 @@ class BarLangueSub(QFrame):
         self.max_expanded_height = 300
         self.item_height = 24
 
-        # initial compact
         self.setFixedHeight(self.collapsed_height)
         self.setStyleSheet("background: transparent;")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
@@ -44,7 +42,6 @@ class BarLangueSub(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(container)
 
-        # Panels
         pan1 = getattr(container, "pan1")
         pan1_layout = QVBoxLayout(pan1)
         pan1_layout.setContentsMargins(6, 2, 6, 2)
@@ -71,13 +68,15 @@ class BarLangueSub(QFrame):
         pan3_layout.setSpacing(4)
         lbl_sub = QLabel("Sous titres", self, alignment=Qt.AlignmentFlag.AlignCenter)
         lbl_sub.setFixedHeight(18)
+
         pan3_layout.addWidget(lbl_sub)
         self.subtitle_list = QListWidget(pan3)
+        self.subtitle_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
         self.subtitle_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.subtitle_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.subtitle_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         pan3_layout.addWidget(self.subtitle_list)
-        self.subtitle_list.itemClicked.connect(self._on_subtitle_item_clicked)
+        self.subtitle_list.itemSelectionChanged.connect(self._on_subtitle_selection_changed)
 
         pan4 = getattr(container, "pan4")
         pan4_layout = QVBoxLayout(pan4)
@@ -85,10 +84,32 @@ class BarLangueSub(QFrame):
         pan4_layout.setSpacing(0)
         pan4_layout.addWidget(QLabel("Video tracks", self, alignment=Qt.AlignmentFlag.AlignCenter))
 
+    def _on_subtitle_selection_changed(self):
+        try:
+            selected_items = self.subtitle_list.selectedItems()
+            # Réinitialiser
+            self.subtitle_selected.emit(-1)
+            self.subtitle2_selected.emit(-1)
+
+            if not selected_items:
+                return
+
+            # Premier choix = sid principal
+            if len(selected_items) >= 1:
+                sid1 = selected_items[0].data(Qt.ItemDataRole.UserRole)
+                self.subtitle_selected.emit(sid1)
+
+            # Deuxième choix = secondary-sid
+            if len(selected_items) >= 2:
+                sid2 = selected_items[1].data(Qt.ItemDataRole.UserRole)
+                self.subtitle2_selected.emit(sid2)
+
+        except Exception as e:
+            print(f"_on_subtitle_selection_changed erreur: {e}")
+
     # ---------------- position & géométrie ----------------
 
     def update_geometry(self, parent_widget: QWidget = None):
-        """Positionnement robuste sous le slider"""
         try:
             if not parent_widget:
                 parent_widget = self.bar_sec_lect or QApplication.activeWindow()
@@ -118,7 +139,8 @@ class BarLangueSub(QFrame):
         return super().eventFilter(obj, event)
 
     # ---------------- UI population / interaction ----------------
-    def _format_track_label(self, t: dict) -> str:
+    @staticmethod
+    def _format_track_label(t: dict) -> str:
         try:
             lang = t.get("lang") or t.get("language") or ""
             title = t.get("title") or t.get("label") or t.get("name") or ""
@@ -214,8 +236,6 @@ class BarLangueSub(QFrame):
         except Exception:
             pass
 
-
-
 class BarSecLect(QFrame):
     play_pause_clicked = pyqtSignal(bool)
     prev_clicked = pyqtSignal()
@@ -236,17 +256,14 @@ class BarSecLect(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet("background: transparent;")
 
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Slider + triple container
         self.slider = ChapterSlider(self)
         self.slider.setStyleSheet("background: transparent;")
         self.triple = FlexibleContainer(self)
 
-        # Ligne temps
         time_row = QHBoxLayout()
         time_row.setContentsMargins(6, 4, 6, 0)
         time_row.setSpacing(4)
@@ -272,7 +289,6 @@ class BarSecLect(QFrame):
         layout.addWidget(self.slider)
         layout.addWidget(self.triple)
 
-        # Bouton sous-titres
         gauche_layout = QHBoxLayout(self.triple.pan1)
         gauche_layout.setContentsMargins(10, 0, 0, 0)
         gauche_layout.setSpacing(5)
@@ -282,7 +298,6 @@ class BarSecLect(QFrame):
         gauche_layout.addWidget(self.subtitle_btn)
         gauche_layout.addStretch(1)
 
-        # Zone milieu
         milieu_layout = QHBoxLayout(self.triple.pan2)
         milieu_layout.setContentsMargins(0, 0, 0, 0)
         milieu_layout.setSpacing(0)
@@ -314,7 +329,6 @@ class BarSecLect(QFrame):
         milieu_layout.addWidget(self.chapter_next_btn)
         milieu_layout.addWidget(self.plus_10_btn)
 
-        # Zone droite
         droite_layout = QHBoxLayout(self.triple.pan3)
         droite_layout.setContentsMargins(0, 0, 10, 0)
         droite_layout.setSpacing(0)
@@ -322,7 +336,6 @@ class BarSecLect(QFrame):
         self.volume_control = VolumeControlLect(self)
         droite_layout.addWidget(self.volume_control)
 
-        # Connexions
         self.subtitle_btn.clicked.connect(self._on_subtitle_toggled)
         self.play_pause_btn.state_changed.connect(self._on_play_pause_toggled)
         self.prev_btn.clicked.connect(self.prev_clicked.emit)
@@ -341,13 +354,10 @@ class BarSecLect(QFrame):
 
         self.volume_control.volume_changed.connect(self.volume_changed.emit)
 
-        parent_win = self.window() if self.window() is not None else None
         self.barLangueSub = BarLangueSub()
-        # lier pour que BarLangueSub connaisse la BarSecLect (utile à update_geometry / eventFilter)
         self.barLangueSub.link_with_bar(self)
 
-        # Modifier la création de BarLangueSub
-        self.barLangueSub = BarLangueSub()  # Sans parent
+        self.barLangueSub = BarLangueSub()
         self.barLangueSub.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.Tool
@@ -357,12 +367,9 @@ class BarSecLect(QFrame):
         self.barLangueSub.hide()
 
     def _is_subtitle_btn_checked(self):
-        """Robuste : détecte si le bouton de sous-titres est en 'on'."""
         try:
-            # cas le plus courant (QAbstractButton-like)
             if hasattr(self.subtitle_btn, "isChecked"):
                 return bool(self.subtitle_btn.isChecked())
-            # fallback sur attributs possibles
             if hasattr(self.subtitle_btn, "checked"):
                 return bool(getattr(self.subtitle_btn, "checked"))
             if hasattr(self.subtitle_btn, "state"):
@@ -374,17 +381,13 @@ class BarSecLect(QFrame):
         return False
 
     def hideEvent(self, event):
-        """Quand la barre principale disparaît, on cache aussi la barre langues."""
         super().hideEvent(event)
         if self.barLangueSub.isVisible():
             self.barLangueSub.hide()
 
     def showEvent(self, event):
-        """Optionnel : si tu veux aussi la réafficher automatiquement."""
         super().showEvent(event)
-        # n'affiche la barLangueSub que si le bouton est réellement actif
         if self._is_subtitle_btn_checked():
-            # repositionner avant d'afficher
             try:
                 slider_global_topleft = self.slider.mapToGlobal(QPoint(0, 0))
                 self.barLangueSub.setFixedWidth(self.slider.width())
@@ -412,12 +415,10 @@ class BarSecLect(QFrame):
         self.play_pause_clicked.emit(is_playing)
 
     def _on_subtitle_toggled(self, state):
-        """Gestion robuste de l'affichage des sous-titres"""
         try:
             visible = state if state is not None else not self.barLangueSub.isVisible()
 
             if visible:
-                # Positionnement précis
                 slider = self.slider
                 global_pos = slider.mapToGlobal(QPoint(0, 0))
                 self.barLangueSub.setFixedWidth(slider.width())
@@ -429,7 +430,6 @@ class BarSecLect(QFrame):
             else:
                 self.barLangueSub.hide()
 
-            # Mise à jour de l'état du bouton
             if hasattr(self.subtitle_btn, "set_state"):
                 self.subtitle_btn.set_state(visible)
             elif hasattr(self.subtitle_btn, "setChecked"):
@@ -440,17 +440,10 @@ class BarSecLect(QFrame):
 
     @staticmethod
     def _format_time_simple(seconds):
-        """Format dynamique :
-        - < 60s  -> "SS" (deux chiffres)
-        - >=60   -> "MM:SS" (deux chiffres pour les minutes)
-        - >=3600 -> "HH:MM:SS" (deux chiffres pour chaque champ)
-        Retourne "—" si inconnu.
-        """
         try:
             if seconds is None:
                 return "—"
             s = int(round(float(seconds)))
-            # moins d'une minute : afficher seulement les secondes sur 2 chiffres
             if s < 60:
                 return f"{s:02d}"
             # une heure ou plus : HH:MM:SS
@@ -468,9 +461,7 @@ class BarSecLect(QFrame):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Met à jour largeur + position de la barre (coordonnées globales)
         try:
-            # largeur calée sur la largeur du slider pour un rendu aligné
             self.barLangueSub.setFixedWidth(self.slider.width())
             slider_global_topleft = self.slider.mapToGlobal(QPoint(0, 0))
             self.barLangueSub.move(slider_global_topleft.x(), slider_global_topleft.y() - self.barLangueSub.height())
@@ -478,10 +469,6 @@ class BarSecLect(QFrame):
             pass
 
     def set_current_time(self, seconds):
-        """
-        Met à jour le label temps courant (formaté).
-        Appelable depuis l'extérieur (par ex. Lecteur._update_position).
-        """
         try:
             txt = self._format_time_simple(seconds)
             self.current_time_label.setText(txt)
@@ -489,16 +476,11 @@ class BarSecLect(QFrame):
             pass
 
     def set_duration(self, seconds):
-        """
-        Remplace la méthode existante pour mettre à jour aussi le label total.
-        """
         try:
-            # Mettre la durée dans le slider si la slider expose déjà set_duration
             try:
                 self.slider.set_duration(seconds)
             except Exception:
                 pass
-            # Mettre à jour le label total
             if seconds is None:
                 self.total_time_label.setText("—")
             else:
@@ -525,10 +507,8 @@ class BarSecLect(QFrame):
                     pass
         self.slider.set_chapters(normalized)
 
-    # watcher interne du slider (quand l'utilisateur le bouge)
     def _on_slider_position_changed_internal(self, pos):
         try:
-            # pos attendu en secondes (int)
             self.set_current_time(pos)
         except Exception:
             pass
