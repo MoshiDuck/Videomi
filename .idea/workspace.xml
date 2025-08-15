@@ -6,12 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/Bar_Sec/bar_sec_lect.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/lecteur.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Lecteur/mpv_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_debug.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Lecteur/mpv_stdout_stderr.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mpv.log" beforeDir="false" afterPath="$PROJECT_DIR$/mpv.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -83,7 +81,7 @@
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Config" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.lecteur">
+  <component name="RunManager" selected="Python.main">
     <configuration name="lecteur" type="PythonConfigurationType" factoryName="Python">
       <module name="Videomi" />
       <option name="ENV_FILES" value="" />

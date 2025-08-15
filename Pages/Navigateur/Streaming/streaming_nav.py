@@ -27,32 +27,79 @@ class ExtractThread(QThread):
                 info = ydl.extract_info(self.url, download=False)
 
             if 'entries' in info and info['entries']:
-                # ✅ Playlist détectée
                 entries = info['entries']
             else:
-                # ✅ Vidéo seule
                 entries = [info]
 
             stream_urls = []
 
             for entry in entries:
                 try:
+                    # Demander un maximum d'infos (mais sans télécharger)
                     single_opts = {
-                        'format': 'best[ext=mp4]/best',
                         'quiet': True,
                         'no_warnings': True,
                         'noplaylist': True,
+                        # ne forcer pas "bestvideo+bestaudio" ici — on va analyser les formats
                     }
+
                     with YoutubeDL(single_opts) as ydl:
-                        video_info = ydl.extract_info(entry['url'], download=False)
-                        url_stream = video_info.get('url')
-                        if url_stream:
-                            stream_urls.append(url_stream)
+                        video_info = ydl.extract_info(entry.get('url') or entry.get('webpage_url') or self.url,
+                                                      download=False)
+
+                    formats = video_info.get('formats') or [video_info]
+
+                    # 1) Chercher formats «progressifs» (audio+video dans le même format)
+                    progressive = [
+                        f for f in formats
+                        if f.get('acodec') not in (None, 'none') and f.get('vcodec') not in (None, 'none')
+                    ]
+
+                    # trier par hauteur (height) puis par bitrate (tbr)
+                    def score_format(f):
+                        return (f.get('height') or 0, f.get('tbr') or 0)
+
+                    if progressive:
+                        progressive.sort(key=score_format, reverse=True)
+                        chosen = progressive[0]
+                        url = chosen.get('url')
+                        if url:
+                            stream_urls.append(url)
+                            continue  # on passe à la vidéo suivante
+
+                    # 2) Si pas de format progressif, chercher HLS / m3u8 adaptatif
+                    hls = [
+                        f for f in formats
+                        if 'm3u8' in (f.get('protocol') or '') or f.get('ext') == 'm3u8' or 'hls' in (
+                                    f.get('format_note') or '').lower()
+                    ]
+                    if hls:
+                        # preferer le plus haut bitrate / resolution
+                        hls.sort(key=score_format, reverse=True)
+                        url = hls[0].get('url')
+                        if url:
+                            stream_urls.append(url)
+                            continue
+
+                    # 3) Si on a des formats vidéo-only + audio-only, on peut tenter de renvoyer
+                    # l'URL vidéo-only la meilleure — ATTENTION: peut manquer l'audio si le lecteur
+                    # ne sait pas mixer séparément. On préfère renvoyer tout de même la meilleure
+                    # url disponible pour que l'utilisateur ait une lecture (à améliorer : utiliser VLC).
+                    # Chercher la meilleure URL par hauteur/tbr, peu importe audio/video
+                    formats_sorted = sorted(formats, key=score_format, reverse=True)
+                    if formats_sorted:
+                        url = formats_sorted[0].get('url')
+                        if url:
+                            stream_urls.append(url)
+                            continue
+
+                    logging.warning(f"Aucune URL exploitable pour {entry.get('url')}")
+
                 except Exception as e:
                     logging.warning(f"⏭️ Vidéo ignorée : {entry.get('url')} — {e}")
 
             if not stream_urls:
-                raise ValueError("Aucun flux valide avec audio trouvé.")
+                raise ValueError("Aucun flux valide trouvé (progressif ou HLS).")
 
             self.finished.emit(stream_urls)
 

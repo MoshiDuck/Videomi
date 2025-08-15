@@ -152,6 +152,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
+-Chapitre / audio / sous-titres pour lien non youtube
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
     

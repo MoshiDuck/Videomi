@@ -88,11 +88,12 @@ class MPVController:
 
     # ------------------- Process Management -------------------
     def launch(self, url: str, window_id: int, extra_args: Optional[List[str]] = None) -> bool:
-        """Launch MPV process with IPC server"""
+        """Launch MPV process with IPC server and enhanced video quality"""
         if self.process and self.process.poll() is None:
             logger.warning("MPV process already running")
             return False
 
+        # Arguments de base
         args = [
             str(self.mpv_exe),
             url,
@@ -105,8 +106,23 @@ class MPVController:
             "--keep-open=yes"
         ]
 
+        # Arguments pour améliorer la qualité vidéo
+        quality_args = [
+            "--hwdec=auto",  # Accélération matérielle si possible
+            "--vo=gpu",  # Rendu GPU
+            "--gpu-context=auto",  # Contexte GPU automatique
+            "--scale=ewa_lanczos",  # Upscale net
+            "--cscale=ewa_lanczos",  # Upscale chroma
+            "--dscale=mitchell",  # Interpolation de résolution
+            "--deband=yes",  # Suppression des bandes de couleur
+            "--interpolation=yes",  # Fluidité améliorée
+            "--profile=high-quality"  # Profil haute qualité
+        ]
+
+        # Ajout des arguments supplémentaires
         if extra_args:
             args.extend(extra_args)
+        args.extend(quality_args)
 
         try:
             startup_info = None
