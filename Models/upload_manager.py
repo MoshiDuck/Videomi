@@ -33,14 +33,6 @@ FFPROBE_PATH = BASE_DIR / "Ressource" / "ffmpeg" / "bin" / "ffprobe.exe"
 
 AFF_ID = "5091183"
 
-def inject_affiliation(url: str, aff_id: str = AFF_ID) -> str:
-    if "1fichier.com" not in url:
-        return url
-    if re.search(r"[?&]af=\d+", url):
-        return re.sub(r"([?&]af=)\d+", rf"\1{aff_id}", url)
-    sep = "&" if "?" in url else "?"
-    return f"{url}{sep}af={aff_id}"
-
 def sanitize_for_firebase_key(key: str) -> str:
     if not key:
         return "untitled"
@@ -232,10 +224,7 @@ class UploadManager(QObject):
             title: str = None
     ) -> bool:
         self._ensure_token()
-        main_link = inject_affiliation(main_link)
         clean_metadata = sanitize_dict_keys(metadata)
-        if thumb_link:
-            thumb_link = inject_affiliation(thumb_link)
 
         data = {'file_link': main_link, 'metadata': clean_metadata, 'thumbnail_link': thumb_link}
         try:
@@ -456,13 +445,13 @@ class UploadManager(QObject):
 
                     # Déplacer miniature et mettre à jour Firebase
                     self.client.move_file([link_img], destination_folder=folder_id)
-                    thumb_link = inject_affiliation(link_img)
+                    thumb_link = link_img
                     self._get_db_ref(category, firebase_key).update(
                         {'thumbnail_link': thumb_link}, self.token
                     )
                 else:
                     # Échec miniature → on utilise le lien principal
-                    thumb_link = inject_affiliation(link)
+                    thumb_link = link
                     self._get_db_ref(category, firebase_key).update(
                         {'thumbnail_link': thumb_link}, self.token
                     )
@@ -485,7 +474,7 @@ class UploadManager(QObject):
             )
 
             # Mémoriser le lien principal
-            link_with_aff = inject_affiliation(link)
+            link_with_aff = link
             self._firebase_keys[uploaded_file] = (category, firebase_key, link_with_aff)
             self.existing_files.setdefault(key, set()).add(firebase_key)
 
@@ -698,7 +687,7 @@ class UploadManager(QObject):
     def _on_thumb_finished(self, thumb_url: str, parent_file: str):
         self._ensure_token()
         category, title, main_link = self._firebase_keys[parent_file]
-        thumb_url = inject_affiliation(thumb_url)
+        thumb_url = thumb_url
         try:
             self._get_db_ref(category, title).update({'thumbnail_link': thumb_url}, self.token)
         except Exception as e:

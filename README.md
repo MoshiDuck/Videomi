@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.7.1
+0.0.7.2
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Double sous-titres"
+    git commit -m "[FAIT] - Enlever Affiliation 1fichier"
     ```
 3. Force le push  
     ```bash
@@ -151,8 +151,8 @@ https://github.com/MoshiDuck/Videomi
 ---
    
 ## PROCHAINE CHOSE À FAIRE :
-
--Chapitre / audio / sous-titres pour lien non youtube
+- Mettre % publication pour 1 fichier
+- Chapitre / audio / sous-titres pour lien non youtube
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
     

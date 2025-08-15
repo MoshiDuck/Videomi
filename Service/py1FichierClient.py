@@ -73,7 +73,7 @@ class FichierClient(object):
                       inline=False, cdn=True, restrict_ip=True,
                       timeout=30) -> bool:
 
-        url = re.sub(r'(&af=[^&]+)', '', url)
+
         if not re.match(r'https?://1fichier\.com/\?[A-Za-z0-9_-]{10,}', url):
             logging.warning(f"URL invalide: {url}")
             return False
