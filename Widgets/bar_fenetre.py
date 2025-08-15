@@ -58,9 +58,9 @@ class BarFenetre(QWidget):
             self.widget.setGeometry(cx, cy, cw, ch)
 
     def on_minimize(self):
-        if getattr(self, "main_window", None):
-            self.main_window.showMinimized()
+        window = self.main_window or self.window()
+        window.showMinimized()
 
     def on_close(self):
-        if getattr(self, "main_window", None):
-            self.main_window.close()
+        window = self.main_window or self.window()
+        window.close()

@@ -20,7 +20,7 @@ from Pages.Navigateur.page_nav import PageNav
 
 DB_PATH = "local_data.db"
 CACHE_DIR = os.path.join(os.getcwd(), "cache", "images")
-MAX_CACHE_SIZE_MB = 100  # max 100MB for thumbnails cache
+MAX_CACHE_SIZE_MB = 100
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,10 +88,7 @@ class Init:
             self.fenetre.hide()
         from Pages.Lecteur.lecteur import Lecteur
 
-        def on_finished():
-            self.fenetre.show()
-
-        lecteur = Lecteur(stream_urls=stream_url, on_finished=on_finished, taille_ecran=self.taille_ecran)
+        lecteur = Lecteur(stream_urls=stream_url, taille_ecran=self.taille_ecran)
         lecteur.show()
 
     def switch_to_navigateur(self) -> None:

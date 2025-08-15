@@ -1,185 +1,200 @@
+# -*- coding: utf-8 -*-
 # ---------- FILE: mpv_controller.py ----------
-# (version légèrement inchangée — conserve vos méthodes yt_dlp existantes)
 import json
+import logging
 import platform
 import socket
 import subprocess
-import time
-from pathlib import Path
 import threading
+import time
 import traceback
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-import pywintypes
-import win32file
-import win32pipe
+try:
+    import pywintypes
+    import win32file
+    import win32pipe
+except ImportError:
+    if platform.system() == "Windows":
+        logging.warning("pywin32 modules not available")
 from yt_dlp import YoutubeDL
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MPV_DIR = PROJECT_ROOT / "Ressource" / "mpv"
-MPV_EXE = MPV_DIR / "mpv.exe"
+# Constants
+PIPE_CONNECTION_TIMEOUT = 5
+PIPE_RETRY_INTERVAL = 0.2
+MPV_STOP_TIMEOUT = 2.0
+COMMAND_TIMEOUT = 2.0
+MAX_PIPE_CONNECTION_ATTEMPTS = 15
+LOG_DIR = Path.cwd()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / 'mpv_controller.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('MPVController')
 
 
 class MPVController:
-    """
-    Encapsulation du lancement et de l'IPC mpv (Windows named pipe / Unix domain socket).
-    Version inchangée fonctionnellement pour vos besoins — conserve get_youtube_info/get_youtube_chapters.
-    """
-
-    def __init__(self, mpv_exe: Path = MPV_EXE, ipc_name: str = "mpvsocket"):
-        self.mpv_exe = str(mpv_exe)
+    def __init__(self, mpv_exe: Path, ipc_name: str = "mpvsocket"):
+        self.mpv_exe = mpv_exe.resolve()
         self.ipc_name = ipc_name
-        self.process: subprocess.Popen | None = None
-        self.ipc_path = None
+        self.process: Optional[subprocess.Popen] = None
         self.system = platform.system()
+        self.ipc_path = self._get_ipc_path()
 
-        if self.system == "Windows":
-            self.ipc_path = r"\\.\pipe\{}".format(self.ipc_name)
-        else:
-            self.ipc_path = f"/tmp/{self.ipc_name}"
-
-        # pipe handle reuse (Windows)
         self._pipe_handle = None
-        self._pipe_lock = threading.Lock()
-        # debug flags
-        self._pipe_verbose = False
-        self._debug = True
-
+        self._pipe_lock = threading.RLock()
         self._req_id = 1
         self._req_id_lock = threading.Lock()
+        self._debug = False
 
-    def _next_request_id(self):
+        self._validate_mpv_executable()
+
+    def _get_ipc_path(self) -> str:
+        """Determine IPC path based on OS"""
+        if self.system == "Windows":
+            return rf"\\.\pipe\{self.ipc_name}"
+        return f"/tmp/{self.ipc_name}"
+
+    def _validate_mpv_executable(self) -> None:
+        """Verify MPV executable exists"""
+        if not self.mpv_exe.exists():
+            raise FileNotFoundError(f"MPV executable not found: {self.mpv_exe}")
+        if not self.mpv_exe.is_file():
+            raise ValueError(f"MPV path is not a file: {self.mpv_exe}")
+
+    # ------------------- Command Helpers -------------------
+    def _next_request_id(self) -> int:
+        """Generate unique request ID with thread safety"""
         with self._req_id_lock:
             rid = self._req_id
-            self._req_id += 1
-            # wrap-around safety
-            if self._req_id > 1_000_000_000:
-                self._req_id = 1
+            self._req_id = 1 if self._req_id > 1_000_000_000 else self._req_id + 1
             return rid
 
-    # ---------- contrôle de lecture ----------
-    def seek_forward(self, seconds=10):
-        self.send_command(["seek", seconds, "relative"])
+    @staticmethod
+    def _build_command(command_list: List, request_id: Optional[int] = None) -> bytes:
+        """Construct JSON command with optional request ID"""
+        cmd = {"command": command_list}
+        if request_id is not None:
+            cmd["request_id"] = request_id
+        return (json.dumps(cmd) + "\n").encode("utf-8")
 
-    def seek_backward(self, seconds=10):
-        self.send_command(["seek", -seconds, "relative"])
+    # ------------------- Process Management -------------------
+    def launch(self, url: str, window_id: int, extra_args: Optional[List[str]] = None) -> bool:
+        """Launch MPV process with IPC server"""
+        if self.process and self.process.poll() is None:
+            logger.warning("MPV process already running")
+            return False
 
-    def seek_to(self, seconds: float):
-        try:
-            # seek absolu via set_property "time-pos"
-            self.set_property("time-pos", float(seconds))
-        except Exception as e:
-            print(f"MPVController.seek_to erreur: {e}")
-
-    def toggle_play_pause(self):
-        self.send_command(["cycle", "pause"])
-
-    # ---------- lancement / arrêt mpv ----------
-    def launch(self, url: str, window_id: str, extra_args: list | None = None) -> bool:
-        log_file = str(Path.cwd() / "mpv_debug.log")
         args = [
-            self.mpv_exe,
+            str(self.mpv_exe),
             url,
             f"--wid={window_id}",
             "--no-terminal",
             f"--input-ipc-server={self.ipc_path}",
-            f"--log-file={log_file}",
+            f"--log-file={LOG_DIR / 'mpv.log'}",
             "--msg-level=all=info",
             "--no-config",
+            "--keep-open=yes"
         ]
+
         if extra_args:
-            args[1:1] = extra_args
-
-        if not Path(self.mpv_exe).exists():
-            print(f"mpv executable introuvable: {self.mpv_exe}")
-            return False
-
-        def _reader_thread(pipe, name):
-            try:
-                with open(Path.cwd() / "mpv_stdout_stderr.log", "ab") as f:
-                    while True:
-                        chunk = pipe.read(4096)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        f.flush()
-                        try:
-                            print(f"[mpv-{name}] {chunk.decode('utf-8', errors='ignore').strip()}")
-                        except Exception:
-                            pass
-            except Exception as e:
-                print(f"Erreur reader_thread {name}: {e}")
-                traceback.print_exc()
+            args.extend(extra_args)
 
         try:
-            creationflags = 0
-            startupinfo = None
+            startup_info = None
+            creation_flags = 0
+            if self.system == "Windows":
+                startup_info = subprocess.STARTUPINFO()
+                startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startup_info.wShowWindow = 0
+                creation_flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
 
             self.process = subprocess.Popen(
                 args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=False,
-                creationflags=creationflags,
-                startupinfo=startupinfo
+                bufsize=0,
+                creationflags=creation_flags,
+                startupinfo=startup_info
             )
 
-            threading.Thread(target=_reader_thread, args=(self.process.stdout, "out"), daemon=True).start()
-            threading.Thread(target=_reader_thread, args=(self.process.stderr, "err"), daemon=True).start()
+            # Start output readers
+            threading.Thread(target=self._read_output, args=('stdout',), daemon=True).start()
+            threading.Thread(target=self._read_output, args=('stderr',), daemon=True).start()
 
-            self._close_pipe_handle()
-
+            logger.info(f"MPV launched with PID: {self.process.pid}")
             return True
+
         except Exception as e:
-            print(f"Erreur lancement MPV : {e}")
-            traceback.print_exc()
+            logger.error(f"Failed to launch MPV: {e}\n{traceback.format_exc()}")
             self.process = None
             return False
 
-    def stop(self, timeout: float = 2.0):
-        if not self.process:
-            self._close_pipe_handle()
-            return
+    def _read_output(self, stream_name: str) -> None:
+        """Read and log process output streams"""
+        stream = self.process.stdout if stream_name == 'stdout' else self.process.stderr
+        log_file = open(LOG_DIR / f'mpv_{stream_name}.log', 'ab', buffering=0)
+
         try:
-            self.process.terminate()
-            self.process.wait(timeout=timeout)
+            while self.process and self.process.poll() is None:
+                chunk = stream.read(4096)
+                if not chunk:
+                    time.sleep(0.1)
+                    continue
+                log_file.write(chunk)
+                log_file.flush()
+                if self._debug:
+                    logger.debug(f"[MPV-{stream_name}] {chunk.decode('utf-8', errors='replace').strip()}")
         except Exception as e:
-            print(f"Erreur arrêt mpv (terminate): {e}")
+            logger.error(f"Output reader error: {e}")
+        finally:
+            log_file.close()
+
+    def stop(self) -> None:
+        """Terminate MPV process safely"""
+        if not self.process:
+            return
+
+        try:
+            # Graceful shutdown
+            self.send_command(["quit"])
             try:
-                self.process.kill()
-            except Exception as e2:
-                print(f"Erreur kill mpv: {e2}")
+                self.process.wait(MPV_STOP_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                logger.warning("Force terminating MPV process")
+                self.process.terminate()
+                self.process.wait(0.5)
+        except Exception as e:
+            logger.error(f"Stop error: {e}")
         finally:
             self.process = None
             self._close_pipe_handle()
+            logger.info("MPV terminated")
 
-    def restart(self, url: str, window_id: str):
-        self.stop()
-        time.sleep(0.05)
-        return self.launch(url, window_id)
-
-    # ---------- envoi de commandes (sans / avec réponse) ----------
-    def send_command(self, command_list: list):
+    # ------------------- IPC Communication -------------------
+    def _ensure_pipe_connection(self) -> bool:
+        """Establish pipe connection with retry logic"""
         if self.system == "Windows":
-            self._send_mpv_command_windows(command_list)
-        else:
-            self._send_mpv_command_unix(command_list)
+            return self._ensure_windows_pipe()
+        return self._ensure_unix_socket()
 
-    def send_command_with_response(self, command_list: list, timeout: float = 2.0):
-        if self.system == "Windows":
-            return self._send_mpv_command_windows_with_response(command_list, timeout=timeout)
-        else:
-            return self._send_mpv_command_unix_with_response(command_list, timeout=timeout)
-
-    # ---- helpers Windows ----
-    def _ensure_pipe_handle_windows(self, max_tries=8, sleep_between=0.15):
+    def _ensure_windows_pipe(self) -> bool:
+        """Windows named pipe connection with exponential backoff"""
         if self._pipe_handle:
-            return self._pipe_handle
+            return True
 
-        for attempt in range(1, max_tries + 1):
+        for attempt in range(1, MAX_PIPE_CONNECTION_ATTEMPTS + 1):
             try:
                 try:
-                    win32pipe.WaitNamedPipe(self.ipc_path, int(sleep_between * 1000))
-                except Exception:
+                    win32pipe.WaitNamedPipe(self.ipc_path, int(PIPE_RETRY_INTERVAL * 1000))
+                except pywintypes.error:
                     pass
 
                 handle = win32file.CreateFile(
@@ -190,196 +205,234 @@ class MPVController:
                     0, None
                 )
                 self._pipe_handle = handle
-                return handle
+                return True
             except pywintypes.error as e:
-                code = getattr(e, "winerror", None)
-                if code in (2, 231):
-                    time.sleep(sleep_between)
-                    continue
-                else:
-                    if self._pipe_verbose:
-                        print(f"CreateFile non-retryable: {e}")
-                    return None
+                if e.winerror not in (2, 231, 109):  # FILE_NOT_FOUND, BROKEN_PIPE, BAD_PIPE
+                    logger.error(f"Pipe connection error: {e}")
+                    break
+                time.sleep(PIPE_RETRY_INTERVAL * (1.5 ** attempt))
+        return False
 
-        if self._pipe_verbose:
-            print("All CreateFile attempts failed")
-        return None
+    def _ensure_unix_socket(self) -> bool:
+        """Unix domain socket connection test"""
+        if not Path(self.ipc_path).exists():
+            time.sleep(PIPE_RETRY_INTERVAL)
+            return False
+        return True
 
-    def _close_pipe_handle(self):
+    def _close_pipe_handle(self) -> None:
+        """Safely close Windows pipe handle"""
+        if not self._pipe_handle:
+            return
+
         try:
-            if self._pipe_handle:
-                try:
-                    win32file.CloseHandle(self._pipe_handle)
-                except Exception:
-                    pass
+            win32file.CloseHandle(self._pipe_handle)
+        except Exception as e:
+            logger.error(f"Pipe close error: {e}")
         finally:
             self._pipe_handle = None
 
-    def _send_mpv_command_windows(self, command_list: list):
-        with self._pipe_lock:
-            handle = self._ensure_pipe_handle_windows()
-            if not handle:
-                if self._pipe_verbose:
-                    print("Impossible d'ouvrir le pipe mpv (write-only).")
-                return
-            try:
-                cmd = {"command": command_list}
-                data = (json.dumps(cmd) + "\n").encode("utf-8")
-                win32file.WriteFile(handle, data)
-            except Exception as e:
-                if self._pipe_verbose:
-                    print(f"Erreur écriture pipe mpv: {e}")
-                    traceback.print_exc()
-                self._close_pipe_handle()
+    # ------------------- Command Execution -------------------
+    def send_command(self, command_list: List) -> None:
+        """Send command without expecting response"""
+        if not self.process or self.process.poll() is not None:
+            logger.warning("Command skipped: MPV not running")
+            return
 
-    def _send_mpv_command_windows_with_response(self, command_list: list, timeout: float = 2.0):
+        if self.system == "Windows":
+            self._send_windows_command(command_list)
+        else:
+            self._send_unix_command(command_list)
+
+    def send_command_with_response(self, command_list: List, timeout: float = COMMAND_TIMEOUT) -> Optional[Dict]:
+        """Send command and wait for response"""
+        if not self.process or self.process.poll() is not None:
+            logger.warning("Command with response skipped: MPV not running")
+            return None
+
+        if self.system == "Windows":
+            return self._send_windows_command(command_list, True, timeout)
+        return self._send_unix_command(command_list, True, timeout)
+
+    def _send_windows_command(self,
+                              command_list: List,
+                              expect_response: bool = False,
+                              timeout: float = COMMAND_TIMEOUT) -> Optional[Dict]:
+        """Windows-specific command execution"""
         with self._pipe_lock:
-            handle = self._ensure_pipe_handle_windows()
-            if not handle:
-                if self._pipe_verbose:
-                    print("Impossible d'ouvrir le pipe mpv (read/write).")
+            if not self._ensure_windows_pipe():
+                logger.error("Windows pipe connection failed")
                 return None
 
-            rid = self._next_request_id()
+            request_id = self._next_request_id() if expect_response else None
+            cmd_data = self._build_command(command_list, request_id)
+
             try:
-                cmd = {"command": command_list, "request_id": rid}
-                data = (json.dumps(cmd) + "\n").encode("utf-8")
-                win32file.WriteFile(handle, data)
+                win32file.WriteFile(self._pipe_handle, cmd_data)
+                if self._debug:
+                    logger.debug(f"Sent command: {command_list}")
             except Exception as e:
-                if self._pipe_verbose:
-                    print(f"Erreur écriture pipe mpv: {e}")
-                    traceback.print_exc()
+                logger.error(f"Write error: {e}")
                 self._close_pipe_handle()
                 return None
 
-            start = time.time()
-            buffer = b""
-            while True:
-                if (time.time() - start) > timeout:
-                    if self._pipe_verbose:
-                        print(f"Timeout waiting for response request_id={rid}")
-                    return None
-                try:
-                    hr, chunk = win32file.ReadFile(handle, 4096, None)
-                except Exception:
+            if not expect_response:
+                return None
+
+            return self._read_windows_response(request_id, timeout)
+
+    def _read_windows_response(self, request_id: int, timeout: float) -> Optional[Dict]:
+        """Read response from Windows pipe"""
+        buffer = b""
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            try:
+                hr, data = win32file.ReadFile(self._pipe_handle, 4096, None)
+                if not data:
                     time.sleep(0.01)
                     continue
-                if not chunk:
-                    time.sleep(0.01)
-                    continue
-                buffer += chunk
-                while b"\n" in buffer:
-                    line, buffer = buffer.split(b"\n", 1)
+
+                buffer += data
+                responses = buffer.split(b"\n")
+                buffer = responses.pop()  # Keep incomplete line
+
+                for resp in responses:
                     try:
-                        text = line.decode("utf-8", errors="ignore").strip()
-                        if not text:
-                            continue
-                        obj = json.loads(text)
-                    except Exception:
-                        continue
-
-                    if "event" in obj and self._pipe_verbose:
-                        continue
-
-                    if obj.get("request_id") == rid:
-                        return obj
-
-    # ---- helpers Unix ----
-    def _send_mpv_command_unix(self, command_list: list):
-        try:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-                client.connect(self.ipc_path)
-                cmd = {"command": command_list}
-                client.send((json.dumps(cmd) + "\n").encode())
-        except Exception as e:
-            print(f"Erreur envoi commande MPV Unix: {e}")
-            traceback.print_exc()
-
-    def _send_mpv_command_unix_with_response(self, command_list: list, timeout: float = 2.0):
-        rid = self._next_request_id()
-        try:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-                client.settimeout(timeout)
-                client.connect(self.ipc_path)
-                cmd = {"command": command_list, "request_id": rid}
-                client.send((json.dumps(cmd) + "\n").encode())
-                response_bytes = b""
-                start = time.time()
-                while True:
-                    if (time.time() - start) > timeout:
-                        if self._pipe_verbose:
-                            print(f"Timeout waiting for response request_id={rid} (unix)")
-                        return None
-                    try:
-                        chunk = client.recv(4096)
-                    except socket.timeout:
-                        return None
-                    if not chunk:
-                        time.sleep(0.01)
-                        continue
-                    response_bytes += chunk
-                    while b"\n" in response_bytes:
-                        line, response_bytes = response_bytes.split(b"\n", 1)
-                        try:
-                            text = line.decode("utf-8", errors="ignore").strip()
-                            if not text:
-                                continue
-                            obj = json.loads(text)
-                        except Exception:
-                            continue
-
-                        if "event" in obj:
-                            continue
-
-                        if obj.get("request_id") == rid:
+                        obj = json.loads(resp.decode('utf-8'))
+                        if obj.get("request_id") == request_id:
                             return obj
-
-        except Exception as e:
-            if self._pipe_verbose:
-                print(f"Erreur envoi/lecture mpv Unix: {e}")
-                traceback.print_exc()
-            return None
-
-    # ---------- propriétés mpv ----------
-    def get_property(self, prop: str):
-        resp = self.send_command_with_response(["get_property", prop])
-        if resp and "data" in resp:
-            return resp["data"]
+                    except json.JSONDecodeError:
+                        continue
+            except pywintypes.error as e:
+                if e.winerror != 232:  # No more data
+                    logger.error(f"Read error: {e}")
+                    break
+                time.sleep(0.01)
         return None
 
-    def set_property(self, prop: str, value):
-        self.send_command(["set_property", prop, value])
-
-    def get_chapter_list(self):
-        resp = self.send_command_with_response(["get_property", "chapter-list"])
-        if resp and "data" in resp:
-            return resp["data"]
-        return None
-
-    def get_time_pos(self):
-        try:
-            v = self.get_property("time-pos")
-            if v is None:
-                return None
-            return float(v)
-        except Exception as e:
-            print(f"MPVController.get_time_pos erreur: {e}")
-            traceback.print_exc()
+    def _send_unix_command(self,
+                           command_list: List,
+                           expect_response: bool = False,
+                           timeout: float = COMMAND_TIMEOUT) -> Optional[Dict]:
+        """Unix-specific command execution"""
+        if not self._ensure_unix_socket():
+            logger.error("Unix socket not available")
             return None
 
-    def get_duration(self):
+        request_id = self._next_request_id() if expect_response else None
+        cmd_data = self._build_command(command_list, request_id)
+
         try:
-            v = self.get_property("duration")
-            if v is None:
-                return None
-            return float(v)
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                sock.connect(self.ipc_path)
+                sock.sendall(cmd_data)
+
+                if not expect_response:
+                    return None
+
+                return self._read_unix_response(sock, request_id, timeout)
         except Exception as e:
-            print(f"MPVController.get_duration erreur: {e}")
-            traceback.print_exc()
+            logger.error(f"Unix command error: {e}")
             return None
 
     @staticmethod
-    def get_youtube_info(url: str):
+    def _read_unix_response(sock: socket.socket,
+                            request_id: int,
+                            timeout: float) -> Optional[Dict]:
+        """Read response from Unix socket"""
+        buffer = b""
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            try:
+                sock.settimeout(deadline - time.time())
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+
+                buffer += chunk
+                lines = buffer.split(b"\n")
+                buffer = lines.pop()
+
+                for line in lines:
+                    try:
+                        obj = json.loads(line)
+                        if obj.get("request_id") == request_id:
+                            return obj
+                    except json.JSONDecodeError:
+                        continue
+            except (socket.timeout, BlockingIOError):
+                break
+            except Exception as e:
+                logger.error(f"Response read error: {e}")
+                break
+        return None
+
+    # ------------------- Property Accessors -------------------
+    def get_property(self, prop: str) -> Any:
+        """Get MPV property value"""
+        resp = self.send_command_with_response(["get_property", prop])
+        return resp.get("data") if resp else None
+
+    def set_property(self, prop: str, value: Any) -> None:
+        """Set MPV property value"""
+        self.send_command(["set_property", prop, value])
+
+    # ------------------- Player Controls -------------------
+    def seek_forward(self, seconds: int = 10) -> None:
+        self.send_command(["seek", seconds, "relative"])
+
+    def seek_backward(self, seconds: int = 10) -> None:
+        self.send_command(["seek", -seconds, "relative"])
+
+    def seek_to(self, seconds: float) -> None:
+        self.set_property("time-pos", float(seconds))
+
+    def toggle_play_pause(self) -> None:
+        self.send_command(["cycle", "pause"])
+
+    def set_volume(self, volume: int) -> None:
+        self.set_property("volume", max(0, min(100, volume)))
+
+    def get_volume(self) -> float:
+        return float(self.get_property("volume") or 0)
+
+    def set_mute(self, muted: bool) -> None:
+        self.set_property("mute", muted)
+
+    def get_mute(self) -> bool:
+        return bool(self.get_property("mute") or False)
+
+    def set_audio_track(self, aid: int) -> None:
+        self.set_property("aid", aid)
+
+    def set_subtitle_track(self, sid: int) -> None:
+        self.set_property("sid", "no" if sid == -1 else sid)
+
+    def get_track_list(self) -> List[Dict]:
+        return self.get_property("track-list") or []
+
+    def get_chapter_list(self) -> List[Dict]:
+        return self.get_property("chapter-list") or []
+
+    def get_time_pos(self) -> Optional[float]:
+        try:
+            return float(self.get_property("time-pos") or 0)
+        except (TypeError, ValueError):
+            return None
+
+    def get_duration(self) -> Optional[float]:
+        try:
+            return float(self.get_property("duration") or 0)
+        except (TypeError, ValueError):
+            return None
+
+    # ------------------- YouTube Integration -------------------
+    @staticmethod
+    def get_youtube_info(url: str) -> Tuple[List[Dict], Optional[float]]:
+        """Extract YouTube video chapters and duration"""
         ydl_opts = {
             "skip_download": True,
             "quiet": True,
@@ -389,33 +442,14 @@ class MPVController:
         try:
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-                chapters = info.get("chapters", []) or []
-                duration = info.get("duration", None)
-                if duration is not None:
-                    try:
-                        duration = float(duration)
-                    except Exception:
-                        duration = None
-                return chapters, duration
+                chapters = info.get("chapters") or []
+                duration = info.get("duration")
+                return chapters, float(duration) if duration else None
         except Exception as e:
-            print(f"Erreur extraction yt info: {e}")
-            traceback.print_exc()
+            logger.error(f"YouTube info error: {e}")
             return [], None
 
     @staticmethod
-    def get_youtube_chapters(url: str):
-        ydl_opts = {
-            "skip_download": True,
-            "quiet": True,
-            "no_warnings": True,
-            "cachedir": False,
-        }
-        try:
-            with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                chapters = info.get("chapters", []) or []
-                return chapters
-        except Exception as e:
-            print(f"Erreur extraction yt chapters: {e}")
-            traceback.print_exc()
-            return []
+    def get_youtube_chapters(url: str) -> List[Dict]:
+        chapters, _ = MPVController.get_youtube_info(url)
+        return chapters
