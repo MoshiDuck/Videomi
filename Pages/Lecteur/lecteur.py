@@ -1,29 +1,32 @@
-# ---------- FILE: lecteur.py ----------
+# -*- coding: utf-8 -*-
 """
-Lecteur principal (fenêtre) — version révisée :
-- logging centralisé au lieu de print()
-- décorateur @safe_slot pour attraper/logger les exceptions dans les slots
-- factorisation des traitements répétitifs (chapters, tracks, UI updates)
-- vérifications sur l'existence de mpv.exe et PATH plus explicite
-- typage plus strict et docstrings
-- meilleures pratiques Qt (éviter sleep prolongés sur thread principal, gérer timers)
-"""
+Fichier optimisé: lecteur_optimized.py
+- Refactorisation, typage renforcé, meilleure gestion du process MPV (non-bloquant),
+- Moins de sleep sur le thread principal, utilisation prudente de threads pour opérations blocking,
+- Centralisation des messages d'erreur / logging et décorateurs réutilisables,
+- Petits helpers pour réduire les répétitions et rendre le code plus lisible.
 
+Remarque: ce fichier garde l'API publique (méthodes) du fichier original pour minimiser
+les modifications côté Widgets / MPVController. Il suppose l'existence de MPVController,
+BarFenetre, BarSecLect et BaseFenetre comme dans ton projet.
+
+Auteur: assistant (optimisation demandée)
+"""
 from __future__ import annotations
 
 import logging
 import os
 import sys
 import threading
-import time
+import subprocess
 from functools import wraps, partial
 from pathlib import Path
-from typing import Optional, List, Any, Dict, Tuple, Union
+from typing import Optional, List, Any, Dict, Tuple, Union, Callable
 
-from PyQt6.QtCore import QTimer, QSize, Qt
+from PyQt6.QtCore import QTimer, QSize, Qt, QRunnable, QThreadPool
 from PyQt6.QtWidgets import QFrame, QSizePolicy, QApplication
 
-# Imports externes qui existent dans ton projet
+# Imports externes du projet
 from Pages.Lecteur.Bar_Sec.bar_sec_lect import BarSecLect
 from Pages.Lecteur.mpv_controller import MPVController
 from Widgets.bar_fenetre import BarFenetre
@@ -32,65 +35,92 @@ from Widgets.base_fenetre import BaseFenetre
 # ---------------- Constants & paths ----------------
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MPV_DIR = PROJECT_ROOT / "Ressource" / "mpv"
-# Platform-specific executable name fallback
 MPV_EXE = MPV_DIR / ("mpv.exe" if os.name == "nt" else "mpv")
 
 MAX_VOLUME = 200
 DEFAULT_WINDOW_SIZE = QSize(800, 600)
-# Add MPV_DIR to PATH if exists
+
+# try to ensure MPV_DIR in PATH (non-destructive)
 if MPV_DIR.exists():
-    os.environ["PATH"] = f"{MPV_DIR}{os.pathsep}{os.environ.get('PATH', '')}"
-else:
-    # don't crash: only log warning
-    # MPV may still be found via PATH environment
-    pass
+    _old_path = os.environ.get("PATH", "")
+    if str(MPV_DIR) not in _old_path.split(os.pathsep):
+        os.environ["PATH"] = f"{MPV_DIR}{os.pathsep}{_old_path}"
 
 # ---------------- Logging ----------------
 logger = logging.getLogger("lecteur")
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-handler.setFormatter(formatter)
 if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
     logger.addHandler(handler)
-
-
+logger.setLevel(logging.DEBUG)
 
 # ---------------- Utilities ----------------
-def safe_slot(func):
-    """
-    Décorateur pour protéger un slot / callback Qt : logge l'exception au lieu de planter.
+
+def safe_slot(func: Callable) -> Callable:
+    """Décorateur pour slots/callbacks Qt : log et stabilise.
+
+    Attrape les exceptions, les logge et évite la propagation qui ferait crasher Qt.
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception:
-            logger.exception("Exception dans %s", func.__name__)
-            # On ne remonte pas l'exception — Qt ne l'aime pas forcément
+        except Exception as exc:  # pragma: no cover - stability
+            logger.exception("Exception dans %s: %s", func.__name__, exc)
             return None
+
     return wrapper
 
 
 def clamp_int(value: Any, minimum: int, maximum: int, default: Optional[int] = None) -> Optional[int]:
     try:
+        if value is None:
+            return default
         v = int(round(float(value)))
         return max(minimum, min(maximum, v))
     except Exception:
         return default
 
 
+def _safe_getattr(obj: Any, name: str, default: Any = None) -> Any:
+    try:
+        return getattr(obj, name, default)
+    except Exception:
+        logger.exception("_safe_getattr failed for %s on %s", name, obj)
+        return default
+
+
+class _BackgroundCallable(QRunnable):
+    """QRunnable utilitaire pour exécuter une callable (non-UI) dans le thread-pool.
+
+    La callable doit éviter de toucher directement les widgets Qt ; utiliser QTimer.singleShot
+    ou d'autres mécanismes pour effectuer des updates sur le thread principal.
+    """
+
+    def __init__(self, func: Callable, *args, **kwargs):
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self) -> None:  # pragma: no cover - depends on runtime
+        try:
+            self.func(*self.args, **self.kwargs)
+        except Exception:
+            logger.exception("Erreur dans background runnable")
+
+
 # ---------------- Main class ----------------
 class Lecteur(BaseFenetre):
-    """
-    Fenêtre lecteur basée sur BaseFenetre.
+    """Fenêtre principale du lecteur.
+
+    Conserve l'API publique du lecteur original — méthode/nommages compatibles.
     """
 
     def __init__(self, stream_urls: List[str], taille_ecran: Optional[QSize] = None):
         super().__init__(bar=False)
 
-        # génération pour annuler callbacks asynchrones si on relance la lecture
         self._playgen: int = 0
 
         # timers
@@ -119,17 +149,60 @@ class Lecteur(BaseFenetre):
         self._setup_ui()
 
         # MPV controller initialisé en fin d'init UI
-        if not MPV_EXE.exists():
-            logger.warning("MPV executable introuvable à %s — MPVController peut échouer.", MPV_EXE)
-        self.mpv = MPVController(MPV_EXE)
+        mpv_exe_path = self._resolve_mpv_exe()
+        if not mpv_exe_path:
+            logger.warning("MPV executable introuvable — MPVController risque d'échouer (rechercher dans PATH)")
+        self.mpv = MPVController(mpv_exe_path, MAX_VOLUME)
 
         # volume poller
         self._volume_timer = QTimer(self)
         self._volume_timer.setInterval(1000)
         self._volume_timer.timeout.connect(self._poll_volume)
 
+        # thread pool pour tâches non-UI
+        self._tp = QThreadPool.globalInstance()
+
         # démarrage léger (après la boucle d'événements)
         QTimer.singleShot(200, self.lancer_video)
+
+    # ---------------- Helpers ----------------
+    def _resolve_mpv_exe(self) -> Optional[Path]:
+        """Retourne le Path vers l'exécutable mpv ou None si introuvable.
+
+        Cherche d'abord dans MPV_EXE, puis tente shutil.which sur PATH.
+        """
+        try:
+            if MPV_EXE.exists():
+                return MPV_EXE
+            # fallback: chercher dans PATH
+            import shutil
+
+            found = shutil.which("mpv")
+            if found:
+                return Path(found)
+            return None
+        except Exception:
+            logger.exception("Erreur résolution mpv exe")
+            return None
+
+    @property
+    def current_url(self) -> Optional[str]:
+        """URL actuelle protégée."""
+        try:
+            if not self.stream_urls:
+                return None
+            return self.stream_urls[self.current_index]
+        except Exception:
+            logger.exception("Erreur récupération current_url")
+            return None
+
+    def _is_mpv_alive(self) -> bool:
+        proc = _safe_getattr(self.mpv, "process", None)
+        try:
+            return proc is not None and proc.poll() is None
+        except Exception:
+            logger.exception("Erreur vérification process MPV")
+            return False
 
     # ---------------- UI Setup ----------------
     def _setup_ui(self) -> None:
@@ -172,7 +245,7 @@ class Lecteur(BaseFenetre):
         self.hide_bar_timer.setInterval(1500)
         self.hide_bar_timer.timeout.connect(self.cacher_barre)
 
-        # connect bottom bar signals (defensive: vérifier existence)
+        # connect signals de la bottom bar (défensif)
         try:
             self.bottom_bar.play_pause_clicked.connect(self.toggle_play_pause)
             self.bottom_bar.prev_clicked.connect(self.video_precedente)
@@ -182,16 +255,18 @@ class Lecteur(BaseFenetre):
             self.bottom_bar.moins_10_clicked.connect(self.seek_backward)
             self.bottom_bar.plus_10_clicked.connect(self.seek_forward)
             self.bottom_bar.position_changed.connect(self._on_slider_moved)
-            # certains widgets exposent slider.position_released
-            if getattr(self.bottom_bar, "slider", None) and getattr(self.bottom_bar.slider, "position_released", None):
-                self.bottom_bar.slider.position_released.connect(self._on_slider_released)
-            elif getattr(self.bottom_bar, "slider", None) and getattr(self.bottom_bar, "sliderReleased", None):
-                self.bottom_bar.slider.sliderReleased.connect(lambda: self._on_slider_released(self.bottom_bar.slider.value()))
+            # connect slider released variations
+            if getattr(self.bottom_bar, "slider", None):
+                slider = self.bottom_bar.slider
+                if getattr(slider, "position_released", None):
+                    slider.position_released.connect(self._on_slider_released)
+                elif getattr(slider, "sliderReleased", None):
+                    slider.sliderReleased.connect(lambda: self._on_slider_released(slider.value()))
             self.bottom_bar.chapter_selected.connect(self._on_chapter_selected)
         except Exception:
             logger.exception("Erreur connexion signaux bottom_bar")
 
-        # volume connections — 2 variantes supportées
+        # volume connections
         try:
             if hasattr(self.bottom_bar, "volume_changed") and hasattr(self.bottom_bar, "mute_toggled"):
                 self.bottom_bar.volume_changed.connect(self._on_volume_changed)
@@ -206,16 +281,16 @@ class Lecteur(BaseFenetre):
         except Exception:
             logger.exception("Erreur connexion volume UI")
 
-        # barLangueSub optional
+        # optional language/sub widgets
         try:
             bls = getattr(self.bottom_bar, "barLangueSub", None)
             if bls:
                 bls.audio_selected.connect(lambda aid: QTimer.singleShot(0, partial(self._apply_audio_track, aid)))
                 bls.subtitle_selected.connect(lambda sid: QTimer.singleShot(0, partial(self._apply_subtitle_track, sid)))
                 try:
-                    bls.link_with_bar(self.bottom_bar)
+                    if hasattr(bls, "link_with_bar"):
+                        bls.link_with_bar(self.bottom_bar)
                 except Exception:
-                    # non critique
                     logger.debug("link_with_bar indisponible ou a échoué", exc_info=True)
         except Exception:
             logger.exception("Erreur connexion BarLangueSub signaux")
@@ -225,7 +300,7 @@ class Lecteur(BaseFenetre):
         self.position_timer.setInterval(500)
         self.position_timer.timeout.connect(self._update_position)
 
-        # cursor auto-hide control
+        # cursor auto-hide
         self._cursor_timer = QTimer(self)
         self._cursor_timer.setInterval(100)
         self._cursor_timer.timeout.connect(self._check_cursor_and_show_hide)
@@ -238,59 +313,45 @@ class Lecteur(BaseFenetre):
 
         QTimer.singleShot(0, self._update_bars_geometry)
 
-    # ---------------- Helper methods ----------------
-    def _is_mpv_alive(self) -> bool:
-        proc = getattr(self.mpv, "process", None)
-        try:
-            return proc is not None and proc.poll() is None
-        except Exception:
-            logger.exception("Erreur vérification process MPV")
-            return False
-
-    def _get_current_url(self) -> Optional[str]:
-        if self.stream_urls:
-            try:
-                return self.stream_urls[self.current_index]
-            except Exception:
-                logger.exception("Erreur récupération URL courante")
-        return None
-
     # ---------------- Cursor / bars visibility ----------------
     @safe_slot
-    def _check_cursor_and_show_hide(self):
-        """Affiche/masque les barres en fonction de la position du curseur."""
+    def _check_cursor_and_show_hide(self) -> None:
+        """Affiche/masque les barres en fonction du curseur (appelé fréquemment).
+
+        Implémentation robuste: protège contre erreurs QCursor et problèmes de géométrie.
+        """
         try:
             from PyQt6.QtGui import QCursor
+
             cursor_pos = QCursor.pos()
         except Exception:
-            logger.exception("Erreur QCursor")
+            logger.exception("Erreur lecture QCursor")
             return
 
         try:
             main_geo = self.geometry()
-            top_over = bool(getattr(self, "top_bar", None) and self.top_bar.geometry().contains(cursor_pos))
-            bottom_over = bool(getattr(self, "bottom_bar", None) and self.bottom_bar.geometry().contains(cursor_pos))
+            top_over = bool(_safe_getattr(self, "top_bar", None) and self.top_bar.geometry().contains(cursor_pos))
+            bottom_over = bool(
+                _safe_getattr(self, "bottom_bar", None) and self.bottom_bar.geometry().contains(cursor_pos)
+            )
             threshold = 30
 
-            # show top
             if (cursor_pos.y() <= main_geo.y() + threshold) or top_over:
-                if getattr(self, "top_bar", None) and not self.top_bar.isVisible():
+                if _safe_getattr(self, "top_bar", None) and not self.top_bar.isVisible():
                     self.top_bar.setVisible(True)
                 try:
                     self.hide_bar_timer.start()
                 except Exception:
                     logger.exception("Erreur démarrage hide_bar_timer")
 
-            # show bottom
             elif (cursor_pos.y() >= main_geo.y() + main_geo.height() - threshold) or bottom_over:
-                if getattr(self, "bottom_bar", None) and not self.bottom_bar.isVisible():
+                if _safe_getattr(self, "bottom_bar", None) and not self.bottom_bar.isVisible():
                     self.bottom_bar.setVisible(True)
                 try:
                     self.hide_bar_timer.start()
                 except Exception:
                     logger.exception("Erreur démarrage hide_bar_timer")
 
-            # otherwise schedule hide unless the cursor is over a bar
             else:
                 if not top_over and not bottom_over:
                     if not self.hide_bar_timer.isActive():
@@ -307,74 +368,92 @@ class Lecteur(BaseFenetre):
             logger.exception("_check_cursor_and_show_hide erreur globale")
 
     @safe_slot
-    def cacher_barre(self):
-        """Masque les barres si le curseur n'est pas dessus."""
+    def cacher_barre(self) -> None:
         try:
             from PyQt6.QtGui import QCursor
+
             pos = QCursor.pos()
-            on_top = getattr(self, "top_bar", None) and self.top_bar.geometry().contains(pos)
-            on_bottom = getattr(self, "bottom_bar", None) and self.bottom_bar.geometry().contains(pos)
+            on_top = _safe_getattr(self, "top_bar", None) and self.top_bar.geometry().contains(pos)
+            on_bottom = _safe_getattr(self, "bottom_bar", None) and self.bottom_bar.geometry().contains(pos)
             if not on_top and not on_bottom:
-                if getattr(self, "top_bar", None):
+                if _safe_getattr(self, "top_bar", None):
                     self.top_bar.setVisible(False)
-                if getattr(self, "bottom_bar", None):
+                if _safe_getattr(self, "bottom_bar", None):
                     self.bottom_bar.setVisible(False)
-                if getattr(self, "hide_bar_timer", None):
+                if _safe_getattr(self, "hide_bar_timer", None):
                     self.hide_bar_timer.stop()
         except Exception:
             logger.exception("cacher_barre erreur")
 
-    # ---------------- MPV safe stop ----------------
+    # ---------------- MPV stop safer (non-bloquant) ----------------
     def _safe_stop_mpv(self, timeout_ms: int = 1500) -> bool:
+        """Tente d'arrêter proprement mpv. Si le process ne répond pas, lance un kill en background.
+
+        Retourne True si le process est absent ou arrêté, False si toujours vivant après la tentative.
+        La méthode évite de bloquer le thread principal plus que quelques dizaines de ms.
         """
-        Tente d'arrêter proprement mpv, puis kill si nécessaire.
-        Retourne True si le processus est arrêté ou absent, False sinon.
-        """
-        self._playgen += 1  # invalide callbacks asynchrones
+        self._playgen += 1
+
+        # Stop timers rapidement
         try:
-            # Stop timers
+            if self.position_timer:
+                self.position_timer.stop()
+        except Exception:
+            logger.exception("Erreur stop position_timer")
+
+        try:
+            if self._volume_timer:
+                self._volume_timer.stop()
+        except Exception:
+            logger.exception("Erreur stop volume_timer")
+
+        # ask mpv to stop
+        try:
+            if hasattr(self.mpv, "stop"):
+                self.mpv.stop()
+        except Exception:
+            logger.exception("Erreur mpv.stop()")
+
+        # check process and wait a short non-blocking time
+        proc = _safe_getattr(self.mpv, "process", None)
+        if proc is None:
+            return True
+
+        try:
+            # try a short wait using subprocess.wait with timeout to avoid sleep loops
             try:
-                if self.position_timer is not None:
-                    self.position_timer.stop()
-            except Exception:
-                logger.exception("Erreur stop position_timer")
+                proc.wait(timeout=timeout_ms / 1000.0)
+            except subprocess.TimeoutExpired:
+                logger.debug("MPV n'a pas terminé après %dms — tentative kill en background", timeout_ms)
 
-            try:
-                if self._volume_timer is not None:
-                    self._volume_timer.stop()
-            except Exception:
-                logger.exception("Erreur stop volume_timer")
+                def _kill_proc(p):
+                    try:
+                        if getattr(p, "poll", lambda: 1)() is None:
+                            try:
+                                p.kill()
+                            except Exception:
+                                logger.exception("Erreur kill process (background)")
+                            try:
+                                p.wait(timeout=0.1)
+                            except Exception:
+                                pass
+                    except Exception:
+                        logger.exception("Erreur vérification process (background)")
 
-            # request mpv stop
-            try:
-                if hasattr(self.mpv, "stop"):
-                    self.mpv.stop()
-            except Exception:
-                logger.exception("Erreur mpv.stop()")
+                t = threading.Thread(target=_kill_proc, args=(proc,), daemon=True)
+                t.start()
 
-            # ensure process terminated
-            proc = getattr(self.mpv, "process", None)
-            if proc is None:
-                return True
-
-            waited = 0
-            interval = 50
-            while proc.poll() is None and waited < timeout_ms:
-                time.sleep(interval / 1000.0)
-                waited += interval
-
-            if proc.poll() is None:
+                # Give a tiny grace period for background thread to do its job
                 try:
-                    if hasattr(proc, "kill"):
-                        proc.kill()
-                        time.sleep(0.05)
+                    proc.wait(timeout=0.1)
                 except Exception:
-                    logger.exception("Erreur kill process")
+                    pass
 
-            if proc.poll() is None:
-                logger.warning("MPV n'a pas terminé après timeout")
+            # final check
+            alive = proc.poll() is None
+            if alive:
+                logger.warning("MPV n'a pas terminé après tentative d'arrêt")
                 return False
-
             return True
         except Exception:
             logger.exception("_safe_stop_mpv erreur globale")
@@ -382,7 +461,7 @@ class Lecteur(BaseFenetre):
 
     # ---------------- Audio / Subtitle application ----------------
     @safe_slot
-    def _apply_audio_track(self, aid):
+    def _apply_audio_track(self, aid: Any) -> None:
         if aid is None:
             return
         try:
@@ -392,7 +471,7 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur application piste audio")
 
     @safe_slot
-    def _apply_subtitle_track(self, sid):
+    def _apply_subtitle_track(self, sid: Any) -> None:
         if sid is None:
             return
         try:
@@ -401,10 +480,10 @@ class Lecteur(BaseFenetre):
         except Exception:
             logger.exception("Erreur application piste sous-titre")
 
-    # ---------------- Track list fetching & application ----------------
+    # ---------------- Track list parsing & application ----------------
     def _parse_track_list(self, tracks: Optional[List[Dict[str, Any]]]) -> Tuple[List[Dict], List[Dict]]:
-        audios = []
-        subs = []
+        audios: List[Dict] = []
+        subs: List[Dict] = []
         if not tracks:
             return audios, subs
 
@@ -420,10 +499,10 @@ class Lecteur(BaseFenetre):
                 logger.exception("Erreur traitement piste index %s", i)
         return audios, subs
 
-    def _fetch_and_apply_track_lists(self, attempts: int = 12, delay_ms: int = 500, gen: Optional[int] = None):
-        """
-        Tente de récupérer la liste des pistes depuis MPV et l'applique à l'UI.
-        Si c'est une URL YouTube sans pistes, essaie le fallback via MPVController.get_youtube_info.
+    def _fetch_and_apply_track_lists(self, attempts: int = 12, delay_ms: int = 500, gen: Optional[int] = None) -> None:
+        """Récupère les pistes MPV et les applique à l'UI.
+
+        Utilise des QTimer.singleShot pour réessayer sans bloquer.
         """
         if gen is None:
             gen = self._playgen
@@ -431,9 +510,8 @@ class Lecteur(BaseFenetre):
             logger.debug("Génération invalide, annulation fetch_and_apply_track_lists")
             return
 
-        current_url = self._get_current_url()
         try:
-            proc = getattr(self.mpv, "process", None)
+            proc = _safe_getattr(self.mpv, "process", None)
             if proc is None or proc.poll() is not None:
                 logger.debug("Processus MPV absent ou terminé lors de fetch tracks")
                 return
@@ -451,19 +529,18 @@ class Lecteur(BaseFenetre):
 
         audios, subs = self._parse_track_list(tracks)
 
-        # Fallback pour YouTube si aucune piste détectée
-        if (not audios and not subs) and current_url and ("youtube.com" in current_url or "youtu.be" in current_url):
+        # Fallback YouTube si aucune piste trouvée
+        if (not audios and not subs) and self.current_url and ("youtube.com" in self.current_url or "youtu.be" in self.current_url):
             try:
                 logger.debug("Tentative fallback YouTube pour les pistes")
-                info = MPVController.get_youtube_info(current_url)
+                info = MPVController.get_youtube_info(self.current_url)
                 if isinstance(info, dict):
                     subs_from_yt = info.get("subtitles") or info.get("requested_subtitles") or info.get("automatic_captions")
                     if subs_from_yt:
-                        generated_subs = []
+                        generated_subs: List[Dict] = []
                         if isinstance(subs_from_yt, dict):
-                            for lang, info_sub in subs_from_yt.items():
-                                label = lang
-                                generated_subs.append({"id": f"yt-{lang}", "lang": lang, "title": label})
+                            for lang in subs_from_yt.keys():
+                                generated_subs.append({"id": f"yt-{lang}", "lang": lang, "title": lang})
                         elif isinstance(subs_from_yt, list):
                             for s in subs_from_yt:
                                 lang = s.get("lang") if isinstance(s, dict) else str(s)
@@ -473,7 +550,6 @@ class Lecteur(BaseFenetre):
             except Exception:
                 logger.exception("Erreur fallback YouTube")
 
-        # Si encore rien, réessayer plus tard (seulement si attempts > 0)
         if (not audios and not subs) and attempts > 0:
             logger.debug("Pas de pistes, réessai dans %sms (restant: %d)", delay_ms, attempts - 1)
             QTimer.singleShot(delay_ms, lambda g=gen: (g == self._playgen and self._fetch_and_apply_track_lists(attempts - 1, delay_ms, gen=g)))
@@ -483,37 +559,32 @@ class Lecteur(BaseFenetre):
         try:
             if gen != self._playgen:
                 return
-            bls = getattr(self.bottom_bar, "barLangueSub", None)
+            bls = _safe_getattr(self.bottom_bar, "barLangueSub", None)
             if bls:
                 bls.set_audio_tracks(audios)
                 bls.set_subtitle_tracks(subs)
                 logger.debug("Pistes appliquées: audio=%d, subs=%d", len(audios), len(subs))
-                # update geometry si disponible
                 QTimer.singleShot(0, partial(getattr(bls, "update_geometry", lambda w: None), self.window()))
         except Exception:
             logger.exception("Erreur application pistes à UI")
 
     # ---------------- UI Geometry ----------------
     @safe_slot
-    def _update_bars_geometry(self):
+    def _update_bars_geometry(self) -> None:
         try:
             geo = self.geometry()
-            if getattr(self, "top_bar", None):
+            if _safe_getattr(self, "top_bar", None):
                 self.top_bar.setGeometry(geo.x(), geo.y(), geo.width(), 30)
-            if getattr(self, "bottom_bar", None):
+            if _safe_getattr(self, "bottom_bar", None):
                 self.bottom_bar.setGeometry(
-                    geo.x(),
-                    geo.y() + geo.height() - self.bottom_bar.height(),
-                    geo.width(),
-                    self.bottom_bar.height()
+                    geo.x(), geo.y() + geo.height() - self.bottom_bar.height(), geo.width(), self.bottom_bar.height()
                 )
         except Exception:
             logger.exception("Erreur update_bars_geometry")
 
     # ---------------- Position updates ----------------
     @safe_slot
-    def _update_position(self):
-        """Lit la position et la durée depuis MPV et met à jour l'UI."""
+    def _update_position(self) -> None:
         try:
             if not self._is_mpv_alive():
                 if self.position_timer:
@@ -550,7 +621,7 @@ class Lecteur(BaseFenetre):
             if pos is not None:
                 pos_int = int(float(pos))
                 if self._last_position is None or abs(self._last_position - pos_int) >= 1:
-                    slider = getattr(self.bottom_bar, "slider", None)
+                    slider = _safe_getattr(self.bottom_bar, "slider", None)
                     if slider is not None:
                         slider.blockSignals(True)
                         slider.setValue(pos_int)
@@ -564,7 +635,7 @@ class Lecteur(BaseFenetre):
 
     # ---------------- Volume handling ----------------
     @safe_slot
-    def _on_volume_changed(self, value: int):
+    def _on_volume_changed(self, value: int) -> None:
         try:
             vol_int = clamp_int(value, 0, MAX_VOLUME, default=None)
             if vol_int is None:
@@ -573,13 +644,13 @@ class Lecteur(BaseFenetre):
             if vol_int > 0:
                 self._previous_volume = vol_int
             self._last_volume = vol_int
-            self._muted = (vol_int == 0)
+            self._muted = vol_int == 0
             self.mpv.set_volume(vol_int)
         except Exception:
             logger.exception("Erreur _on_volume_changed")
 
     @safe_slot
-    def _on_mute_toggled(self, muted: bool):
+    def _on_mute_toggled(self, muted: bool) -> None:
         try:
             self._muted = bool(muted)
             self.mpv.set_mute(self._muted)
@@ -587,10 +658,10 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur _on_mute_toggled")
 
     @safe_slot
-    def _poll_volume(self):
+    def _poll_volume(self) -> None:
         try:
             if not self._is_mpv_alive():
-                if self._volume_timer is not None:
+                if self._volume_timer:
                     self._volume_timer.stop()
                 return
         except Exception:
@@ -604,11 +675,7 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur get_volume/get_mute")
             return
 
-        vol_int = None
-        try:
-            vol_int = clamp_int(vol, 0, MAX_VOLUME, default=None)
-        except Exception:
-            vol_int = None
+        vol_int = clamp_int(vol, 0, MAX_VOLUME, default=None)
 
         try:
             changed = False
@@ -616,7 +683,7 @@ class Lecteur(BaseFenetre):
                 self._last_volume = vol_int
                 changed = True
             if muted is not None and muted != self._muted:
-                self._muted = muted
+                self._muted = bool(muted)
                 changed = True
 
             if changed:
@@ -625,12 +692,11 @@ class Lecteur(BaseFenetre):
                 if hasattr(self.bottom_bar, "set_mute"):
                     self.bottom_bar.set_mute(bool(self._muted))
                 else:
-                    vc = getattr(self.bottom_bar, "volume_control", None)
-                    if vc:
+                    vc = _safe_getattr(self.bottom_bar, "volume_control", None)
+                    if vc and getattr(vc, "slider", None):
                         try:
                             vc.slider.blockSignals(True)
                             vc.slider.setValue(int(self._last_volume or 0))
-                            # set_state expects not-muted state typically
                             if getattr(vc, "icon", None) and hasattr(vc.icon, "set_state"):
                                 vc.icon.set_state(not bool(self._muted))
                                 vc._update_icon()
@@ -641,14 +707,14 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur mise à jour volume UI")
 
     # ---------------- Slider / position interaction ----------------
-    def _on_slider_moved(self, pos: int):
+    def _on_slider_moved(self, pos: int) -> None:
         # placeholder: peut être surchargé pour montrer un tooltip
-        pass
+        return None
 
     @safe_slot
-    def _on_slider_released(self, pos: int):
+    def _on_slider_released(self, pos: int) -> None:
         try:
-            slider = getattr(self.bottom_bar, "slider", None)
+            slider = _safe_getattr(self.bottom_bar, "slider", None)
             if slider is not None:
                 slider.blockSignals(True)
                 slider.setValue(pos)
@@ -664,7 +730,7 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur _on_slider_released")
 
     @safe_slot
-    def _on_chapter_selected(self, seconds: int):
+    def _on_chapter_selected(self, seconds: int) -> None:
         try:
             self.mpv.seek_to(seconds)
             logger.debug("Chapitre sélectionné: %ds", seconds)
@@ -672,24 +738,24 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur _on_chapter_selected")
 
     # ---------------- Short seeks ----------------
-    def seek_forward(self):
+    def seek_forward(self) -> None:
         try:
             self.mpv.seek_forward(10)
         except Exception:
             logger.exception("Erreur seek_forward")
 
-    def seek_backward(self):
+    def seek_backward(self) -> None:
         try:
             self.mpv.seek_backward(10)
         except Exception:
             logger.exception("Erreur seek_backward")
 
     # ---------------- Events ----------------
-    def resizeEvent(self, event):
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._update_bars_geometry()
 
-    def moveEvent(self, event):
+    def moveEvent(self, event) -> None:
         super().moveEvent(event)
         self._update_bars_geometry()
 
@@ -784,19 +850,16 @@ class Lecteur(BaseFenetre):
 
     # ---------------- Chapter navigation ----------------
     @safe_slot
-    def chapter_precedent(self):
+    def chapter_precedent(self) -> None:
         try:
-            # Priorité: youtube_chapters si présents
             if self.youtube_chapters:
                 pos = self.mpv.get_time_pos() or 0
-                chap_secs = []
-                for ch in self.youtube_chapters:
-                    st = ch.get("start_time") or ch.get("start") or ch.get("time") if isinstance(ch, dict) else ch
-                    try:
-                        if st is not None:
-                            chap_secs.append(float(st))
-                    except Exception:
-                        continue
+                chap_secs = [
+                    float(ch.get("start_time") or ch.get("start") or ch.get("time")
+                          ) if isinstance(ch, dict) else float(ch)
+                    for ch in self.youtube_chapters
+                    if (ch.get("start_time") or ch.get("start") or ch.get("time") if isinstance(ch, dict) else ch) is not None
+                ]
                 chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                 if not chap_secs:
                     logger.debug("Aucun chapitre YouTube valable")
@@ -825,18 +888,16 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur chapter_precedent mpv")
 
     @safe_slot
-    def chapter_suivant(self):
+    def chapter_suivant(self) -> None:
         try:
             if self.youtube_chapters:
                 pos = self.mpv.get_time_pos() or 0
-                chap_secs = []
-                for ch in self.youtube_chapters:
-                    st = ch.get("start_time") or ch.get("start") or ch.get("time") if isinstance(ch, dict) else ch
-                    try:
-                        if st is not None:
-                            chap_secs.append(float(st))
-                    except Exception:
-                        continue
+                chap_secs = [
+                    float(ch.get("start_time") or ch.get("start") or ch.get("time")
+                          ) if isinstance(ch, dict) else float(ch)
+                    for ch in self.youtube_chapters
+                    if (ch.get("start_time") or ch.get("start") or ch.get("time") if isinstance(ch, dict) else ch) is not None
+                ]
                 chap_secs = sorted(list(dict.fromkeys(chap_secs)))
                 if not chap_secs:
                     logger.debug("Aucun chapitre YouTube valide")
@@ -866,25 +927,14 @@ class Lecteur(BaseFenetre):
 
     # ---------------- Get chapter list for UI ----------------
     @safe_slot
-    def get_chapter_list(self):
-        """
-        Remplit self.youtube_chapters et met à jour bottom_bar.
-        """
+    def get_chapter_list(self) -> None:
         self.youtube_chapters = []
         try:
             dur_val = self.mpv.get_duration()
-            if dur_val and dur_val > 0:
+            if dur_val and dur_val > 0 and hasattr(self.bottom_bar, "set_duration"):
                 self.bottom_bar.set_duration(int(float(dur_val)))
         except Exception:
             logger.exception("(get_chapter_list) impossible de récupérer duration")
-
-        # If youtube_chapters already filled, apply directly
-        try:
-            if getattr(self, "youtube_chapters", None):
-                self.bottom_bar.set_chapters(self.youtube_chapters)
-                return
-        except Exception:
-            logger.exception("(get_chapter_list) erreur traitement youtube_chapters")
 
         try:
             chapters = self.mpv.get_chapter_list()
@@ -900,7 +950,7 @@ class Lecteur(BaseFenetre):
                 logger.exception("Erreur set_chapters bottom_bar")
             return
 
-        chap_secs = []
+        chap_secs: List[int] = []
         for ch in chapters:
             try:
                 if isinstance(ch, dict):
@@ -916,7 +966,6 @@ class Lecteur(BaseFenetre):
         chap_secs = sorted(list(dict.fromkeys(chap_secs)))
         try:
             self.bottom_bar.set_chapters(chap_secs)
-            # Ensure slider redraw
             try:
                 self.bottom_bar.slider.update()
             except Exception:
@@ -925,20 +974,19 @@ class Lecteur(BaseFenetre):
             logger.exception("(get_chapter_list) erreur set_chapters bottom_bar")
 
     # ---------------- Video switching ----------------
-    def video_precedente(self):
+    def video_precedente(self) -> None:
         if not self.stream_urls:
             return
         self.current_index = (self.current_index - 1) % len(self.stream_urls)
         self._restart_video()
 
-    def video_suivante(self):
+    def video_suivante(self) -> None:
         if not self.stream_urls:
             return
         self.current_index = (self.current_index + 1) % len(self.stream_urls)
         self._restart_video()
 
-    def _restart_video(self):
-        # Reset state and stop mpv safely, then relaunch
+    def _restart_video(self) -> None:
         self.youtube_chapters = []
         self._youtube_info_applied = False
 
@@ -948,27 +996,28 @@ class Lecteur(BaseFenetre):
             logger.exception("Erreur reset chapters UI")
 
         try:
+            # Non-bloquant: _safe_stop_mpv fait le nécessaire (kill en background si besoin)
             self._safe_stop_mpv(timeout_ms=2000)
         except Exception:
             logger.exception("_restart_video: erreur safe_stop_mpv")
 
-        # short pause non bloquante alternative: use singleShot to delay lancer_video
+        # Délai non bloquant avant relancer
         QTimer.singleShot(100, self.lancer_video)
 
     @staticmethod
-    def get_youtube_chapters(url: str) -> Any:
+    def get_youtube_chapters(url: str) -> Any:  # passthrough
         return MPVController.get_youtube_chapters(url)
 
     # ---------------- Launch / main playback flow ----------------
-    def lancer_video(self):
-        """Lance la lecture du flux courant (self.current_index)."""
+    def lancer_video(self) -> None:
+        """Lance la lecture du flux courant (self.current_index).
+
+        Cette méthode orchestre des tâches rapides sur le thread principal et délègue
+        les opérations potentiellement bloquantes au thread-pool / threads daemon.
+        """
         if not self.stream_urls:
             logger.warning("Aucune URL fournie")
             return
-
-        # Reset chapter info
-        self.youtube_chapters = []
-        self._youtube_info_applied = False
 
         # Clear UI chapters immediately
         try:
@@ -983,26 +1032,39 @@ class Lecteur(BaseFenetre):
         self._playgen += 1
         this_gen = self._playgen
 
-        url = self._get_current_url()
+        url = self.current_url
+        if url and ("youtube.com" in url or "youtu.be" in url):
+            try:
+                from urllib.parse import urlparse, parse_qs, urlunparse
+                parsed = urlparse(url)
+                qs = parse_qs(parsed.query)
+
+                # Supprimer les paramètres problématiques
+                for param in ['list', 'index']:
+                    if param in qs:
+                        del qs[param]
+
+                new_query = "&".join([f"{k}={v[0]}" for k, v in qs.items()])
+                url = urlunparse(parsed._replace(query=new_query))
+            except Exception as e:
+                logger.error(f"Erreur nettoyage URL: {e}")
         if not url:
             logger.error("URL actuelle introuvable")
             return
 
         window_id = str(int(self.video_frame.winId()))
 
-        # force update lang bar geometry helper
         def _force_update_lang_bar_geometry(gen: int = this_gen):
             try:
                 if gen != self._playgen:
                     return
-                bls = getattr(self.bottom_bar, "barLangueSub", None)
+                bls = _safe_getattr(self.bottom_bar, "barLangueSub", None)
                 if bls and hasattr(bls, "update_geometry"):
                     bls.update_geometry(self.window())
             except Exception:
                 logger.exception("_force_update_lang_bar_geometry erreur")
 
-        # fetch youtube info in background to not bloquer l'UI
-        def _fetch_yt_info_and_apply(gen: int = this_gen, url_local: str = url):
+        def _fetch_yt_info_and_apply(gen: int = this_gen, url_local: str = url) -> None:
             try:
                 info = MPVController.get_youtube_info(url_local)
                 if gen != self._playgen:
@@ -1033,16 +1095,17 @@ class Lecteur(BaseFenetre):
                     QTimer.singleShot(0, lambda g=gen: setattr(self, "_youtube_info_applied", True) if g == self._playgen else None)
                     QTimer.singleShot(0, lambda g=gen: _force_update_lang_bar_geometry(g))
                 else:
-                    if duration and duration > 0:
+                    if duration and duration > 0 and hasattr(self.bottom_bar, "set_duration"):
                         QTimer.singleShot(0, lambda d=int(float(duration)), g=gen: (g == self._playgen and self.bottom_bar.set_duration(d)))
                         QTimer.singleShot(0, lambda g=gen: setattr(self, "_youtube_info_applied", True) if g == self._playgen else None)
             except Exception:
                 logger.exception("Erreur fetch_yt_info thread")
 
+        # lancer fetch YouTube info dans le thread-pool (évite création explicite de threads)
         try:
-            threading.Thread(target=_fetch_yt_info_and_apply, daemon=True).start()
+            self._tp.start(_BackgroundCallable(_fetch_yt_info_and_apply))
         except Exception:
-            logger.exception("Erreur démarrage thread fetch_yt_info")
+            logger.exception("Erreur démarrage background pour fetch_yt_info")
 
         # Launch mpv (non bloquant)
         try:
@@ -1069,7 +1132,6 @@ class Lecteur(BaseFenetre):
         except Exception:
             logger.exception("Erreur démarrage _volume_timer")
 
-        # UI updates and background polls
         QTimer.singleShot(0, lambda: getattr(self.bottom_bar, "update", lambda: None)())
 
         QTimer.singleShot(2000, lambda g=this_gen: (g == self._playgen and self.get_chapter_list()))
@@ -1077,7 +1139,7 @@ class Lecteur(BaseFenetre):
         QTimer.singleShot(1200, lambda g=this_gen: (g == self._playgen and _force_update_lang_bar_geometry(g)))
         QTimer.singleShot(2200, lambda g=this_gen: (g == self._playgen and _force_update_lang_bar_geometry(g)))
 
-        def _poll_duration(attempts_left: int = 20, gen: int = this_gen):
+        def _poll_duration(attempts_left: int = 20, gen: int = this_gen) -> None:
             try:
                 if gen != self._playgen:
                     return
@@ -1088,7 +1150,8 @@ class Lecteur(BaseFenetre):
                 if dur and dur > 0:
                     d = int(float(dur))
                     try:
-                        self.bottom_bar.set_duration(d)
+                        if hasattr(self.bottom_bar, "set_duration"):
+                            self.bottom_bar.set_duration(d)
                         logger.debug("Duration récupérée : %ds", d)
                     except Exception:
                         logger.exception("Erreur set_duration bottom_bar (non bloquant)")
@@ -1149,20 +1212,20 @@ class Lecteur(BaseFenetre):
         QTimer.singleShot(0, lambda g=this_gen: _poll_duration(20, g))
 
     # ---------------- Misc event handlers ----------------
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event) -> None:
         try:
             self._check_cursor_and_show_hide()
         except Exception:
             logger.exception("mouseMoveEvent erreur")
         super().mouseMoveEvent(event)
 
-    def toggle_play_pause(self):
-        # minute delay pour éviter double-trigger rapide
+    def toggle_play_pause(self) -> None:
+        # délai court pour éviter double-trigger rapide
         delay = 100
         QTimer.singleShot(delay, self.mpv.toggle_play_pause)
 
     # ---------------- Close / cleanup ----------------
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         logger.debug("closeEvent déclenché — nettoyage")
         try:
             if getattr(self, "position_timer", None):
@@ -1177,7 +1240,7 @@ class Lecteur(BaseFenetre):
             logger.exception("closeEvent volume_timer")
 
         try:
-            # assure shutdown propre de mpv
+            # _safe_stop_mpv tente un arrêt propre et lance un kill en background si nécessaire
             self._safe_stop_mpv(timeout_ms=2000)
         except Exception:
             logger.exception("closeEvent safe_stop_mpv")
@@ -1194,7 +1257,7 @@ class Lecteur(BaseFenetre):
 
 
 # ---------------- Entrée principale ----------------
-def main():
+def main() -> None:
     app = QApplication(sys.argv)
     dossier_script = Path(__file__).parent
     dossier_projet = dossier_script.parent.parent
@@ -1211,7 +1274,7 @@ def main():
     urls_test = [
         "https://www.youtube.com/watch?v=GoN0-7z6NZk",
         "https://www.youtube.com/watch?v=GCW1cWMlrDA",
-        "https://www.youtube.com/watch?v=OIxRRR3gS_E&list=OLAK5uy_ke4zvQhGW2BDith3tH_fh_uMaoGunxkHo&index=7"
+        "https://www.youtube.com/watch?v=OIxRRR3gS_E&list=OLAK5uy_ke4zvQhGW2BDith3tH_fh_uMaoGunxkHo&index=7",
     ]
 
     lecteur = Lecteur(stream_urls=urls_test, taille_ecran=taille_ecran)

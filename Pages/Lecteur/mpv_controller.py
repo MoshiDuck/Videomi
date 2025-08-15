@@ -41,7 +41,8 @@ logger = logging.getLogger('MPVController')
 
 
 class MPVController:
-    def __init__(self, mpv_exe: Path, ipc_name: str = "mpvsocket"):
+    def __init__(self, mpv_exe: Path, max_volume: int = 200, ipc_name: str = "mpvsocket"):
+        self.max_volume = max_volume
         self.mpv_exe = mpv_exe.resolve()
         self.ipc_name = ipc_name
         self.process: Optional[subprocess.Popen] = None
@@ -394,7 +395,7 @@ class MPVController:
         self.send_command(["cycle", "pause"])
 
     def set_volume(self, volume: int) -> None:
-        self.set_property("volume", max(0, min(100, volume)))
+        self.set_property("volume", max(0, min(self.max_volume, volume)))
 
     def get_volume(self) -> float:
         return float(self.get_property("volume") or 0)
@@ -432,16 +433,25 @@ class MPVController:
     # ------------------- YouTube Integration -------------------
     @staticmethod
     def get_youtube_info(url: str) -> Tuple[List[Dict], Optional[float]]:
-        """Extract YouTube video chapters and duration"""
+        """Extrait les chapitres YouTube en ignorant les playlists"""
         ydl_opts = {
             "skip_download": True,
             "quiet": True,
             "no_warnings": True,
             "cachedir": False,
+            "extract_flat": True,  # Ignorer les playlists
         }
         try:
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+
+                # Gestion spéciale pour les entrées de playlist
+                if info.get('_type') == 'playlist':
+                    entries = info.get('entries', [])
+                    if entries:
+                        # Prendre la première vidéo de la playlist
+                        info = entries[0]
+
                 chapters = info.get("chapters") or []
                 duration = info.get("duration")
                 return chapters, float(duration) if duration else None

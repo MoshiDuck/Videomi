@@ -12,6 +12,10 @@ from Pages.Navigateur.Widgets.flexible_container import FlexibleContainer
 from Widgets.icon_perso import IconPerso
 from Widgets.volume_control_lect import VolumeControlLect
 
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 class BarLangueSub(QFrame):
     audio_selected = pyqtSignal(object)
@@ -82,22 +86,23 @@ class BarLangueSub(QFrame):
         pan4_layout.addWidget(QLabel("Video tracks", self, alignment=Qt.AlignmentFlag.AlignCenter))
 
     # ---------------- position & géométrie ----------------
+
     def update_geometry(self, parent_widget: QWidget = None):
-        """Version robuste de la mise à jour géométrique"""
+        """Positionnement robuste sous le slider"""
         try:
             if not parent_widget:
                 parent_widget = self.bar_sec_lect or QApplication.activeWindow()
 
-            if not parent_widget:
-                return
-
-            # Positionnement par rapport au slider
-            slider = getattr(self.bar_sec_lect, "slider", None) or parent_widget
-            global_pos = slider.mapToGlobal(QPoint(0, 0))
-            self.setFixedWidth(slider.width())
-            self.move(global_pos.x(), global_pos.y() - self.height())
+            if parent_widget and hasattr(parent_widget, 'slider'):
+                slider = parent_widget.slider
+                global_pos = slider.mapToGlobal(QPoint(0, 0))
+                self.setFixedWidth(slider.width())
+                self.move(
+                    global_pos.x(),
+                    global_pos.y() - self.height()
+                )
         except Exception as e:
-            print(f"update_geometry error: {e}")
+            logger.error(f"Update geometry error: {e}")
 
     def link_with_bar(self, bar_sec_lect):
         self.bar_sec_lect = bar_sec_lect
@@ -407,47 +412,31 @@ class BarSecLect(QFrame):
         self.play_pause_clicked.emit(is_playing)
 
     def _on_subtitle_toggled(self, state):
+        """Gestion robuste de l'affichage des sous-titres"""
         try:
-            if state is None:
-                visible = not self.barLangueSub.isVisible()
-            else:
-                visible = bool(state)
-
-            # repositionne toujours avant d'afficher pour être sûr
-            try:
-                slider_global_topleft = self.slider.mapToGlobal(QPoint(0, 0))
-                # ajuste la largeur pour correspondre à la zone du slider
-                self.barLangueSub.setFixedWidth(self.slider.width())
-                self.barLangueSub.move(slider_global_topleft.x(), slider_global_topleft.y() - self.barLangueSub.height())
-            except Exception:
-                pass
+            visible = state if state is not None else not self.barLangueSub.isVisible()
 
             if visible:
+                # Positionnement précis
+                slider = self.slider
+                global_pos = slider.mapToGlobal(QPoint(0, 0))
+                self.barLangueSub.setFixedWidth(slider.width())
+                self.barLangueSub.move(
+                    global_pos.x(),
+                    global_pos.y() - self.barLangueSub.height()
+                )
                 self.barLangueSub.show()
-                self.barLangueSub.raise_()  # toujours devant
             else:
                 self.barLangueSub.hide()
 
-            # cacher ou montrer les labels temps si nécessaire
-            self.current_time_label.setVisible(not visible)
-            self.total_time_label.setVisible(not visible)
-
-            # synchro bouton
-            try:
-                if hasattr(self.subtitle_btn, "set_state"):
-                    self.subtitle_btn.set_state(visible)
-                elif hasattr(self.subtitle_btn, "setChecked"):
-                    self.subtitle_btn.setChecked(visible)
-            except Exception:
-                pass
-
-            try:
-                self.subtitle_toggled.emit(visible)
-            except Exception:
-                pass
+            # Mise à jour de l'état du bouton
+            if hasattr(self.subtitle_btn, "set_state"):
+                self.subtitle_btn.set_state(visible)
+            elif hasattr(self.subtitle_btn, "setChecked"):
+                self.subtitle_btn.setChecked(visible)
 
         except Exception as e:
-            print(f"toggle_lang_bar erreur: {e}")
+            logger.error(f"Erreur toggle subtitle: {e}")
 
     @staticmethod
     def _format_time_simple(seconds):

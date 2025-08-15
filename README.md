@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.6.9
+0.0.7.0
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Slide Volume + Temps videos"
+    git commit -m "[FAIT] - Menu Langage / Sous-Titres"
     ```
 3. Force le push  
     ```bash
@@ -152,8 +152,7 @@ https://github.com/MoshiDuck/Videomi
    
 ## PROCHAINE CHOSE À FAIRE :
 
-- Menu Langage / Sous-Titres
-- Ajoutez lire lien via streaming
+- Double sous-titres
 - Mettre bouton supprimer avec validation dans card
 - Mettre bouton télécharger dans card
     
