@@ -1,44 +1,35 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8">
-    <title>Bannière Adsterra 728x90</title>
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background-color: #f5f5f5;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-      }
-      #ad-container {
-        width: 728px;
-        height: 90px;
-        border: 1px dashed #888;
-        text-align: center;
-        line-height: 90px;
-        font-family: sans-serif;
-        color: #666;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="ad-container">
-      Chargement de la publicité...
-    </div>
-
-    <!-- Code Adsterra -->
-    <script type="text/javascript">
-      atOptions = {
-        'key'     : '494244b514fea075172c85491904fbe3',
-        'format'  : 'iframe',
-        'height'  : 90,
-        'width'   : 728,
-        'params'  : {}
-      };
-    </script>
-    <script type="text/javascript" src="https://www.highperformanceformat.com/494244b514fea075172c85491904fbe3/invoke.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <title>Bannière Adsterra 728×90</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Corps vide pour laisser Adsterra injecter l'iframe */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Code Adsterra (HTTPS explicite requis) -->
+  <script type="text/javascript">
+    atOptions = {
+      'key'     : '494244b514fea075172c85491904fbe3',
+      'format'  : 'iframe',
+      'height'  : 90,
+      'width'   : 728,
+      'params'  : {}
+    };
+  </script>
+  <script type="text/javascript"
+          src="https://www.highperformanceformat.com/494244b514fea075172c85491904fbe3/invoke.js">
+  </script>
+</body>
 </html>
