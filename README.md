@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - enlever banniere pub"
+    git commit -m "[FAIT] - enlever banniere pub "
     ```
 3. Force le push  
     ```bash
