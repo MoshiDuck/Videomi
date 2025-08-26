@@ -10,6 +10,7 @@ from Pages.Navigateur.Bar.bar_nav import BarNav
 from Pages.Navigateur.Bar_Sec.bar_sec_nav import BarSecNav
 from Pages.Navigateur.Widgets.item import ItemsFactory
 from Service.py1FichierClient import FichierClient
+from banner import Banner
 
 
 class Catalogue(QWidget):
@@ -21,7 +22,6 @@ class Catalogue(QWidget):
         self.nav_bar = nav_bar
         self.nav_sec_bar = nav_sec_bar
         self.firebase_auth = firebase_auth
-
 
         self.items_factory = ItemsFactory(self.switch_to_lecteur, self.db_manager, client_1fichier, firebase_auth)
         self.items_factory.data_changed.connect(self.refresh_after_delete)
@@ -59,12 +59,28 @@ class Catalogue(QWidget):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        main_layout = QHBoxLayout(self)
+        # Bannière en bas de page
+        self.ad_bar = Banner()
+
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(0)
+        top_layout.addWidget(self.nav_bar)
+        top_layout.addWidget(self.scroll, stretch=1)
+        top_layout.addWidget(self.nav_sec_bar)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 0, 0, 10)
+        bottom_layout.addStretch(1)
+        bottom_layout.addWidget(self.ad_bar)
+        bottom_layout.addStretch(1)
+
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        main_layout.addWidget(self.nav_bar)
-        main_layout.addWidget(self.scroll, stretch=1)
-        main_layout.addWidget(self.nav_sec_bar)
+        main_layout.addLayout(top_layout, stretch=1)
+        main_layout.addLayout(bottom_layout, stretch=0)
+
         self.setLayout(main_layout)
 
         self.nav_bar.icon_grid_list.clicked.connect(self.toggle_grid_list)
@@ -241,6 +257,9 @@ class Catalogue(QWidget):
 
         self.apply_all_filters()
         self.position_items()
+
+        # Actualiser la bannière à chaque changement de catégorie
+        self.ad_bar.refresh()
 
     def position_items(self):
         self.setUpdatesEnabled(False)

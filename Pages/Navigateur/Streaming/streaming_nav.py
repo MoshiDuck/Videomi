@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QApplication
 )
 from yt_dlp import YoutubeDL
+from banner import Banner  # Import de la classe Banner
 
 
 class ExtractThread(QThread):
@@ -71,7 +72,7 @@ class ExtractThread(QThread):
                     hls = [
                         f for f in formats
                         if 'm3u8' in (f.get('protocol') or '') or f.get('ext') == 'm3u8' or 'hls' in (
-                                    f.get('format_note') or '').lower()
+                                f.get('format_note') or '').lower()
                     ]
                     if hls:
                         # preferer le plus haut bitrate / resolution
@@ -112,7 +113,13 @@ class Streaming(QWidget):
     def __init__(self, switch_to_lecteur):
         super().__init__()
         self.switch_to_lecteur = switch_to_lecteur
-        self.setLayout(QVBoxLayout())
+
+        # Layout principal
+        main_layout = QVBoxLayout()
+
+        # Conteneur pour les éléments de streaming
+        streaming_container = QWidget()
+        streaming_layout = QVBoxLayout(streaming_container)
 
         # Ligne input + bouton Coller
         line_layout = QHBoxLayout()
@@ -133,9 +140,24 @@ class Streaming(QWidget):
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.layout().addLayout(line_layout)
-        self.layout().addWidget(self.play_button)
-        self.layout().addWidget(self.status_label)
+        streaming_layout.addLayout(line_layout)
+        streaming_layout.addWidget(self.play_button)
+        streaming_layout.addWidget(self.status_label)
+        streaming_layout.addStretch(1)  # Ajoute un espace flexible
+
+        # Ajouter le conteneur de streaming au layout principal
+        main_layout.addWidget(streaming_container, stretch=1)
+
+        # Ajouter la bannière publicitaire en bas
+        self.ad_bar = Banner()
+        banner_layout = QHBoxLayout()
+        banner_layout.addStretch(1)
+        banner_layout.addWidget(self.ad_bar)
+        banner_layout.addStretch(1)
+
+        main_layout.addLayout(banner_layout, stretch=0)
+
+        self.setLayout(main_layout)
 
     def paste_from_clipboard(self):
         clipboard = QApplication.clipboard()

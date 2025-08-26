@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.8.0
+0.0.8.1
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Mettre bouton supprimer avec validation dans card - Mettre bouton télécharger dans card - lire fichier local"
+    git commit -m "[FAIT] - ajoutez banniere pub"
     ```
 3. Force le push  
     ```bash
@@ -156,8 +156,8 @@ https://github.com/MoshiDuck/Videomi
 - Faire que la bar des sous-titres ne disparaisse pas quand on a la souris dessus 
 - ajouter fichier avec miniature flouté téléchargeable ou regardeable avec mot de passe
 - ajouter profil comme netflix 
-- mettre mot de passe a 4 chiffre sur profil 
-- ajoutez banniere pub
+- mettre mot de passe a 4 chiffre sur profil
 - ajoutez abonnement prenium
-- 
+- ajoutez genre action romance etc..
+- Limiter le fichier a 5gb 
     
