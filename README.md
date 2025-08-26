@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - ajoutez banniere pub"
+    git commit -m "[FAIT] - enlever banniere pub"
     ```
 3. Force le push  
     ```bash
@@ -159,5 +159,5 @@ https://github.com/MoshiDuck/Videomi
 - mettre mot de passe a 4 chiffre sur profil
 - ajoutez abonnement prenium
 - ajoutez genre action romance etc..
-- Limiter le fichier a 5gb 
+- Limiter le fichier a 5gb
     

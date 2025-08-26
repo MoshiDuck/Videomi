@@ -5,7 +5,6 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QApplication
 )
 from yt_dlp import YoutubeDL
-from banner import Banner  # Import de la classe Banner
 
 
 class ExtractThread(QThread):
@@ -36,12 +35,11 @@ class ExtractThread(QThread):
 
             for entry in entries:
                 try:
-                    # Demander un maximum d'infos (mais sans télécharger)
                     single_opts = {
                         'quiet': True,
                         'no_warnings': True,
                         'noplaylist': True,
-                        # ne forcer pas "bestvideo+bestaudio" ici — on va analyser les formats
+
                     }
 
                     with YoutubeDL(single_opts) as ydl:
@@ -50,13 +48,11 @@ class ExtractThread(QThread):
 
                     formats = video_info.get('formats') or [video_info]
 
-                    # 1) Chercher formats «progressifs» (audio+video dans le même format)
                     progressive = [
                         f for f in formats
                         if f.get('acodec') not in (None, 'none') and f.get('vcodec') not in (None, 'none')
                     ]
 
-                    # trier par hauteur (height) puis par bitrate (tbr)
                     def score_format(f):
                         return (f.get('height') or 0, f.get('tbr') or 0)
 
@@ -68,11 +64,10 @@ class ExtractThread(QThread):
                             stream_urls.append(url)
                             continue  # on passe à la vidéo suivante
 
-                    # 2) Si pas de format progressif, chercher HLS / m3u8 adaptatif
                     hls = [
                         f for f in formats
                         if 'm3u8' in (f.get('protocol') or '') or f.get('ext') == 'm3u8' or 'hls' in (
-                                f.get('format_note') or '').lower()
+                                    f.get('format_note') or '').lower()
                     ]
                     if hls:
                         # preferer le plus haut bitrate / resolution
@@ -82,11 +77,6 @@ class ExtractThread(QThread):
                             stream_urls.append(url)
                             continue
 
-                    # 3) Si on a des formats vidéo-only + audio-only, on peut tenter de renvoyer
-                    # l'URL vidéo-only la meilleure — ATTENTION: peut manquer l'audio si le lecteur
-                    # ne sait pas mixer séparément. On préfère renvoyer tout de même la meilleure
-                    # url disponible pour que l'utilisateur ait une lecture (à améliorer : utiliser VLC).
-                    # Chercher la meilleure URL par hauteur/tbr, peu importe audio/video
                     formats_sorted = sorted(formats, key=score_format, reverse=True)
                     if formats_sorted:
                         url = formats_sorted[0].get('url')
@@ -113,13 +103,7 @@ class Streaming(QWidget):
     def __init__(self, switch_to_lecteur):
         super().__init__()
         self.switch_to_lecteur = switch_to_lecteur
-
-        # Layout principal
-        main_layout = QVBoxLayout()
-
-        # Conteneur pour les éléments de streaming
-        streaming_container = QWidget()
-        streaming_layout = QVBoxLayout(streaming_container)
+        self.setLayout(QVBoxLayout())
 
         # Ligne input + bouton Coller
         line_layout = QHBoxLayout()
@@ -140,24 +124,9 @@ class Streaming(QWidget):
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        streaming_layout.addLayout(line_layout)
-        streaming_layout.addWidget(self.play_button)
-        streaming_layout.addWidget(self.status_label)
-        streaming_layout.addStretch(1)  # Ajoute un espace flexible
-
-        # Ajouter le conteneur de streaming au layout principal
-        main_layout.addWidget(streaming_container, stretch=1)
-
-        # Ajouter la bannière publicitaire en bas
-        self.ad_bar = Banner()
-        banner_layout = QHBoxLayout()
-        banner_layout.addStretch(1)
-        banner_layout.addWidget(self.ad_bar)
-        banner_layout.addStretch(1)
-
-        main_layout.addLayout(banner_layout, stretch=0)
-
-        self.setLayout(main_layout)
+        self.layout().addLayout(line_layout)
+        self.layout().addWidget(self.play_button)
+        self.layout().addWidget(self.status_label)
 
     def paste_from_clipboard(self):
         clipboard = QApplication.clipboard()

@@ -9,10 +9,11 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/all-files.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/banner.py" beforeDir="false" afterPath="$PROJECT_DIR$/banner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/banner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
