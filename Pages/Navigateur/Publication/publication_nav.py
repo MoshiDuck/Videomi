@@ -1,12 +1,13 @@
 import os
-from PyQt6.QtCore import Qt, QSize
+import re
+from pathlib import Path
+from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog,
     QFrame, QHBoxLayout, QSizePolicy,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar
 )
-
 from Database.db_manager import DatabaseManager
 from Database.sync_database import SyncDatabase
 from Models.category import CatManager
@@ -15,6 +16,54 @@ from Pages.Auth.firebase_auth import FirebaseAuth
 from Pages.Navigateur.Catalogue.catalogue_nav import Catalogue
 from Service.py1FichierClient import FichierClient
 
+IGNORED_WORDS = frozenset({
+    "multi", "french", "vostfr", "vf2", "vff", "vfi", "vfq", "truefrench",
+    "1080p", "720p", "2160p", "4k", "hdr", "dv", "hdr10", "hdr10plus",
+    "web", "webrip", "web-dl", "bluray", "brrip", "bdrip", "hdtv", "dvdrip",
+    "x264", "x265", "h264", "h265", "hevc", "ac3", "dd5", "ddp5", "atmos",
+    "eac3", "dts", "aac", "remux", "mhd", "amzn", "custom", "light",
+    "repack", "proper", "limited", "extended", "directors", "cut", "unrated",
+    "theatrical", "edition", "dubbed", "subed", "ntsc", "pal", "secam",
+    "mkv", "mp4", "avi", "divx", "xvid", "hdrip", "dl", "com", "eng", "fr", "en",
+    "10bit", "5.1", "ddp", "avc", "unaired", "pilot", "hdma", "bulitt",
+    "hdr10+", "4klight", "waploaded", "avalon", "sodapop", "jarod", "notag",
+    "kpx", "rough", "neo", "lypsg", "cherrycoke", "gandalf", "lihdl", "winks",
+    "qtz", "muxor", "extreme", "etherum", "tfa", "fw", "ntg", "slay3r", "bzh29",
+    "a3l", "psa", "ukdhd", "ulysse", "flux", "tyhd", "trsiel", "dread", "team",
+    "rififi", "hdlight", "hlight", "batgirl", "supply", "darkino", "acoool",
+    "mhdgz", "acool", "yify", "2025"
+})
+KEEP_WORDS = frozenset({
+    "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
+    "and", "the", "of", "a", "an", "le", "la", "les", "des", "du", "de"
+})
+_ROMAN_PATTERN = re.compile(
+    r'^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})'
+    r'(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$',
+    re.IGNORECASE
+)
+
+def is_roman(token: str) -> bool:
+    return bool(_ROMAN_PATTERN.fullmatch(token))
+
+def sanitize_filename(filename: str) -> str:
+    p = Path(filename)
+    stem = p.stem.lower()
+    ext = p.suffix
+    tokens = re.split(r'[^a-z0-9]+', stem)
+    filtered = []
+    for t in tokens:
+        if not t:
+            continue
+        if t in KEEP_WORDS or is_roman(t):
+            filtered.append(t)
+            continue
+        if t in IGNORED_WORDS:
+            continue
+        filtered.append(t)
+    new_stem = "_".join(filtered) if filtered else stem
+    new_stem = new_stem.title().replace("_", " ")
+    return f"{new_stem}{ext}"
 
 class ProportionalTree(QTreeWidget):
     def __init__(self, *args, status_ratio: float = 0.1, **kwargs):
@@ -26,11 +75,9 @@ class ProportionalTree(QTreeWidget):
         total_width = self.viewport().width()
         self.header().resizeSection(0, int(total_width * self._status_ratio))
 
-
 class Publication(QWidget):
-
-    def __init__(self, firebase_auth: FirebaseAuth, client: FichierClient, db_manager: DatabaseManager,
-                 catalogue: Catalogue):
+    def __init__(self, firebase_auth: FirebaseAuth, client: FichierClient,
+                 db_manager: DatabaseManager, catalogue: Catalogue):
         super().__init__()
         self._init_theme()
         self.client = client
@@ -52,14 +99,11 @@ class Publication(QWidget):
         }
 
         self.setObjectName("publication_page")
-        # → 1. Instancie ton thread SyncDatabase
         self.sync_thread = SyncDatabase(
             firebase_auth=firebase_auth,
             db_manager=db_manager,
             client=client
         )
-
-        # → 2. Connecte son signal finished_sync
         self.sync_thread.finished_sync.connect(
             self._on_sync_finished,
             Qt.ConnectionType.QueuedConnection
@@ -67,22 +111,15 @@ class Publication(QWidget):
 
         self._ensure_folders_exist()
         existing_files = self._fetch_existing_files()
-
         self.upload_manager = UploadManager(
             client, self.cat_manager, existing_files, self.folder_ids
         )
         self.upload_manager.finished.connect(self._on_file_uploaded)
-        # → Connecter le signal de progression individuelle
         self.upload_manager.file_progress.connect(self._on_file_progress)
-        # → 3. Au lieu de te brancher sur all_done pour juste vider l’UI,
-        # tu y déclenches aussi ton sync_thread
         self.upload_manager.all_done.connect(self._on_all_done)
         self.upload_manager.existing_files = existing_files
 
         self._build_ui()
-
-    def _on_sync_finished(self):
-        self.catalogue.reload_items()
 
     def _init_theme(self):
         pal = QPalette()
@@ -97,7 +134,6 @@ class Publication(QWidget):
             lname = name.lower()
             if lname not in existing:
                 self.client.create_folder(folder_name=name)
-
         for folder in self.client.get_folders(0).get("sub_folders", []):
             self.folder_ids[folder["name"].lower()] = folder["id"]
 
@@ -118,7 +154,6 @@ class Publication(QWidget):
         main.setContentsMargins(60, 60, 60, 60)
         main.setSpacing(20)
 
-        # Buttons
         btn_layout = QHBoxLayout()
         self.btn_file = QPushButton("📂 Choisir un fichier")
         self.btn_file.clicked.connect(self._pick_file)
@@ -132,7 +167,6 @@ class Publication(QWidget):
             btn_layout.addWidget(btn)
         main.addLayout(btn_layout)
 
-        # File List Tree
         self.tree = ProportionalTree(status_ratio=0.1)
         self.tree.setHeaderLabels(["Statut", "Catégorie", "Nom de fichier"])
         self.tree.setIndentation(0)
@@ -142,7 +176,6 @@ class Publication(QWidget):
         self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main.addWidget(self.tree)
 
-        # Progress
         main.addWidget(self._separator())
         self.progress = QProgressBar()
         self.progress.setObjectName("progress_bar")
@@ -151,19 +184,16 @@ class Publication(QWidget):
         main.addWidget(self.progress)
         main.addWidget(self._separator())
 
-        # Actions
         action_layout = QHBoxLayout()
         self.clear_btn = QPushButton("🗑️ Vider la liste")
         self.clear_btn.clicked.connect(self._clear_list)
         self.clear_btn.setFixedHeight(40)
         self.clear_btn.setObjectName("clear_btn")
         action_layout.addWidget(self.clear_btn)
-
         self.pub_btn = QPushButton("🚀 Publier")
         self.pub_btn.clicked.connect(self._publish)
         self.pub_btn.setFixedHeight(40)
         action_layout.addWidget(self.pub_btn)
-
         main.addLayout(action_layout)
         self.setLayout(main)
 
@@ -212,12 +242,9 @@ class Publication(QWidget):
             self._add_files(files)
 
     def _on_file_progress(self, percent: int):
-        """Met à jour la barre de progression pour un fichier individuel"""
         total_files = len(self.selected_files)
         if total_files == 1:
-            # Pour un seul fichier, utilisez directement le pourcentage
             self.progress.setValue(percent)
-        # Pour plusieurs fichiers, le calcul global est déjà géré par UploadManager
 
     def _publish(self):
         if not self.selected_files:
@@ -227,12 +254,21 @@ class Publication(QWidget):
             self.tree.addTopLevelItem(warn)
             return
 
-        # disable buttons during upload
+        # Renommer les fichiers avant upload
+        renamed = []
+        for path in self.selected_files:
+            dir_, name = os.path.split(path)
+            new_name = sanitize_filename(name)
+            new_path = os.path.join(dir_, new_name)
+            if new_path != path:
+                os.rename(path, new_path)
+            renamed.append(new_path)
+        self.selected_files = renamed
+
         for btn in (self.btn_file, self.btn_folder, self.clear_btn, self.pub_btn):
             btn.setEnabled(False)
 
         total = len(self.selected_files)
-        # Configure la barre de progression différemment selon le nombre de fichiers
         if total == 1:
             self.progress.setRange(0, 100)
             self.progress.setValue(0)
@@ -248,34 +284,29 @@ class Publication(QWidget):
         if item:
             item.setText(0, '✅')
             item.setTextAlignment(0, Qt.AlignmentFlag.AlignCenter)
-            # store link for DB update
             self.uploaded_links[file_path] = link
-
-        # Mettre à jour la progression pour plusieurs fichiers
         if len(self.selected_files) > 1:
             self.progress.setValue(self.progress.value() + 1)
 
     def _on_all_done(self):
-        # Re-enable buttons after all uploads
         for btn in (self.btn_file, self.btn_folder, self.clear_btn, self.pub_btn):
             btn.setEnabled(True)
-
         for path, link in self.uploaded_links.items():
             item = self.item_map.get(path)
             if not item:
                 continue
             category = item.text(1)
             title = item.text(2)
-            file_extension = os.path.splitext(path)[1]  # Get file extension
-            self.db.insert_file(category, title, link, '', '', '{}', '', file_extension)  # Add extension parameter
+            file_extension = os.path.splitext(path)[1]
+            self.db.insert_file(category, title, link, '', '', '{}', '', file_extension)
         self.uploaded_links.clear()
-
-        # 4. Lancer la synchronisation après tout upload
         self.sync_thread.start()
-
         self.progress.setValue(0)
 
     def _clear_list(self):
         self.selected_files.clear()
         self.item_map.clear()
         self.tree.clear()
+
+    def _on_sync_finished(self):
+        self.catalogue.reload_items()

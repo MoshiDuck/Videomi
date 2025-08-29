@@ -5,15 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Catalogue/catalogue_nav.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Streaming/streaming_nav.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Widgets/item.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/all-files.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/banner.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Service/data_sync.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Service/py1FichierClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/py1FichierClient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mpv.log" beforeDir="false" afterPath="$PROJECT_DIR$/mpv.log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -42,36 +39,36 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.Trie.executor": "Run",
-    "Python.banner.executor": "Run",
-    "Python.bar_fenetre.executor": "Run",
-    "Python.bar_sec_lect.executor": "Run",
-    "Python.catalogue_nav.executor": "Run",
-    "Python.chapter_slider.executor": "Run",
-    "Python.icon_perso.executor": "Run",
-    "Python.lecteur.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.mpv_controller.executor": "Run",
-    "Python.onefichier_service.executor": "Run",
-    "Python.page_inscription.executor": "Run",
-    "Python.publication_nav.executor": "Run",
-    "Python.py1FichierClient.executor": "Run",
-    "Python.row_widget.executor": "Run",
-    "Python.test.executor": "Run",
-    "Python.test2.executor": "Run",
-    "Python.test3.executor": "Run",
-    "Python.upload_manager.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/Gabriel/PycharmProjects/Videomi/Ressource/mpv",
-    "settings.editor.selected.configurable": "advanced.settings"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.Trie.executor&quot;: &quot;Run&quot;,
+    &quot;Python.banner.executor&quot;: &quot;Run&quot;,
+    &quot;Python.bar_fenetre.executor&quot;: &quot;Run&quot;,
+    &quot;Python.bar_sec_lect.executor&quot;: &quot;Run&quot;,
+    &quot;Python.catalogue_nav.executor&quot;: &quot;Run&quot;,
+    &quot;Python.chapter_slider.executor&quot;: &quot;Run&quot;,
+    &quot;Python.icon_perso.executor&quot;: &quot;Run&quot;,
+    &quot;Python.lecteur.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.mpv_controller.executor&quot;: &quot;Run&quot;,
+    &quot;Python.onefichier_service.executor&quot;: &quot;Run&quot;,
+    &quot;Python.page_inscription.executor&quot;: &quot;Run&quot;,
+    &quot;Python.publication_nav.executor&quot;: &quot;Run&quot;,
+    &quot;Python.py1FichierClient.executor&quot;: &quot;Run&quot;,
+    &quot;Python.row_widget.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test3.executor&quot;: &quot;Run&quot;,
+    &quot;Python.upload_manager.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Gabriel/PycharmProjects/Videomi/Ressource/mpv&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;advanced.settings&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Gabriel\PycharmProjects\Videomi\Ressource\mpv" />
