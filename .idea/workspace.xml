@@ -5,11 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/delete.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Database/db_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/Database/db_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Database/sync_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/Database/sync_database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Models/category.py" beforeDir="false" afterPath="$PROJECT_DIR$/Models/category.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Models/upload_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/Models/upload_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Service/data_sync.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Service/py1FichierClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/Service/py1FichierClient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/init.py" beforeDir="false" afterPath="$PROJECT_DIR$/init.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mpv.log" beforeDir="false" afterPath="$PROJECT_DIR$/mpv.log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/user_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/user_token.json" afterDir="false" />
     </list>
@@ -42,12 +47,14 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.Delete.executor&quot;: &quot;Run&quot;,
     &quot;Python.Trie.executor&quot;: &quot;Run&quot;,
     &quot;Python.banner.executor&quot;: &quot;Run&quot;,
     &quot;Python.bar_fenetre.executor&quot;: &quot;Run&quot;,
     &quot;Python.bar_sec_lect.executor&quot;: &quot;Run&quot;,
     &quot;Python.catalogue_nav.executor&quot;: &quot;Run&quot;,
     &quot;Python.chapter_slider.executor&quot;: &quot;Run&quot;,
+    &quot;Python.delete.executor&quot;: &quot;Run&quot;,
     &quot;Python.icon_perso.executor&quot;: &quot;Run&quot;,
     &quot;Python.lecteur.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
@@ -86,6 +93,29 @@
     </key>
   </component>
   <component name="RunManager" selected="Python.main">
+    <configuration name="Delete" type="PythonConfigurationType" factoryName="Python">
+      <module name="Videomi" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Python 3.13 (Videomi)" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/delete.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="lecteur" type="PythonConfigurationType" factoryName="Python">
       <module name="Videomi" />
       <option name="ENV_FILES" value="" />
@@ -135,6 +165,7 @@
     <list>
       <item itemvalue="Python.main" />
       <item itemvalue="Python.lecteur" />
+      <item itemvalue="Python.Delete" />
     </list>
   </component>
   <component name="SharedIndexes">

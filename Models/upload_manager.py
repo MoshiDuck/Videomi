@@ -4,14 +4,17 @@ import os
 import re
 import subprocess
 import traceback
+from difflib import SequenceMatcher
 from io import BytesIO
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Dict, Any
 
+import cv2
+import eyed3
 import fitz
 import unicodedata
 import yaml
-from PIL import Image
+from PIL import Image, ExifTags
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QTimer
 from docx import Document
 from mutagen import File as MutagenFile, File
@@ -21,10 +24,19 @@ from mutagen.mp4 import MP4Cover
 from pptx import Presentation
 from pyOneFichierClient.OneFichierAPI.exceptions import FichierResponseNotOk
 from pyrebase import pyrebase
+from yt_dlp.compat import imghdr
+
+# Import Spotify
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+
 from Service.py1FichierClient import FichierClient, s
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
+import requests
 
 from Models.category import CatManager
+
+# Suppression de l'import music_tag
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 FFMPEG_PATH = BASE_DIR / "Ressource" / "ffmpeg" / "bin" / "ffmpeg.exe"
@@ -116,6 +128,148 @@ def generate_thumbnail(video_path: str, thumb_path: str, percent: float = 0.15):
     return thumb_path
 
 
+def safe_serialize(obj):
+    """Convertit les objets non sérialisables en strings"""
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    elif isinstance(obj, (list, tuple)):
+        return [safe_serialize(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {str(k): safe_serialize(v) for k, v in obj.items()}
+    elif hasattr(obj, '__str__'):
+        return str(obj)
+    else:
+        return repr(obj)
+
+
+class TMDBClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.themoviedb.org/3"
+
+    def search_movie(self, query: str, year: Optional[int] = None) -> Optional[Dict]:
+        url = f"{self.base_url}/search/movie"
+        params = {"api_key": self.api_key, "query": query}
+        if year:
+            params["year"] = year
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            return response.json().get("results", [])[0] if response.json().get("results") else None
+        return None
+
+    def search_tv(self, query: str, year: Optional[int] = None) -> Optional[Dict]:
+        url = f"{self.base_url}/search/tv"
+        params = {"api_key": self.api_key, "query": query}
+        if year:
+            params["first_air_date_year"] = year
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            return response.json().get("results", [])[0] if response.json().get("results") else None
+        return None
+
+    def get_tv_details(self, tv_id: int) -> Optional[Dict]:
+        url = f"{self.base_url}/tv/{tv_id}"
+        params = {"api_key": self.api_key}
+        response = requests.get(url, params=params)
+        return response.json() if response.status_code == 200 else None
+
+    def get_movie_details(self, movie_id: int) -> Optional[Dict]:
+        url = f"{self.base_url}/movie/{movie_id}"
+        params = {"api_key": self.api_key}
+        response = requests.get(url, params=params)
+        return response.json() if response.status_code == 200 else None
+
+
+def parse_video_filename(filename: str) -> Dict[str, Any]:
+    name = Path(filename).stem
+    patterns = [
+        # Pattern pour les séries: Nom.S01E02.quality.etc
+        r"^(.*?)[ ._-]s(\d{1,2})[ ._-]?e(\d{1,2})",
+        # Pattern pour les films: Nom (année).quality.etc
+        r"^(.*?)[ ._-]\((\d{4})\)",
+        # Pattern alternative pour les années
+        r"^(.*?)[ ._-](\d{4})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, name, re.IGNORECASE)
+        if match:
+            if "s" in pattern and "e" in pattern:
+                return {
+                    "type": "tv",
+                    "title": match.group(1).replace('.', ' ').strip(),
+                    "season": int(match.group(2)),
+                    "episode": int(match.group(3))
+                }
+            else:
+                return {
+                    "type": "movie",
+                    "title": match.group(1).replace('.', ' ').strip(),
+                    "year": int(match.group(2))
+                }
+
+    return {"type": "unknown", "title": name}
+
+
+def extract_music_metadata(file_path: str) -> Dict[str, Any]:
+    """Extrait les métadonnées musicales avec eyed3 comme dans le premier code"""
+    metadata = {
+        'artist': 'Artiste Inconnu',
+        'title': '',
+        'year': None
+    }
+
+    try:
+        filename = os.path.splitext(os.path.basename(file_path))[0]
+        audio = eyed3.load(file_path)
+
+        # Extraction depuis le nom de fichier
+        if ' - ' in filename:
+            artist, title_part = filename.split(' - ', 1)
+            metadata['artist'] = artist.strip()
+            metadata['title'] = re.sub(r'\(.*?\)', '', title_part).strip()
+        else:
+            metadata['title'] = filename
+
+        # Si on a chargé les tags audio, on les utilise
+        if audio and audio.tag:
+            tag = audio.tag
+            if tag.artist:
+                metadata['artist'] = tag.artist.strip()
+            if tag.title:
+                metadata['title'] = tag.title.strip()
+            if tag.getBestDate():
+                metadata['year'] = str(tag.getBestDate().year)
+
+        # Nettoyage du titre : suppression de l'artiste en préfixe si présent
+        metadata['title'] = re.sub(
+            rf"^{re.escape(metadata['artist'])}\s*-\s*",
+            "",
+            metadata['title'],
+            flags=re.IGNORECASE
+        )
+
+        # Nettoyage supplémentaire comme dans le premier code
+        metadata['title'] = re.sub(r'\(.*?\)|\[.*?\]', '', metadata['title']).strip()
+        metadata['title'] = re.sub(
+            r'\b(official music video|official video|lyrics|audio|remastered|remaster|version)\b',
+            '', metadata['title'], flags=re.IGNORECASE
+        ).strip()
+
+    except Exception as e:
+        print(f"Erreur extraction métadonnées musicales: {e}")
+        # Fallback simple
+        filename = os.path.splitext(os.path.basename(file_path))[0]
+        if ' - ' in filename:
+            artist, title = filename.split(' - ', 1)
+            metadata['artist'] = artist
+            metadata['title'] = re.sub(r'\(.*?\)', '', title).strip()
+        else:
+            metadata['title'] = filename
+
+    return metadata
+
+
 class UploadThread(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(str)
@@ -163,7 +317,7 @@ class UploadThread(QThread):
 
 class UploadManager(QObject):
     progress = pyqtSignal(int)
-    file_progress = pyqtSignal(int)  # Nouveau signal pour la progression d'un fichier individuel
+    file_progress = pyqtSignal(int)
     finished = pyqtSignal(str, str)
     thumb_finished = pyqtSignal(str, str)
     error = pyqtSignal(str)
@@ -198,6 +352,20 @@ class UploadManager(QObject):
         self.token = user['idToken']
         self.auth = firebase.auth()
         self.current_file_progress = 0
+        self.tmdb_metadata = {}
+        self.music_metadata = {}
+        self.tmdb_client = TMDBClient(cfg['tmdb']['api_key'])
+
+        # Initialisation du client Spotify
+        spotify_config = cfg.get('spotify', {})
+        if spotify_config.get('client_id') and spotify_config.get('client_secret'):
+            auth_manager = SpotifyClientCredentials(
+                client_id=spotify_config['client_id'],
+                client_secret=spotify_config['client_secret']
+            )
+            self.spotify_client = spotipy.Spotify(auth_manager=auth_manager)
+        else:
+            self.spotify_client = None
 
     def _ensure_token(self):
         try:
@@ -234,10 +402,12 @@ class UploadManager(QObject):
             thumb_link: str = '',
             category: str = None,
             title: str = None,
-            file_extension: str = None
+            file_extension: str = None,
+            music_metadata: str = None
     ) -> bool:
         self._ensure_token()
         clean_metadata = sanitize_dict_keys(metadata)
+        clean_metadata = safe_serialize(clean_metadata)  # Sérialisation sécurisée
 
         data = {
             'file_link': main_link,
@@ -245,6 +415,10 @@ class UploadManager(QObject):
             'thumbnail_link': thumb_link,
             'file_extension': file_extension
         }
+
+        if music_metadata:
+            data['music_metadata'] = music_metadata
+
         try:
             self._get_db_ref(category, title).set(data, self.token)
             return True
@@ -263,6 +437,45 @@ class UploadManager(QObject):
             self.all_done.emit()
         else:
             self.upload_next_file()
+
+    def _find_album_with_track(self, artist_id: str, track_name: str) -> Dict[str, Any]:
+        """Parcourt tous les albums d'un artiste pour trouver celui qui contient un morceau spécifique"""
+        if not self.spotify_client:
+            return {}
+
+        try:
+            # Récupérer tous les albums de l'artiste
+            albums = []
+            offset = 0
+            while True:
+                batch = self.spotify_client.artist_albums(
+                    artist_id,
+                    album_type='album,single,compilation',
+                    limit=50,
+                    offset=offset
+                )
+                albums.extend(batch['items'])
+                if not batch['next']:
+                    break
+                offset += 50
+
+            # Parcourir chaque album pour trouver le morceau
+            normalized_track_name = self.normalize_string(track_name)
+
+            for album in albums:
+                try:
+                    tracks = self.spotify_client.album_tracks(album['id'])['items']
+                    for track in tracks:
+                        if self.normalize_string(track['name']) == normalized_track_name:
+                            return album
+                except Exception as e:
+                    print(f"Erreur lors de la récupération des pistes de l'album {album['name']}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Erreur lors de la recherche d'album: {e}")
+
+        return {}
 
     def upload_next_file(self):
         if not self.files_to_upload:
@@ -286,10 +499,33 @@ class UploadManager(QObject):
             tags = metadata.get('ffprobe', {}).get('format', {}).get('tags', {})
             if tags.get('title', '').strip():
                 title_from_meta = tags['title'].strip()
-        elif key == 'musiques':
-            tags = metadata.get('mutagen_tags', {})
-            if tags.get('title', '').strip():
-                title_from_meta = tags['title'].strip()
+            elif key == 'musiques':
+                clean_title = title_from_meta
+                clean_title = re.sub(
+                    r'(official.*video|music video|lyric video|audio|official|videoclip|clip officiel)',
+                    '', clean_title, flags=re.IGNORECASE)
+                clean_title = re.sub(r'[\(\[].*?[\)\]]', '', clean_title)
+                clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+                clean_title = re.sub(r'^[-\s]+|[-\s]+$', '', clean_title)
+
+                # Utiliser les métadonnées Spotify pour le titre si disponibles
+                spotify_meta = metadata.get('spotify', {})
+                basic_meta = metadata
+
+                # Déterminer le meilleur titre possible
+                if spotify_meta and spotify_meta.get('spotify_artist') and spotify_meta.get('spotify_album'):
+                    artist = spotify_meta['spotify_artist'][0]
+                    album = spotify_meta['spotify_album']
+                    track_title = basic_meta.get('title', clean_title)
+                    new_title = f"{artist} - {track_title}"
+
+                # Fallback sur les métadonnées de base
+                elif basic_meta.get('artist') and basic_meta.get('title'):
+                    new_title = f"{basic_meta['artist']} - {basic_meta['title']}"
+
+                # Fallback sur le nom de fichier nettoyé
+                else:
+                    new_title = clean_title
 
         firebase_sanitized_title = sanitize_folder_name(title_from_meta).lower()
 
@@ -308,7 +544,7 @@ class UploadManager(QObject):
         is_media = key in ('musiques', 'videos')
 
         self.thread = UploadThread(self.client, path)
-        self.thread.progress.connect(self.on_file_progress)  # Connecter à la nouvelle méthode
+        self.thread.progress.connect(self.on_file_progress)
         self.thread.finished.connect(lambda link, p=path: self.on_finished(link, p, category, name, is_media))
         self.thread.error.connect(self.error.emit)
         self.thread.start()
@@ -340,7 +576,7 @@ class UploadManager(QObject):
         a4_h_px = int(a4_h_in * dpi)
 
         ext = Path(doc_path).suffix.lower()
-        # On récupère un PIL.Image en RGBA ou RGB selon source
+        # On récupère un PIL.Image en RGBA or RGB selon source
         pil_img = None
 
         if ext == '.pdf':
@@ -397,23 +633,290 @@ class UploadManager(QObject):
         thumb.save(buf, 'JPEG', quality=90)
         return buf.getvalue(), '.jpg'
 
+    def get_tmdb_metadata(self, file_path: str) -> Dict[str, Any]:
+        filename = os.path.basename(file_path)
+        parsed_info = parse_video_filename(filename)
+
+        if parsed_info["type"] == "movie":
+            movie = self.tmdb_client.search_movie(parsed_info["title"], parsed_info.get("year"))
+            if movie:
+                details = self.tmdb_client.get_movie_details(movie["id"])
+                return {
+                    "type": "movie",
+                    "title": details.get("title"),
+                    "original_title": details.get("original_title"),
+                    "overview": details.get("overview"),
+                    "genres": [genre["name"] for genre in details.get("genres", [])],
+                    "release_date": details.get("release_date"),
+                    "tmdb_id": details.get("id"),
+                    "poster_path": details.get("poster_path"),
+                    "backdrop_path": details.get("backdrop_path")
+                }
+
+        elif parsed_info["type"] == "tv":
+            tv_show = self.tmdb_client.search_tv(parsed_info["title"], parsed_info.get("year"))
+            if tv_show:
+                details = self.tmdb_client.get_tv_details(tv_show["id"])
+                return {
+                    "type": "tv",
+                    "title": details.get("name"),
+                    "original_title": details.get("original_name"),
+                    "overview": details.get("overview"),
+                    "genres": [genre["name"] for genre in details.get("genres", [])],
+                    "first_air_date": details.get("first_air_date"),
+                    "season": parsed_info.get("season"),
+                    "episode": parsed_info.get("episode"),
+                    "tmdb_id": details.get("id"),
+                    "poster_path": details.get("poster_path"),
+                    "backdrop_path": details.get("backdrop_path")
+                }
+
+        return {"type": "unknown"}
+
+    def get_spotify_metadata(self, artist: str, track: str = None, album: str = None) -> Dict[str, Any]:
+        """Récupère les métadonnées Spotify avec la même logique que le premier code"""
+        if not self.spotify_client:
+            return {}
+
+        try:
+            # Nettoyage identique au premier code
+            filename = f"{artist} - {track}" if artist and track else artist
+            metadata = {
+                'artist': artist or 'Artiste Inconnu',
+                'album': album or 'Album Inconnu',
+                'title': track or '',
+                'genre': 'Inconnu',
+                'year': None
+            }
+
+            # Nettoyage comme dans le premier code
+            clean = re.sub(r'\(.*?\)|\[.*?\]', '', metadata['title']).strip()
+            clean = re.sub(
+                r'\b(official music video|official video|lyrics|audio|remastered|remaster|version)\b',
+                '', clean, flags=re.IGNORECASE
+            ).strip()
+
+            # Recherche avec la même logique
+            if metadata['artist'] != 'Artiste Inconnu':
+                q = f'artist:"{metadata["artist"]}" track:"{clean}"'
+                res = self.spotify_client.search(q=q, type='track', limit=10)
+                items = res['tracks']['items']
+
+                best, score = None, 0
+                for tr in items:
+                    t_title = tr['name'].lower()
+                    t_artist = tr['artists'][0]['name'].lower()
+
+                    # Même calcul de score que le premier code
+                    s = (
+                            SequenceMatcher(None, clean.lower(), t_title).ratio() * 0.7 +
+                            SequenceMatcher(None, metadata['artist'].lower(), t_artist).ratio() * 0.3
+                    )
+
+                    if s > score:
+                        score, best = s, tr
+
+                if best and score > 0.6:
+                    metadata['album'] = best['album']['name']
+                    metadata['year'] = best['album']['release_date'][:4] if best['album'].get('release_date') else None
+
+                    # Récupération des genres de l'artiste
+                    try:
+                        art = self.spotify_client.artist(best['artists'][0]['id'])
+                        if art['genres']:
+                            metadata['genre'] = art['genres'][0].title()
+                    except:
+                        pass
+
+                    return {
+                        'spotify_artist': [art['name'] for art in best['artists']],
+                        'spotify_album': best['album']['name'],
+                        'spotify_genres': art.get('genres', []) if 'art' in locals() else [],
+                        'spotify_popularity': best['popularity'],
+                        'spotify_id': best['id'],
+                        'spotify_release_date': best['album'].get('release_date', '')
+                    }
+
+        except Exception as e:
+            print(f"Erreur Spotify API: {e}")
+
+        return {}
+
+    def _calculate_match_score(self, clean_artist: str, clean_track: str, clean_album: str, track_info: Dict) -> float:
+        """Calcule un score de correspondance entre les métadonnées et un résultat Spotify"""
+        from difflib import SequenceMatcher
+
+        score = 0
+
+        # Vérifier la correspondance des artistes
+        track_artists = [self.normalize_string(art['name']) for art in track_info['artists']]
+        if clean_artist in track_artists:
+            score += 50
+        else:
+            # Vérifier la similarité partielle
+            for art_name in track_artists:
+                if art_name in clean_artist or clean_artist in art_name:
+                    score += 25
+                    break
+
+        # Vérifier la correspondance du titre
+        track_name = self.normalize_string(track_info['name'])
+        if clean_track == track_name:
+            score += 30
+        else:
+            similarity = SequenceMatcher(None, clean_track, track_name).ratio()
+            score += similarity * 30
+
+        # Vérifier la correspondance de l'album si fourni
+        if clean_album:
+            album_name = self.normalize_string(track_info['album']['name'])
+            if clean_album == album_name:
+                score += 20
+            else:
+                similarity = SequenceMatcher(None, clean_album, album_name).ratio()
+                score += similarity * 20
+
+        # Ajouter un bonus pour la popularité
+        score += track_info['popularity'] / 10
+
+        return score
+
+    def _extract_track_metadata(self, track_info: Dict) -> Dict[str, Any]:
+        """Extrait les métadonnées d'une piste Spotify"""
+        artist_id = track_info['artists'][0]['id']
+        genres = self._get_artist_genres(artist_id)
+
+        return {
+            'spotify_artist': [art['name'] for art in track_info['artists']],
+            'spotify_album': track_info['album']['name'],
+            'spotify_genres': genres,
+            'spotify_popularity': track_info['popularity'],
+            'spotify_id': track_info['id'],
+            'spotify_album_id': track_info['album']['id'],
+            'spotify_release_date': track_info['album'].get('release_date', ''),
+            'spotify_track_number': track_info.get('track_number', 0),
+            'spotify_duration_ms': track_info.get('duration_ms', 0)
+        }
+
+    @staticmethod
+    def normalize_string(s: str) -> str:
+        """Normalise une chaîne pour la comparaison"""
+        if not s:
+            return ""
+        s = s.lower()
+        s = re.sub(r'[^\w\s]', '', s)  # Supprime la ponctuation
+        s = re.sub(r'\s+', ' ', s).strip()
+        return s
+
+    def _find_track_in_artist_albums(self, artist_id: str, track_name: str) -> Dict[str, Any]:
+        """Parcourt tous les albums d'un artiste pour trouver une piste spécifique"""
+        try:
+            # Récupérer tous les albums de l'artiste
+            albums = []
+            offset = 0
+            limit = 50
+
+            while True:
+                results = self.spotify_client.artist_albums(
+                    artist_id,
+                    album_type='album,single,compilation',
+                    limit=limit,
+                    offset=offset
+                )
+                albums.extend(results['items'])
+
+                if len(results['items']) < limit:
+                    break
+
+                offset += limit
+
+            # Rechercher la piste dans chaque album
+            clean_track_name = self.normalize_string(track_name)
+
+            for album in albums:
+                try:
+                    tracks = self.spotify_client.album_tracks(album['id'])['items']
+
+                    for track in tracks:
+                        if self.normalize_string(track['name']) == clean_track_name:
+                            return self._extract_track_metadata(track)
+                except Exception as e:
+                    print(f"Erreur lors de la récupération des pistes de l'album {album['name']}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Erreur lors de la recherche dans les albums de l'artiste: {e}")
+
+        return {}
+
+    def _get_artist_genres(self, artist_id: str) -> List[str]:
+        """Récupère les genres d'un artiste Spotify"""
+        try:
+            artist = self.spotify_client.artist(artist_id)
+            return artist.get('genres', [])
+        except:
+            return []
+
     def on_finished(self, link: str, uploaded_file: str, category: str, title: str, is_media: bool):
         try:
             file_extension = os.path.splitext(uploaded_file)[1].lower()
-
             metadata = self.get_all_metadata(uploaded_file, category)
+
+            # Ajoutez les métadonnées TMDB pour les vidéos
+            if category.lower() == 'videos':
+                tmdb_metadata = self.get_tmdb_metadata(uploaded_file)
+                metadata['tmdb'] = tmdb_metadata
+                # Utiliser la sérialisation sécurisée
+                self.tmdb_metadata[uploaded_file] = json.dumps(safe_serialize(tmdb_metadata))
+
+            # Ajoutez les métadonnées Spotify pour les musiques
+            if category.lower() == 'musiques' and 'spotify' in metadata:
+                # Utiliser la sérialisation sécurisée
+                self.music_metadata[uploaded_file] = json.dumps(safe_serialize(metadata['spotify']))
 
             # --- Détermination du titre final ---
             new_title = title
             key = category.lower()
+
             if key == 'videos':
                 tags = metadata.get('ffprobe', {}).get('format', {}).get('tags', {})
                 if tags.get('title', '').strip():
                     new_title = tags['title'].strip()
+
             elif key == 'musiques':
-                tags = metadata.get('mutagen_tags', {})
-                if tags.get('title', '').strip():
-                    new_title = tags['title'].strip()
+                # Utiliser les métadonnées Spotify pour le titre si disponibles
+                spotify_meta = metadata.get('spotify', {})
+                basic_meta = metadata  # Métadonnées de base
+
+                # Déterminer le meilleur titre possible
+                if spotify_meta and spotify_meta.get('spotify_artist') and spotify_meta.get('spotify_album'):
+                    artist = spotify_meta['spotify_artist'][0]
+                    album = spotify_meta['spotify_album']
+
+                    # Si on a un titre de piste dans les métadonnées de base
+                    track_title = basic_meta.get('title', '')
+                    if track_title:
+                        new_title = f"{artist} - {track_title}"
+                    else:
+                        new_title = f"{artist} - {album}"
+
+                # Fallback sur les métadonnées de base
+                elif basic_meta.get('artist') and basic_meta.get('title'):
+                    new_title = f"{basic_meta['artist']} - {basic_meta['title']}"
+
+                # Fallback sur le nom de fichier (nettoyé)
+                else:
+                    # Nettoyer le titre du fichier
+                    clean_title = title
+                    # Supprimer les extensions
+                    clean_title = re.sub(r'\.(mp3|flac|wav|m4a|aac|wma)$', '', clean_title, flags=re.IGNORECASE)
+                    # Supprimer les mentions entre parenthèses
+                    clean_title = re.sub(r'\([^)]*\)', '', clean_title)
+                    # Supprimer les mentions entre crochets
+                    clean_title = re.sub(r'\[[^\]]*\]', '', clean_title)
+                    # Nettoyer les espaces multiples
+                    clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+                    new_title = clean_title
 
             firebase_key_raw = sanitize_for_firebase_key(new_title).lower()
             firebase_key = sanitize_folder_name(firebase_key_raw)
@@ -445,7 +948,7 @@ class UploadManager(QObject):
                     thumb_link='',
                     category=category,
                     title=firebase_key,
-                    file_extension=file_extension  # Nouveau paramètre
+                    file_extension=file_extension
                 )
 
                 # Génération de la miniature au ratio original
@@ -500,15 +1003,13 @@ class UploadManager(QObject):
                 QTimer.singleShot(0, self.upload_next_file)
                 return
 
-            # --- Pour les autres catégories (documents, vidéos, musiques, archives…) ---
-            # Stockage metadata
             self.store_metadata_in_firebase(
                 main_link=link if key != 'images' else '',
                 metadata=metadata,
                 thumb_link='',
                 category=category,
                 title=firebase_key,
-                file_extension=file_extension
+                file_extension=file_extension,
             )
 
             # Mémoriser le lien principal
@@ -738,27 +1239,91 @@ class UploadManager(QObject):
         QTimer.singleShot(0, self.upload_next_file)
 
     @staticmethod
-    def get_all_metadata(file_path: str, category: str) -> dict:
+    def get_image_basic_info(file_path: str) -> dict:
+        """
+        Fallback pour images corrompues - lit les infos de base du fichier
+        """
+        path = Path(file_path)
+        metadata = {
+            'format': path.suffix.lstrip('.').upper(),
+            'file_size': path.stat().st_size if path.exists() else 0,
+            'size': {}
+        }
+
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(16)
+
+            # Détecter format par magic bytes
+            if header.startswith(b'\xff\xd8\xff'):
+                metadata['format'] = 'JPEG'
+            elif header.startswith(b'\x89PNG\r\n\x1a\n'):
+                metadata['format'] = 'PNG'
+            elif header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):
+                metadata['format'] = 'GIF'
+            elif header.startswith(b'BM'):
+                metadata['format'] = 'BMP'
+
+        except Exception:
+            pass
+
+        return metadata
+
+    def get_all_metadata(self, file_path: str, category: str) -> dict:
+        """
+        Extrait les métadonnées selon la catégorie avec fallback robuste pour les images
+        """
         metadata = {}
         try:
-            if category.lower() == 'videos':
-                ff = subprocess.run(
-                    [str(FFPROBE_PATH), '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams',
+            key = category.lower()
+
+            if key == 'videos':
+                proc = subprocess.run(
+                    [str(FFPROBE_PATH),
+                     '-v', 'quiet',
+                     '-print_format', 'json',
+                     '-show_format',
+                     '-show_streams',
                      file_path],
-                    capture_output=True, text=True, check=True)
-                metadata['ffprobe'] = json.loads(ff.stdout)
-            elif category.lower() == 'musiques':
-                m = MutagenFile(file_path)
-                tags = {str(k): str(v) for k, v in (m.tags or {}).items()}
-                metadata['mutagen_tags'] = tags
-                if hasattr(m, 'info') and hasattr(m.info, 'length'):
-                    metadata['duration'] = round(m.info.length, 2)
-            elif category.lower() == 'images':
-                ff = subprocess.run(
-                    [str(FFPROBE_PATH), '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams',
-                     file_path],
-                    capture_output=True, text=True, check=True)
-                metadata['ffprobe'] = json.loads(ff.stdout)
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                metadata['ffprobe'] = json.loads(proc.stdout)
+
+            elif key == 'musiques':
+                # Métadonnées de base avec la nouvelle fonction
+                metadata.update(extract_music_metadata(file_path))
+
+                # Métadonnées enrichies avec Spotify
+                if self.spotify_client and metadata.get('artist'):
+                    spotify_meta = self.get_spotify_metadata(
+                        artist=metadata['artist'],
+                        track=metadata.get('title'),
+                        album=metadata.get('album')
+                    )
+                    if spotify_meta:
+                        metadata['spotify'] = spotify_meta
+
+            elif key == 'images':
+                try:
+                    # Essayer PIL d'abord
+                    with Image.open(file_path) as img:
+                        metadata['format'] = img.format
+                        metadata['size'] = {'width': img.width, 'height': img.height}
+                        exif_data = img._getexif() or {}
+                        exif = {}
+                        for tag_id, value in exif_data.items():
+                            tag = ExifTags.TAGS.get(tag_id, tag_id)
+                            exif[tag] = value
+                        if exif:
+                            metadata['exif'] = exif
+                except Exception:
+                    # Fallback simple - juste les infos de fichier
+                    print(f"[Metadata] PIL échoue sur {file_path}, utilisation du fallback")
+                    metadata.update(UploadManager.get_image_basic_info(file_path))
+
         except Exception as e:
             print(f"[Metadata] Erreur lecture métadonnées : {e}")
+
         return metadata

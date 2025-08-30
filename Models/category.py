@@ -1,3 +1,4 @@
+#category.py
 class CatManager:
     CATEGORIES = {
         'videos': ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.mpeg',

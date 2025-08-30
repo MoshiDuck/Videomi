@@ -1,3 +1,4 @@
+#py1FichierClient.py
 import os
 import requests
 from json.decoder import JSONDecodeError
@@ -240,7 +241,7 @@ class FichierClient(object):
         return files
 
     def get_folder(self, id=0, only_subfolders=False):
-        o = self._get_folders(id)
+        o = self.get_folders(id)
 
         if not only_subfolders:
             o.update(self._get_files(id))
@@ -398,3 +399,5 @@ class FichierClient(object):
 
         o = self.api_call('https://api.1fichier.com/v1/file/cp.cgi', json=params)
         return {'status': o['status'], 'copied': o['copied']}
+
+

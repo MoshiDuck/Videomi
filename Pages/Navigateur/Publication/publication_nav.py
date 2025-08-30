@@ -17,21 +17,37 @@ from Pages.Navigateur.Catalogue.catalogue_nav import Catalogue
 from Service.py1FichierClient import FichierClient
 
 IGNORED_WORDS = frozenset({
-    "multi", "french", "vostfr", "vf2", "vff", "vfi", "vfq", "truefrench",
-    "1080p", "720p", "2160p", "4k", "hdr", "dv", "hdr10", "hdr10plus",
-    "web", "webrip", "web-dl", "bluray", "brrip", "bdrip", "hdtv", "dvdrip",
-    "x264", "x265", "h264", "h265", "hevc", "ac3", "dd5", "ddp5", "atmos",
-    "eac3", "dts", "aac", "remux", "mhd", "amzn", "custom", "light",
-    "repack", "proper", "limited", "extended", "directors", "cut", "unrated",
-    "theatrical", "edition", "dubbed", "subed", "ntsc", "pal", "secam",
-    "mkv", "mp4", "avi", "divx", "xvid", "hdrip", "dl", "com", "eng", "fr", "en",
-    "10bit", "5.1", "ddp", "avc", "unaired", "pilot", "hdma", "bulitt",
-    "hdr10+", "4klight", "waploaded", "avalon", "sodapop", "jarod", "notag",
-    "kpx", "rough", "neo", "lypsg", "cherrycoke", "gandalf", "lihdl", "winks",
-    "qtz", "muxor", "extreme", "etherum", "tfa", "fw", "ntg", "slay3r", "bzh29",
-    "a3l", "psa", "ukdhd", "ulysse", "flux", "tyhd", "trsiel", "dread", "team",
-    "rififi", "hdlight", "hlight", "batgirl", "supply", "darkino", "acoool",
-    "mhdgz", "acool", "yify", "2025"
+    # Langue / doublage / sous-titres
+    "multi", "french", "truefrench", "vostfr", "vf2", "vff", "vfi", "vfq",
+    "dub", "dubbed", "sub", "subed", "subbed", "frenchsubs", "engsub", "multi-sub", "multi-audio",
+
+    # Résolutions & encodage
+    "1080p", "720p", "2160p", "4k", "4klight", "hdr", "hdrip", "hdr10", "hdr10plus", "hdr10+",
+    "dv", "dvdr", "dvdrip", "dvdscr", "bdrip", "brrip", "bluray", "blurayremux",
+    "webrip", "web", "web-dl", "hdtv", "hdcam", "cam", "ts", "tc", "r5",
+    "remux", "x264", "x265", "h264", "h265", "hevc", "avc", "10bit", "10bits", "264", "265",
+
+    # Audio
+    "ac3", "aac", "dts", "eac3", "dd5", "ddp5", "ddp7", "ddp", "hdma", "atmos", "6ch", "aac2",
+
+    # Release tags génériques
+    "proper", "repack", "limited", "extended", "directors", "cut", "unrated",
+    "theatrical", "edition", "custom", "light", "suppl", "sample", "trailer", "preview",
+    "unaired", "pilot", "cinema", "theater",
+
+    # Formats vidéo
+    "mkv", "mp4", "avi", "divx", "xvid",
+
+    # Groupes / tags scène
+    "rarbg", "ettv", "yts", "yify", "evo", "ganool",
+    "amzn", "a3l", "psa", "ukdhd", "ulysse", "flux", "tyhd", "trsiel", "dread",
+    "rififi", "hdlight", "hlight", "mhd", "mhdgz", "batgirl", "darkino",
+    "acoool", "acool", "lypsg", "rough", "neo", "cherrycoke", "gandalf",
+    "lihdl", "winks", "qtz", "muxor", "extreme", "etherum", "tfa", "fw",
+    "ntg", "slay3r", "bzh29", "notag", "bulitt", "avalon", "sodapop", "jarod", "team", "ght", "r3n",
+
+    # Divers
+    "dl", "com", "eng", "fr", "en",
 })
 KEEP_WORDS = frozenset({
     "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
@@ -43,27 +59,46 @@ _ROMAN_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+
 def is_roman(token: str) -> bool:
     return bool(_ROMAN_PATTERN.fullmatch(token))
+
 
 def sanitize_filename(filename: str) -> str:
     p = Path(filename)
     stem = p.stem.lower()
     ext = p.suffix
+
+    # Conserver les informations de saison/épisode et année
+    patterns_to_keep = [
+        r's\d{1,2}e\d{1,2}',  # S01E01
+        r'\d{4}',  # Année
+        r'1080p|720p|4k',  # Résolutions
+        r'bluray|webrip|hdtv'  # Sources
+    ]
+
+    keep_tokens = []
+    for pattern in patterns_to_keep:
+        matches = re.findall(pattern, stem, re.IGNORECASE)
+        keep_tokens.extend(matches)
+
     tokens = re.split(r'[^a-z0-9]+', stem)
     filtered = []
+
     for t in tokens:
         if not t:
             continue
-        if t in KEEP_WORDS or is_roman(t):
+        if t in KEEP_WORDS or is_roman(t) or t in keep_tokens:
             filtered.append(t)
             continue
         if t in IGNORED_WORDS:
             continue
         filtered.append(t)
+
     new_stem = "_".join(filtered) if filtered else stem
     new_stem = new_stem.title().replace("_", " ")
     return f"{new_stem}{ext}"
+
 
 class ProportionalTree(QTreeWidget):
     def __init__(self, *args, status_ratio: float = 0.1, **kwargs):
@@ -74,6 +109,7 @@ class ProportionalTree(QTreeWidget):
         super().resizeEvent(event)
         total_width = self.viewport().width()
         self.header().resizeSection(0, int(total_width * self._status_ratio))
+
 
 class Publication(QWidget):
     def __init__(self, firebase_auth: FirebaseAuth, client: FichierClient,
@@ -298,7 +334,15 @@ class Publication(QWidget):
             category = item.text(1)
             title = item.text(2)
             file_extension = os.path.splitext(path)[1]
-            self.db.insert_file(category, title, link, '', '', '{}', '', file_extension)
+
+            # Récupérer les métadonnées TMDB si disponibles
+            tmdb_metadata = getattr(self.upload_manager, 'tmdb_metadata', {}).get(path, "{}")
+
+            # Récupérer les métadonnées musicales si disponibles
+            music_metadata = getattr(self.upload_manager, 'music_metadata', {}).get(path, "{}")
+
+            self.db.insert_file(category, title, link, '', '', '{}', tmdb_metadata, music_metadata, '', file_extension)
+
         self.uploaded_links.clear()
         self.sync_thread.start()
         self.progress.setValue(0)

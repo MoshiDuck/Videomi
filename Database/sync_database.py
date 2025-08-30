@@ -58,11 +58,13 @@ def parse_json_safe(js: Optional[str]) -> Dict[str, Any]:
 def json_equal(a: Any, b: Any) -> bool:
     return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
-def compute_entry_hash(file_link: str, thumb_link: str, metadata_json: str) -> str:
+def compute_entry_hash(file_link: str, thumb_link: str, metadata_json: str, tmdb_metadata: str, music_metadata: str) -> str:
     h = hashlib.sha1()
     h.update((file_link or "").encode("utf-8"))
     h.update((thumb_link or "").encode("utf-8"))
     h.update((metadata_json or "").encode("utf-8"))
+    h.update((tmdb_metadata or "").encode("utf-8"))
+    h.update((music_metadata or "").encode("utf-8"))
     return h.hexdigest()
 
 class SyncDatabase(QObject):
@@ -148,8 +150,10 @@ class SyncDatabase(QObject):
 
                 metadata = entry.get("metadata", {})
                 metadata_json = json.dumps(metadata, ensure_ascii=False)
+                tmdb_metadata = entry.get("tmdb_metadata", "{}")
+                music_metadata = entry.get("music_metadata", "{}")
                 local_thumb_path = local_thumbnails.get((category, title), "")
-                entry_hash = compute_entry_hash(file_link, thumb_link, metadata_json)
+                entry_hash = compute_entry_hash(file_link, thumb_link, metadata_json, tmdb_metadata, music_metadata)
                 key = (category, title)
                 local_entry = local_data.get(key)
 
@@ -158,14 +162,14 @@ class SyncDatabase(QObject):
                     if local_hash != entry_hash:
                         logger.info(f"[SYNC] Mise à jour locale pour {category} → {title}")
                         local_db.update_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json,
-                                             entry_hash, file_extension, local_path)  # Ajout de local_path
+                                             tmdb_metadata, music_metadata, entry_hash, file_extension, local_path)
                         updated += 1
                     else:
                         logger.debug(f"[SKIP] Aucun changement détecté pour {category} → {title}")
                 else:
                     logger.info(f"[SYNC] Nouvelle entrée ajoutée : {category} → {title}")
                     local_db.insert_file(category, title, file_link, thumb_link, local_thumb_path, metadata_json,
-                                         entry_hash, file_extension, local_path)  # Ajout de local_path
+                                         tmdb_metadata, music_metadata, entry_hash, file_extension, local_path)
                     inserted += 1
 
         # Suppression des fichiers supprimés de la base de données locale

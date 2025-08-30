@@ -27,13 +27,15 @@ class DatabaseManager:
                     thumbnail_url TEXT,
                     thumbnail_path TEXT,
                     metadata_json TEXT,
+                    tmdb_metadata TEXT,
+                    music_metadata TEXT,
                     entry_hash TEXT,
                     file_extension TEXT,
-                    local_path TEXT  -- Nouveau champ
+                    local_path TEXT
                 )
             """)
             # Essayons d'ajouter les colonnes si elles n'existent pas
-            for column in ["file_extension", "local_path"]:
+            for column in ["file_extension", "local_path", "tmdb_metadata", "music_metadata"]:
                 try:
                     cursor.execute(f"ALTER TABLE files ADD COLUMN {column} TEXT")
                 except sqlite3.OperationalError:
@@ -44,7 +46,7 @@ class DatabaseManager:
         with self.lock:
             cursor = self.conn.cursor()
             cursor.execute(
-                "SELECT category, title, file_link, thumbnail_url, thumbnail_path, metadata_json, entry_hash, file_extension, local_path FROM files")
+                "SELECT category, title, file_link, thumbnail_url, thumbnail_path, metadata_json, tmdb_metadata, music_metadata, entry_hash, file_extension, local_path FROM files")
             rows = cursor.fetchall()
             return {
                 (row[0], row[1]): {
@@ -52,9 +54,11 @@ class DatabaseManager:
                     "thumbnail_url": row[3],
                     "thumbnail_path": row[4],
                     "metadata_json": row[5],
-                    "entry_hash": row[6],
-                    "file_extension": row[7],
-                    "local_path": row[8]  # Nouveau champ
+                    "tmdb_metadata": row[6],
+                    "music_metadata": row[7],
+                    "entry_hash": row[8],
+                    "file_extension": row[9],
+                    "local_path": row[10]
                 }
                 for row in rows
             }
@@ -67,16 +71,18 @@ class DatabaseManager:
             thumb_url: str,
             thumb_path: str,
             metadata_json: str,
+            tmdb_metadata: str,
+            music_metadata: str,
             entry_hash: str,
             file_extension: str,
-            local_path: str = None  # Nouveau paramètre
+            local_path: str = None
     ) -> None:
         with self.lock:
             cursor = self.conn.cursor()
             cursor.execute("""
-                INSERT INTO files (category, title, file_link, thumbnail_url, thumbnail_path, metadata_json, entry_hash, file_extension, local_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (category, title, file_link, thumb_url, thumb_path, metadata_json, entry_hash, file_extension, local_path))
+                INSERT INTO files (category, title, file_link, thumbnail_url, thumbnail_path, metadata_json, tmdb_metadata, music_metadata, entry_hash, file_extension, local_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (category, title, file_link, thumb_url, thumb_path, metadata_json, tmdb_metadata, music_metadata, entry_hash, file_extension, local_path))
             self.conn.commit()
 
     def update_file(
@@ -87,17 +93,19 @@ class DatabaseManager:
             thumb_url: str,
             thumb_path: str,
             metadata_json: str,
+            tmdb_metadata: str,
+            music_metadata: str,
             entry_hash: str,
             file_extension: str,
-            local_path: str = None  # Nouveau paramètre
+            local_path: str = None
     ) -> None:
         with self.lock:
             cursor = self.conn.cursor()
             cursor.execute("""
                 UPDATE files
-                SET file_link=?, thumbnail_url=?, thumbnail_path=?, metadata_json=?, entry_hash=?, file_extension=?, local_path=?
+                SET file_link=?, thumbnail_url=?, thumbnail_path=?, metadata_json=?, tmdb_metadata=?, music_metadata=?, entry_hash=?, file_extension=?, local_path=?
                 WHERE category=? AND title=?
-            """, (file_link, thumb_url, thumb_path, metadata_json, entry_hash, file_extension, local_path, category, title))
+            """, (file_link, thumb_url, thumb_path, metadata_json, tmdb_metadata, music_metadata, entry_hash, file_extension, local_path, category, title))
             self.conn.commit()
 
     def update_local_path(self, category: str, title: str, local_path: str):

@@ -7,7 +7,7 @@
 
 ## Version :
 
-0.0.8.2
+0.0.9.0
 
 ---
 
@@ -141,7 +141,7 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - Filtrer nom dans publication "
+    git commit -m "[FAIT] - ajoutez genre action romance etc.. dans database - Faire que tout fichier autre que videos musiques image doit obligatoirement etre télécharger avant ouverture"
     ```
 3. Force le push  
     ```bash
@@ -154,12 +154,12 @@ https://github.com/MoshiDuck/Videomi
 - Améliorer vitesse publication
 - Afficher miniatures Streaming
 - Permettre telechargement de la vidéo streaming si possible
-- Faire que tout fichier autre que videos image doit obligatoirement etre télécharger avant ouverture
 - Faire que la bar des sous-titres ne disparaisse pas quand on a la souris dessus 
-- ajouter fichier avec miniature flouté téléchargeable ou regardeable avec mot de passe
+- ajouter fichier avec miniature flouté téléchargeable ou regardable avec mot de passe
 - ajouter profil comme netflix 
 - mettre mot de passe a 4 chiffre sur profil
-- ajoutez abonnement prenium
-- ajoutez genre action romance etc..
+- ajoutez abonnement premium
+- ajoutez genre action romance, etc. dans le catalogue
 - Limiter le fichier a 5gb
+- Pouvoir creer dossier et glisser les documents dedans
     
