@@ -1,0 +1,199 @@
+{
+  "auth": {
+    "register": {
+      "title": "Registro",
+      "primary_btn": "Registro",
+      "secondary_btn": "¿Ya está registrado?"
+    },
+    "login": {
+      "title": "Conexión",
+      "primary_btn": "Conectar",
+      "secondary_btn": "Crear una cuenta"
+    },
+    "email": "Correo electrónico",
+    "password": "Contraseña"
+  },
+  "main_window": {
+    "labels": {
+      "welcome": "Bienvenido !"
+    },
+    "buttons": {
+      "exit": "Para irse",
+      "settings": "Parámetros"
+    },
+    "title": "Video"
+  },
+  "nav_labels": {
+    "catalogue_texts": {
+      "title": "Catalogar",
+      "videos": "Videos",
+      "musics": "Música",
+      "images": "Imágenes",
+      "documents": "Documentos",
+      "archives": "Archivo",
+      "executables": "Ejecutable"
+    },
+    "publication_texts": {
+      "title": "Publicación",
+      "choose_file": "Elija un archivo",
+      "choose_folder": "Elegir una carpeta",
+      "status": "Estado",
+      "category": "Categoría",
+      "filename": "Nombre del archivo",
+      "no_file_selected": "No hay archivo seleccionado",
+      "clear_list": "Lista",
+      "publish": "Publicar"
+    },
+    "streaming_texts": {
+      "format": {
+        "title": "Formato",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "quality": {
+        "video_title": "Calidad de video",
+        "audio_title": "Calidad de audio",
+        "high": "Alta calidad (1080p)",
+        "medium": "Calidad estándar (720p)",
+        "low": "Baja calidad (480p)"
+      },
+      "title": "Transmisión",
+      "link_placeholder": "Pegue el YouTube, Vimeo u otro enlace ...",
+      "paste_tooltip": "Stick desde el portapapeles",
+      "preview": "Vista previa",
+      "enter_link": "Ingrese un enlace de video para iniciar",
+      "enter_valid_link": "⚠️ por favor ingrese un enlace válido.",
+      "link_pasted": "Enlace pegado! Haga clic en 'Vista previa' para continuar.",
+      "extracting_info": "🔄 Extracción de la información actual ...",
+      "preview_loaded": "Descripción general cargada",
+      "video": "Video",
+      "extracting_streams": "🔄 Extracción de flujos para leer ...",
+      "streams_ready": "Flujos de lectura",
+      "unknown_title": "Título desconocido",
+      "unknown_author": "Autor desconocido",
+      "unknown_duration": "Duración desconocida",
+      "unknown_views": "Vistas desconocidas",
+      "views": "vistas",
+      "watch": "🎬 Mira",
+      "download": "📥 Descargar",
+      "thumbnail_loading": "Cargando la miniatura ...",
+      "thumbnail_unavailable": "Miniatura\nindisponible",
+      "thumbnail_load_failed": "Imposible cargar la miniatura",
+      "thumbnail_load_error": "Error al cargar la miniatura",
+      "download_options": "Opciones de descarga",
+      "cancel": "Cancelar",
+      "warning": "Atención",
+      "ffmpeg_required": "FFMPEG no está configurado. La descarga de audio requiere FFMPEG para la conversión.",
+      "information": "Información",
+      "audio_warning": "Para la descarga de audio, el video primero se descargará y luego se convertirá en audio. Puede llevar más tiempo.",
+      "success": "Éxito",
+      "error": "Error",
+      "download_error": "Error al descargar",
+      "download_complete": "Descargar completado",
+      "ffmpeg_unavailable": "FFMPEG no está disponible para la conversión de audio",
+      "ffmpeg_not_found": "Ffmpeg no se encuentra en la ubicación",
+      "video_file_not_found": "Archivo de video no encontrado",
+      "conversion_error": "Error durante la conversión",
+      "conversion_successful": "Conversión exitosa",
+      "audio_conversion_error": "Error durante la conversión de audio",
+      "download_cancelled": "Descargar cancelado",
+      "upload_manager_init_error": "Error al inicializar la carga de carga",
+      "uploaded_files_error": "Lecturas cargadas leído",
+      "folder_retrieval_error": "Archivos de error de recuperación",
+      "preparing_upload": "Preparación de la carga de",
+      "upload_in_progress": "Carga en progreso",
+      "upload_manager_error": "❌ Error: cargar unitenializado",
+      "upload_start_error": "Error al iniciar la carga",
+      "upload_error": "Error de carga",
+      "upload_complete": "Carga completada",
+      "firebase_update_error": "Error durante la actualización de Firebase",
+      "upload_success": "Carga exitosa",
+      "upload_success_message": "El archivo se ha cargado correctamente",
+      "link": "Enlace",
+      "updating_folders": "🔄 Actualización de archivos ...",
+      "reset_error": "Error durante el reinicio",
+      "upload_error_title": "Error de carga",
+      "upload_error_message": "Se produjo un error durante la carga",
+      "preview_error": "Error al cargar la vista previa"
+    },
+    "combo_box_texts": {
+      "placeholder": "Todo",
+      "all": "Todo",
+      "none": "Ninguno"
+    },
+    "item_texts": {
+      "undefined": "No definido",
+      "switch_to_lecteur_undefined": "Callback switch_to_telers no definido.",
+      "no_file_link": "No se proporciona un enlace de archivo.",
+      "direct_link_failed": "Enlace directo no obtenido.",
+      "image_click_error": "Error en on_image_clicked",
+      "missing_client_or_link": "Cliente 1 fiche o enlace faltante.",
+      "getting_direct_link": "Recuperación del enlace de descarga directa ...",
+      "direct_link_retrieved": "Enlace directo recuperado",
+      "direct_download_error": "Descargar error a través de URL directa",
+      "resume_from": "Recuperación desde",
+      "bytes": "bytes",
+      "resume_download_error": "Descargar error con la recuperación",
+      "file_size_to_open": "Tamaño del archivo para abrir",
+      "file_not_exist_or_empty": "Archivo inexistente o vacío. Cancelación.",
+      "direct_execute_exe": "Ejecución directa de un .exe detectado",
+      "file_open_error": "Error al abrir el archivo",
+      "unable_refresh_token": "Incapaz de actualizar el token",
+      "item_not_found": "Artículo con el enlace",
+      "unable_get_uid": "Imposible de obtener el usuario de UID",
+      "unable_get_token": "Incapaz de obtener el token Firebase",
+      "item_deleted": "Artículo eliminado con éxito",
+      "delete_error": "Error al eliminar",
+      "user_not_connected": "Usuario no conectado a Firebase",
+      "unable_check_connection": "No se puede verificar la conexión",
+      "file_already_exists": "El archivo",
+      "at": "tiene",
+      "item_not_in_db": "El artículo no se encuentra en la base de datos local",
+      "download_already_in_progress": "Descargar ya en progreso para",
+      "download_error": "Descargar error para",
+      "download_start_error": "Error al lanzar la descarga",
+      "download_success": "Archivo descargado con éxito a",
+      "download_failed": "Descargar falla para",
+      "post_download_error": "Error durante el tratamiento posterior a la preparación",
+      "local_path_updated": "Camino local",
+      "in_firebase": "Actualizado en Firebase",
+      "firebase_update_error": "Error durante la actualización de Firebase",
+      "french": "Francés",
+      "english": "Inglés",
+      "spanish": "Español",
+      "german": "Alemán",
+      "italian": "italiano",
+      "portuguese": "portugués",
+      "russian": "ruso",
+      "chinese": "Chino",
+      "japanese": "japonés",
+      "korean": "coreano",
+      "arabic": "árabe"
+    },
+    "search_texts": {
+      "placeholder": "Investigar ..."
+    }
+  },
+  "dialogs": {
+    "error": {
+      "title": "Error"
+    },
+    "missing_fields": {
+      "title": "Campos faltantes",
+      "message": "Por favor llene todos los campos."
+    },
+    "success": {
+      "title": "Éxito"
+    },
+    "warning": {
+      "title": "Advertencia"
+    },
+    "info": {
+      "title": "Información"
+    },
+    "confirmation": {
+      "title": "Confirmación",
+      "message": "¿Estás seguro de que quieres continuar?"
+    }
+  }
+}

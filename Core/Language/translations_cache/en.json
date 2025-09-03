@@ -1,0 +1,199 @@
+{
+  "auth": {
+    "register": {
+      "title": "Registration",
+      "primary_btn": "Register",
+      "secondary_btn": "Already registered?"
+    },
+    "login": {
+      "title": "Connection",
+      "primary_btn": "Connect",
+      "secondary_btn": "Create an account"
+    },
+    "email": "E-mail",
+    "password": "Password"
+  },
+  "main_window": {
+    "labels": {
+      "welcome": "Welcome !"
+    },
+    "buttons": {
+      "exit": "To leave",
+      "settings": "Parameters"
+    },
+    "title": "Videom"
+  },
+  "nav_labels": {
+    "catalogue_texts": {
+      "title": "Catalog",
+      "videos": "Videos",
+      "musics": "Music",
+      "images": "Images",
+      "documents": "Documents",
+      "archives": "Archives",
+      "executables": "Executable"
+    },
+    "publication_texts": {
+      "title": "Publication",
+      "choose_file": "Choose a file",
+      "choose_folder": "Chose a folder",
+      "status": "Status",
+      "category": "Category",
+      "filename": "File name",
+      "no_file_selected": "No selected file",
+      "clear_list": "List",
+      "publish": "Publish"
+    },
+    "streaming_texts": {
+      "format": {
+        "title": "Format",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "quality": {
+        "video_title": "Video quality",
+        "audio_title": "Audio quality",
+        "high": "High quality (1080p)",
+        "medium": "Standard quality (720p)",
+        "low": "Low quality (480p)"
+      },
+      "title": "Streaming",
+      "link_placeholder": "Glue the YouTube, Vimeo or other link ...",
+      "paste_tooltip": "Stick from the clipboard",
+      "preview": "👁️ Preview",
+      "enter_link": "Enter a video link to start",
+      "enter_valid_link": "⚠️ Please enter a valid link.",
+      "link_pasted": "Glued link! Click on 'Preview' to continue.",
+      "extracting_info": "🔄 Extraction of current information ...",
+      "preview_loaded": "Loaded overview",
+      "video": "Video",
+      "extracting_streams": "🔄 Extraction of flows for reading ...",
+      "streams_ready": "Reading flows",
+      "unknown_title": "Unknown title",
+      "unknown_author": "Unknown author",
+      "unknown_duration": "Unknown duration",
+      "unknown_views": "Unknown views",
+      "views": "views",
+      "watch": "🎬 Watch",
+      "download": "📥 Download",
+      "thumbnail_loading": "Loading the miniature ...",
+      "thumbnail_unavailable": "Miniature\nunavailable",
+      "thumbnail_load_failed": "Impossible to load the miniature",
+      "thumbnail_load_error": "Error when loading the miniature",
+      "download_options": "Download options",
+      "cancel": "Cancel",
+      "warning": "Attention",
+      "ffmpeg_required": "FFMPEG is not configured. Audio download requires FFMPEG for conversion.",
+      "information": "Information",
+      "audio_warning": "For audio download, the video will first be downloaded and then converted into audio. It can take more time.",
+      "success": "Success",
+      "error": "Error",
+      "download_error": "Error when downloading",
+      "download_complete": "Download completed",
+      "ffmpeg_unavailable": "FFMPEG not available for audio conversion",
+      "ffmpeg_not_found": "FFMPEG not found at the location",
+      "video_file_not_found": "Video file not found",
+      "conversion_error": "Error during conversion",
+      "conversion_successful": "Successful conversion",
+      "audio_conversion_error": "Error during audio conversion",
+      "download_cancelled": "Download canceled",
+      "upload_manager_init_error": "Error when initializing the uploadmaager",
+      "uploaded_files_error": "Uploaded READS READ",
+      "folder_retrieval_error": "Recovery error files",
+      "preparing_upload": "Preparation of the upload of",
+      "upload_in_progress": "Upload in progress",
+      "upload_manager_error": "❌ Error: Uploading unitenialized",
+      "upload_start_error": "Error when starting the upload",
+      "upload_error": "Upload error",
+      "upload_complete": "Upload completed",
+      "firebase_update_error": "Error during the Firebase update",
+      "upload_success": "Successful upload",
+      "upload_success_message": "The file has been successfully uploaded",
+      "link": "Link",
+      "updating_folders": "🔄 Update of files ...",
+      "reset_error": "Error during reset",
+      "upload_error_title": "Upload error",
+      "upload_error_message": "An error occurred during the upload",
+      "preview_error": "Error when loading the preview"
+    },
+    "combo_box_texts": {
+      "placeholder": "All",
+      "all": "All",
+      "none": "None"
+    },
+    "item_texts": {
+      "undefined": "Not defined",
+      "switch_to_lecteur_undefined": "Callback Switch_To_Telers not defined.",
+      "no_file_link": "No file link provided.",
+      "direct_link_failed": "Direct link not obtained.",
+      "image_click_error": "Error in on_image_clicked",
+      "missing_client_or_link": "Customer 1 fiche or missing link.",
+      "getting_direct_link": "Recovery of the direct download link ...",
+      "direct_link_retrieved": "Direct link recovered",
+      "direct_download_error": "Download error via direct URL",
+      "resume_from": "Recovery since",
+      "bytes": "bytes",
+      "resume_download_error": "Download error with recovery",
+      "file_size_to_open": "File size to open",
+      "file_not_exist_or_empty": "Nonexistent or empty file. Cancelation.",
+      "direct_execute_exe": "Direct execution of a detected .exe",
+      "file_open_error": "Error when opening the file",
+      "unable_refresh_token": "Unable to refresh the token",
+      "item_not_found": "Item with the link",
+      "unable_get_uid": "Impossible to obtain the UID User",
+      "unable_get_token": "Unable to get the Firebase token",
+      "item_deleted": "Item successfully removed",
+      "delete_error": "Error when deleting",
+      "user_not_connected": "User not connected to Firebase",
+      "unable_check_connection": "Unable to check the connection",
+      "file_already_exists": "The file",
+      "at": "has",
+      "item_not_in_db": "Item not found in the local database",
+      "download_already_in_progress": "Download already in progress for",
+      "download_error": "Download error for",
+      "download_start_error": "Error when launching the download",
+      "download_success": "Successfully downloaded file to",
+      "download_failed": "Download failure for",
+      "post_download_error": "Error during post-keying treatment",
+      "local_path_updated": "Local path",
+      "in_firebase": "Updated in Firebase",
+      "firebase_update_error": "Error during the Firebase update",
+      "french": "French",
+      "english": "English",
+      "spanish": "Spanish",
+      "german": "German",
+      "italian": "Italian",
+      "portuguese": "Portuguese",
+      "russian": "Russian",
+      "chinese": "Chinese",
+      "japanese": "Japanese",
+      "korean": "Korean",
+      "arabic": "Arab"
+    },
+    "search_texts": {
+      "placeholder": "To research ..."
+    }
+  },
+  "dialogs": {
+    "error": {
+      "title": "Error"
+    },
+    "missing_fields": {
+      "title": "Missing fields",
+      "message": "Please fill all fields."
+    },
+    "success": {
+      "title": "Success"
+    },
+    "warning": {
+      "title": "Warning"
+    },
+    "info": {
+      "title": "Information"
+    },
+    "confirmation": {
+      "title": "Confirmation",
+      "message": "Are you sure you want to continue?"
+    }
+  }
+}

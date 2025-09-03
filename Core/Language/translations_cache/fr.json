@@ -1,0 +1,209 @@
+{
+  "auth": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "register": {
+      "title": "Inscription",
+      "primary_btn": "S'inscrire",
+      "secondary_btn": "Déjà inscrit ?"
+    },
+    "login": {
+      "title": "Connexion",
+      "primary_btn": "Se connecter",
+      "secondary_btn": "Créer un compte"
+    }
+  },
+  "main_window": {
+    "title": "Vidéomi",
+    "labels": {
+      "welcome": "Bienvenue !"
+    },
+    "buttons": {
+      "exit": "Quitter",
+      "settings": "Paramètres"
+    }
+  },
+  "nav_labels": {
+    "catalogue_texts": {
+      "title": "Catalogue",
+      "videos": "Videos",
+      "musics": "Musiques",
+      "images": "Images",
+      "documents": "Documents",
+      "archives": "Archives",
+      "executables": "Exécutables"
+    },
+    "publication_texts": {
+      "title": "Publication",
+      "choose_file": "Choisir un fichier",
+      "choose_folder": "Choisir un dossier",
+      "status": "Statut",
+      "category": "Catégorie",
+      "filename": "Nom de fichier",
+      "no_file_selected": "Aucun fichier sélectionné",
+      "clear_list": "Vider la liste",
+      "publish": "Publier"
+    },
+    "streaming_texts": {
+      "title": "Streaming",
+      "link_placeholder": "Collez le lien YouTube, Vimeo ou autre...",
+      "paste_tooltip": "Coller depuis le presse-papiers",
+      "preview": "👁️ Aperçu",
+      "enter_link": "Entrez un lien de vidéo pour commencer",
+      "enter_valid_link": "⚠️ Veuillez entrer un lien valide.",
+      "link_pasted": "Lien collé! Cliquez sur 'Aperçu' pour continuer.",
+      "extracting_info": "🔄 Extraction des informations en cours...",
+      "preview_loaded": "Aperçu chargé",
+      "video": "Vidéo",
+      "extracting_streams": "🔄 Extraction des flux pour la lecture...",
+      "streams_ready": "flux prêts à la lecture",
+      "unknown_title": "Titre inconnu",
+      "unknown_author": "Auteur inconnu",
+      "unknown_duration": "Durée inconnue",
+      "unknown_views": "Vues inconnues",
+      "views": "vues",
+      "watch": "🎬 Regarder",
+      "download": "📥 Télécharger",
+      "thumbnail_loading": "Chargement de la miniature...",
+      "thumbnail_unavailable": "Miniature\nindisponible",
+      "thumbnail_load_failed": "Impossible de charger la miniature",
+      "thumbnail_load_error": "Erreur lors du chargement de la miniature",
+      "download_options": "Options de téléchargement",
+      "format": {
+        "title": "Format",
+        "video": "Vidéo",
+        "audio": "Audio"
+      },
+      "quality": {
+        "video_title": "Qualité Vidéo",
+        "audio_title": "Qualité Audio",
+        "high": "Haute qualité (1080p)",
+        "medium": "Qualité standard (720p)",
+        "low": "Basse qualité (480p)"
+      },
+      "cancel": "Annuler",
+      "warning": "Attention",
+      "ffmpeg_required": "FFmpeg n'est pas configuré. Le téléchargement audio nécessite FFmpeg pour la conversion.",
+      "information": "Information",
+      "audio_warning": "Pour le téléchargement audio, la vidéo sera d'abord téléchargée puis convertie en audio. Cela peut prendre plus de temps.",
+      "success": "Succès",
+      "error": "Erreur",
+      "download_error": "Erreur lors du téléchargement",
+      "download_complete": "Téléchargement terminé",
+      "ffmpeg_unavailable": "FFmpeg non disponible pour la conversion audio",
+      "ffmpeg_not_found": "FFmpeg non trouvé à l'emplacement",
+      "video_file_not_found": "Fichier vidéo introuvable",
+      "conversion_error": "Erreur lors de la conversion",
+      "conversion_successful": "Conversion réussie",
+      "audio_conversion_error": "Erreur lors de la conversion audio",
+      "download_cancelled": "Téléchargement annulé",
+      "upload_manager_init_error": "Erreur lors de l'initialisation de l'UploadManager",
+      "uploaded_files_error": "Erreur lecture fichiers uploadés",
+      "folder_retrieval_error": "Erreur récupération dossiers",
+      "preparing_upload": "Préparation de l'upload de",
+      "upload_in_progress": "Upload en cours",
+      "upload_manager_error": "❌ Erreur: UploadManager non initialisé",
+      "upload_start_error": "Erreur lors du démarrage de l'upload",
+      "upload_error": "Erreur upload",
+      "upload_complete": "Upload terminé",
+      "firebase_update_error": "Erreur lors de la mise à jour de Firebase",
+      "upload_success": "Upload réussi",
+      "upload_success_message": "Le fichier a été uploadé avec succès",
+      "link": "Lien",
+      "updating_folders": "🔄 Mise à jour des dossiers...",
+      "reset_error": "Erreur lors de la réinitialisation",
+      "upload_error_title": "Erreur d'upload",
+      "upload_error_message": "Une erreur s'est produite lors de l'upload",
+      "preview_error": "Erreur lors du chargement de l'aperçu"
+    },
+    "combo_box_texts": {
+      "placeholder": "Tous",
+      "all": "Tous",
+      "none": "Aucun"
+    },
+    "item_texts": {
+      "undefined": "Pas défini",
+      "switch_to_lecteur_undefined": "Callback switch_to_lecteur non défini.",
+      "no_file_link": "Aucun lien de fichier fourni.",
+      "direct_link_failed": "Lien direct non obtenu.",
+      "image_click_error": "Erreur dans on_image_clicked",
+      "missing_client_or_link": "Client 1fichier ou lien manquant.",
+      "getting_direct_link": "Récupération du lien de téléchargement direct...",
+      "direct_link_retrieved": "Lien direct récupéré",
+      "direct_download_error": "Erreur téléchargement via URL directe",
+      "resume_from": "Reprise depuis",
+      "bytes": "octets",
+      "resume_download_error": "Erreur download avec reprise",
+      "file_size_to_open": "Taille du fichier à ouvrir",
+      "file_not_exist_or_empty": "Fichier inexistant ou vide. Annulation.",
+      "direct_execute_exe": "Exécution directe d'un .exe détecté",
+      "file_open_error": "Erreur lors de l'ouverture du fichier",
+      "unable_refresh_token": "Impossible de rafraîchir le token",
+      "item_not_found": "Item avec le lien",
+      "unable_get_uid": "Impossible d'obtenir l'UID utilisateur",
+      "unable_get_token": "Impossible d'obtenir le token Firebase",
+      "item_deleted": "Item supprimé avec succès",
+      "delete_error": "Erreur lors de la suppression",
+      "user_not_connected": "Utilisateur non connecté à Firebase",
+      "unable_check_connection": "Impossible de vérifier la connexion",
+      "file_already_exists": "Le fichier",
+      "at": "à",
+      "item_not_in_db": "Item non trouvé dans la base de données locale",
+      "download_already_in_progress": "Téléchargement déjà en cours pour",
+      "download_error": "Erreur de téléchargement pour",
+      "download_start_error": "Erreur lors du lancement du téléchargement",
+      "download_success": "Fichier téléchargé avec succès à",
+      "download_failed": "Échec du téléchargement pour",
+      "post_download_error": "Erreur lors du traitement post-téléchargement",
+      "local_path_updated": "Chemin local",
+      "in_firebase": "mis à jour dans Firebase",
+      "firebase_update_error": "Erreur lors de la mise à jour Firebase",
+      "french": "Français",
+      "english": "Anglais",
+      "spanish": "Espagnol",
+      "german": "Allemand",
+      "italian": "Italien",
+      "portuguese": "Portugais",
+      "russian": "Russe",
+      "chinese": "Chinois",
+      "japanese": "Japonais",
+      "korean": "Coréen",
+      "arabic": "Arabe"
+    },
+    "search_texts": {
+      "placeholder": "Rechercher ..."
+    }
+  },
+  "dialogs": {
+    "error": {
+      "title": "Erreur"
+    },
+    "missing_fields": {
+      "title": "Champs manquants",
+      "message": "Veuillez remplir tous les champs."
+    },
+    "success": {
+      "title": "Succès"
+    },
+    "warning": {
+      "title": "Avertissement"
+    },
+    "info": {
+      "title": "Information"
+    },
+    "confirmation": {
+      "title": "Confirmation",
+      "message": "Êtes-vous sûr de vouloir continuer?"
+    }
+  },
+  "lecteur_labels": {
+    "speed": "Vitesse",
+    "audio": "Audio",
+    "subtitles": "Sous-titres",
+    "video_tracks": "Pistes vidéo",
+    "no_audio_detected": "Aucun audio détecté",
+    "disable_subtitles": "Désactiver les sous-titres",
+    "current_time": "0:00",
+    "total_time": "—"
+  }
+}
