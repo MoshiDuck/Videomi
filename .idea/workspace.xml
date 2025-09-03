@@ -7,6 +7,7 @@
     <list default="true" id="bf5b0b15-c448-4272-9765-ee3f3808d294" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" beforeDir="false" afterPath="$PROJECT_DIR$/Pages/Navigateur/Publication/publication_nav.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/main/Analysis-00.toc" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/build/main/COLLECT-00.toc" beforeDir="false" />

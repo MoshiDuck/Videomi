@@ -134,12 +134,12 @@ https://github.com/MoshiDuck/Videomi
     ```
 2. Commit  
     ```bash
-    git commit -m "[FAIT] - ouvrir fichier apres télechargement dans item "
+    git commit -m "[FAIT] - corriger icone upload "
     ```
    
 3. Version
    ```bash
-   git tag 0.1.0.3
+   git tag 0.1.0.4
    ```
    
 4. Force le push  
@@ -153,7 +153,6 @@ https://github.com/MoshiDuck/Videomi
 
 Corriger :
 
-- Créer icon parametre dans BarBase
 - Améliorer vitesse publication
 - Eviter double validation telechargement streaming
 - mettre tread de telechargement dans fichier appart qui gere tout 
@@ -164,12 +163,13 @@ Corriger :
 - Integrer vitesse dans lecteur
 - Limiter le fichier a pour upload 5gb
 - Permettre importer fichier locale
-- corriger icone upload
 
 Objectif:
 
+- Créer icon parametre dans BarBase
 - proposer commentaire Mini-trivia / Fun facts : afficher des anecdotes sur le film ou la musique pendant la lecture.
 - Notification quand un utilisateur rajoute un item et catégoriser les nouveaux
+- Ajouter age métadonné pour bloquer enfant 
 - Statistiques familiales et classement : nombre de fichiers ajoutés par membre, temps passé sur chaque média, etc.
 - Mettre systeme d'etoiles mais par adresse ip de sorte de faire classement global avec top 10 et petit badge quand le classement change
 - Pouvoir creer dossier et glisser les documents dedans
@@ -181,3 +181,16 @@ Objectif:
 - Playlists ou collections thématiques : les utilisateurs peuvent créer et partager des playlists collaboratives (films, séries, musiques).
 - ajoutez genre action romance, etc. dans le catalogue
 - ajoutez abonnement premium
+
+---
+
+## Licence
+© 2025 MoshiDoki. Tous droits réservés.  
+
+Ce projet est mis à disposition pour un usage personnel et privé.  
+- ✅ Vous pouvez l’utiliser librement pour vos besoins personnels.  
+- ✅ Vous pouvez modifier le code pour expérimenter ou corriger des bugs, **à condition de partager vos améliorations avec l’auteur** afin qu’elles puissent être intégrées dans le projet principal.  
+- ❌ Toute utilisation commerciale, hébergement public ou redistribution du code source/exécutable est interdite sans autorisation explicite de l’auteur.  
+
+En résumé : vous pouvez contribuer à améliorer Videomi, mais le projet reste protégé et contrôlé par son auteur.
+

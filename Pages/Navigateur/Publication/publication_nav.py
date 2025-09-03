@@ -311,14 +311,25 @@ class Publication(QWidget):
 
         # Renommer les fichiers avant upload
         renamed = []
+        new_item_map = {}
         for path in self.selected_files:
             dir_, name = os.path.split(path)
             new_name = sanitize_filename(name)
             new_path = os.path.join(dir_, new_name)
             if new_path != path:
                 os.rename(path, new_path)
+                # Mettre à jour item_map avec le nouveau chemin
+                if path in self.item_map:
+                    new_item_map[new_path] = self.item_map[path]
+                else:
+                    # Normalement, chaque chemin dans selected_files devrait être dans item_map
+                    print(f"Attention: chemin {path} non trouvé dans item_map")
+            else:
+                new_item_map[path] = self.item_map[path]  # si pas de changement, on garde la même entrée
             renamed.append(new_path)
+
         self.selected_files = renamed
+        self.item_map = new_item_map
 
         for btn in (self.btn_file, self.btn_folder, self.clear_btn, self.pub_btn):
             btn.setEnabled(False)
@@ -339,7 +350,10 @@ class Publication(QWidget):
         if item:
             item.setText(0, '✅')
             item.setTextAlignment(0, Qt.AlignmentFlag.AlignCenter)
-            self.uploaded_links[file_path] = link
+            # Forcer la mise à jour de l'affichage de l'item
+            self.tree.viewport().update()
+            # Ajuster la largeur de la colonne 0 pour s'assurer que l'icône est visible
+            self.tree.resizeColumnToContents(0)
         if len(self.selected_files) > 1:
             self.progress.setValue(self.progress.value() + 1)
 
