@@ -537,9 +537,10 @@ class UploadManager(QObject):
     def on_file_progress(self, percent: int):
         self.current_file_progress = percent
         if self.total_files > 0:
+            # Calcul correct de la progression globale pour un seul fichier
             global_progress = int(
                 (self.files_done / self.total_files * 100) +
-                (percent / (100 * self.total_files))
+                (percent / 100) * (100 / self.total_files)
             )
             self.progress.emit(global_progress)
             self.file_progress.emit(percent)

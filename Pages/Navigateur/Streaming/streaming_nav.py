@@ -13,7 +13,7 @@ from Models.category import CatManager
 from PyQt6.QtGui import QPixmap, QFont
 from Core.Language.i18n import get_text
 from Models.upload_manager import UploadManager
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from Service.py1FichierClient import FichierClient
 
 from Core.settings import (
@@ -36,6 +36,7 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 ]
+
 
 def clean_filename(filename):
     cleaned = re.sub(r'[<>:"/\\|?*]', '', filename)
@@ -229,8 +230,9 @@ class DownloadThread(QThread):
                         "bestvideo[height<=1080]+bestaudio/best[height<=1080]", "1080p"),
                     get_text("nav_labels.streaming_texts.quality.medium"): (
                         "bestvideo[height<=720]+bestaudio/best[height<=720]", "720p"),
-                    get_text("nav_labels.streaming_texts.quality.low"): ("bestvideo[height<=480]+bestaudio/best[height<=480]",
-                                                                   "480p")
+                    get_text("nav_labels.streaming_texts.quality.low"): (
+                        "bestvideo[height<=480]+bestaudio/best[height<=480]",
+                        "480p")
                 }
                 format_string, quality_suffix = quality_map.get(self.quality_choice, ("best", ""))
 
@@ -285,7 +287,7 @@ class DownloadThread(QThread):
 
                 if not self.is_cancelled:
                     self.file_downloaded.emit(self.downloaded_file)  # Émettre le chemin du fichier
-                    self.finished.emit(f"{get_text('nav_labels.streaming_texts.download_complete')}: {self.downloaded_file}")
+                    self.progress.emit(50)  # Mettre à jour la progression à 50% après le téléchargement
 
             else:  # Audio - Télécharger d'abord la vidéo puis convertir en audio
                 # Télécharger la vidéo complète d'abord
@@ -294,8 +296,9 @@ class DownloadThread(QThread):
                         "bestvideo[height<=720]+bestaudio/best[height<=720]", "720p"),
                     get_text("nav_labels.streaming_texts.quality.medium"): (
                         "bestvideo[height<=480]+bestaudio/best[height<=480]", "480p"),
-                    get_text("nav_labels.streaming_texts.quality.low"): ("bestvideo[height<=360]+bestaudio/best[height<=360]",
-                                                                   "360p")
+                    get_text("nav_labels.streaming_texts.quality.low"): (
+                        "bestvideo[height<=360]+bestaudio/best[height<=360]",
+                        "360p")
                 }
                 video_format_string, video_quality_suffix = video_quality_map.get(self.quality_choice, ("best", ""))
 
@@ -359,8 +362,7 @@ class DownloadThread(QThread):
                             # Émettre le signal de fin avec le chemin du fichier audio
                             if not self.is_cancelled:
                                 self.file_downloaded.emit(audio_file)  # Émettre le chemin du fichier audio
-                                self.finished.emit(
-                                    f"{get_text('nav_labels.streaming_texts.download_complete')}: {audio_file}")
+                                self.progress.emit(50)  # Mettre à jour la progression à 50% après le téléchargement
                         else:
                             raise Exception(get_text('nav_labels.streaming_texts.ffmpeg_unavailable'))
                 except Exception as e:
@@ -446,9 +448,9 @@ class DownloadThread(QThread):
         if d['status'] == 'downloading':
             try:
                 if 'total_bytes' in d:
-                    percent = (d['downloaded_bytes'] / d['total_bytes']) * 100
+                    percent = (d['downloaded_bytes'] / d['total_bytes']) * 50  # Max 50% pour le téléchargement
                 elif 'total_bytes_estimate' in d:
-                    percent = (d['downloaded_bytes'] / d['total_bytes_estimate']) * 100
+                    percent = (d['downloaded_bytes'] / d['total_bytes_estimate']) * 50  # Max 50% pour le téléchargement
                 else:
                     percent = 0
                 self.progress.emit(int(percent))
@@ -581,12 +583,12 @@ class DownloadDialog(QDialog):
         super().__init__(parent)
         self.url = url
         self.download_thread = None
-        self.format_choice = get_text("nav_labels.streaming_texts.format.video")  # Default choice
-        self.quality_choice = get_text("nav_labels.streaming_texts.quality.high")  # Default choice
+        self.format_choice = get_text("nav_labels.streaming_texts.format.video")
+        self.quality_choice = get_text("nav_labels.streaming_texts.quality.high")
         self.setup_ui()
         self.setWindowTitle(get_text("nav_labels.streaming_texts.download_options"))
         self.setModal(True)
-        self.setFixedSize(500, 300)  # Taille réduite car pas de sélection de dossier
+        self.setFixedSize(500, 350)  # Augmenter la taille pour accommoder le nouveau label
 
     def setup_ui(self):
         layout = QVBoxLayout()
@@ -654,6 +656,11 @@ class DownloadDialog(QDialog):
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
 
+        # Label de statut
+        self.status_label = QLabel()  # Ajout du label de statut
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
+
         # Boutons
         button_layout = QHBoxLayout()
         self.download_button = QPushButton(get_text("nav_labels.streaming_texts.download"))
@@ -665,6 +672,7 @@ class DownloadDialog(QDialog):
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
+
 
     def on_format_changed(self):
         if self.format_video.isChecked():
@@ -721,8 +729,9 @@ class DownloadDialog(QDialog):
         self.progress_bar.setValue(value)
 
     def download_finished(self, message):
-        QMessageBox.information(self, get_text("nav_labels.streaming_texts.success"), message)
-        self.close()
+        # Ne pas fermer la fenêtre ici, attendre que l'upload soit terminé
+        # Seulement mettre à jour le texte
+        self.status_label.setText(get_text("nav_labels.streaming_texts.download_complete_uploading"))
 
     def download_error(self, error):
         QMessageBox.critical(self, get_text("nav_labels.streaming_texts.error"),
@@ -732,13 +741,10 @@ class DownloadDialog(QDialog):
 
     def on_file_downloaded(self, file_path):
         """Slot pour le signal file_downloaded du thread de téléchargement"""
-        self.file_downloaded.emit(file_path)  # Émettre le signal vers l'extérieur
-
-    def closeEvent(self, event):
-        if self.download_thread and self.download_thread.isRunning():
-            self.download_thread.cancel()
-            self.download_thread.wait()
-        event.accept()
+        self.file_downloaded.emit(file_path)
+        # Mettre à jour le label de statut
+        self.status_label.setText(get_text("nav_labels.streaming_texts.download_complete_uploading"))
+        # Ne pas fermer la fenêtre - attendre que l'upload soit terminé
 
 
 class PreviewWidget(QFrame):
@@ -854,7 +860,7 @@ class PreviewWidget(QFrame):
         self.thumbnail_label.setPixmap(pixmap)
 
     def on_thumbnail_error(self, error_msg):
-        """Gérer les erreurs de chargement de miniature"""
+        """Gérer les erreres de chargement de miniature"""
         self.thumbnail_label.setText(get_text("nav_labels.streaming_texts.thumbnail_unavailable"))
         self.thumbnail_label.setStyleSheet("""
             QLabel {
@@ -902,6 +908,7 @@ class Streaming(QWidget):
         self.preview_widgets = []
         self.current_url = None
         self.upload_manager = None
+        self.current_download_dialog = None  # Référence au dialogue de téléchargement actuel
         self.setup_ui()
         self.init_upload_manager()
 
@@ -1178,13 +1185,32 @@ class Streaming(QWidget):
 
     def handle_download(self, url):
         """Gérer la demande de téléchargement"""
+        # Afficher la barre de progression
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
+
         download_dialog = DownloadDialog(url, self)
+        self.current_download_dialog = download_dialog
+
+        # Connecter le signal de progression de l'upload à la barre de progression du dialogue
+        self.upload_manager.progress.connect(download_dialog.update_progress)
+
         download_dialog.file_downloaded.connect(self.start_upload)
         download_dialog.exec()
 
     def start_upload(self, file_path):
         """Démarrer l'upload du fichier téléchargé"""
         try:
+            # Mettre la barre de progression à 50% (téléchargement terminé)
+            self.progress_bar.setValue(50)
+            self.progress_bar.setVisible(True)
+
+            # Mettre à jour également la barre de progression du dialogue
+            if self.current_download_dialog:
+                self.current_download_dialog.progress_bar.setValue(50)
+                self.current_download_dialog.status_label.setText(
+                    get_text("nav_labels.streaming_texts.download_complete_uploading"))
+
             if not self.upload_manager:
                 self.init_upload_manager()
 
@@ -1205,7 +1231,7 @@ class Streaming(QWidget):
 
                 # Configurer l'upload avec le chemin local
                 self.upload_manager.set_files([(file_path, False)])
-                self.upload_manager.local_path = file_path  # ← Assurez-vous que cette ligne est présente
+                self.upload_manager.local_path = file_path
 
                 # Démarrer l'upload
                 self.upload_manager.start()
@@ -1218,15 +1244,22 @@ class Streaming(QWidget):
         except Exception as e:
             logger.error(f"{get_text('nav_labels.streaming_texts.upload_start_error')}: {e}")
             self.status_label.setText(f"❌ {get_text('nav_labels.streaming_texts.upload_error')}: {str(e)}")
+            self.progress_bar.setVisible(False)
 
     def on_upload_progress(self, percent):
         """Mettre à jour la progression de l'upload"""
-        self.progress_bar.setValue(percent)
+        # Ajuster le pourcentage pour qu'il aille de 50% à 100%
+        adjusted_percent = 50 + int(percent / 2)
+        self.progress_bar.setValue(adjusted_percent)
+
+        # Mettre à jour également la barre de progression du dialogue si il existe
+        if self.current_download_dialog:
+            self.current_download_dialog.progress_bar.setValue(adjusted_percent)
 
     def on_upload_finished(self, link, uploaded_file):
         """Upload terminé avec succès"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"✅ {get_text('nav_labels.streaming_texts.upload_complete')}: {Path(uploaded_file).name}")
+        # Mettre la barre de progression à 100%
+        self.progress_bar.setValue(100)
 
         # Mettre à jour le lien dans la base de données
         file_extension = Path(uploaded_file).suffix.lower()
@@ -1267,44 +1300,23 @@ class Streaming(QWidget):
         except Exception as e:
             logger.error(f"{get_text('nav_labels.streaming_texts.firebase_update_error')}: {e}")
 
-        # Afficher le lien de téléchargement
-        QMessageBox.information(self, get_text("nav_labels.streaming_texts.upload_success"),
-                                f"{get_text('nav_labels.streaming_texts.upload_success_message')}!\n\n{get_text('nav_labels.streaming_texts.link')}: {link}")
+        # Fermer le dialogue de téléchargement s'il est ouvert
+        if self.current_download_dialog is not None:
+            self.current_download_dialog.close()
+            self.current_download_dialog = None
+
+        # Cacher la barre de progression après un court délai
+        QTimer.singleShot(1000, self.hide_progress_bar)
+
+    def hide_progress_bar(self):
+        """Cacher la barre de progression"""
+        self.progress_bar.setVisible(False)
+        self.status_label.setText(f"✅ {get_text('nav_labels.streaming_texts.process_complete')}")
 
     def on_upload_error(self, error_msg):
         """Gérer les erreurs d'upload"""
         self.progress_bar.setVisible(False)
-
-        if "Folder already exist" in error_msg:
-            # Recréer l'UploadManager avec les dossiers existants mis à jour
-            self.status_label.setText(get_text("nav_labels.streaming_texts.updating_folders"))
-            try:
-                existing_files = self.get_uploaded_files_from_firebase()
-                folder_ids_by_name = self.get_existing_folder_ids()
-
-                self.upload_manager = UploadManager(
-                    client=self.fichier_client,
-                    cat_manager=self.cat_manager,
-                    existing_files=existing_files,
-                    folder_ids_by_name=folder_ids_by_name,
-                    root_folder_id='0'
-                )
-
-                # Reconnecter les signaux
-                self.upload_manager.progress.connect(self.on_upload_progress)
-                self.upload_manager.finished.connect(self.on_upload_finished)
-                self.upload_manager.error.connect(self.on_upload_error)
-
-                # Réessayer l'upload
-                if hasattr(self, 'current_upload_file') and self.current_upload_file:
-                    self.start_upload(self.current_upload_file)
-                return
-            except Exception as e:
-                error_msg = f"{get_text('nav_labels.streaming_texts.reset_error')}: {e}"
-
         self.status_label.setText(f"❌ {get_text('nav_labels.streaming_texts.upload_error')}: {error_msg}")
-        QMessageBox.critical(self, get_text("nav_labels.streaming_texts.upload_error_title"),
-                             f"{get_text('nav_labels.streaming_texts.upload_error_message')}:\n\n{error_msg}")
 
     def on_extracted(self, stream_urls):
         """Traiter les URLs de flux extraites"""

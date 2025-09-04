@@ -154,6 +154,7 @@ https://github.com/MoshiDuck/Videomi
 Corriger :
 
 - Améliorer vitesse publication
+- corriger plusieurs dossiers différents dans 1fichier 
 - Eviter double validation telechargement streaming
 - mettre tread de telechargement dans fichier appart qui gere tout 
 - Faire que quand je télécharge via streaming ça ajoute les données dans Realtime Database et sqlite
@@ -163,9 +164,11 @@ Corriger :
 - Integrer vitesse dans lecteur
 - Limiter le fichier a pour upload 5gb
 - Permettre importer fichier locale
+- quand bouton supprimer aussi supprimer dans 1fichier 
 
 Objectif:
 
+- Permettre upload html pour gallery photo surement recuperer firebase avec dans data True pour sitweb 
 - Créer icon parametre dans BarBase
 - proposer commentaire Mini-trivia / Fun facts : afficher des anecdotes sur le film ou la musique pendant la lecture.
 - Notification quand un utilisateur rajoute un item et catégoriser les nouveaux
