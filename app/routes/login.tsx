@@ -11,7 +11,6 @@ interface LoginResponse {
     error?: string;
     message?: string;
 }
-// DZfasdf
 
 export default function Login() {
     const [email, setEmail] = useState("");
