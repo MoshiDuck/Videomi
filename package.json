@@ -1,0 +1,110 @@
+{
+  "nom_de_fichier": "package.json",
+  "name": "react-router-hono-fullstack-template",
+  "description": "Fullstack app React Router + Hono avec support Electron",
+  "private": true,
+  "type": "module",
+  "main": "dist/electron/main.js",
+  "cloudflare": {
+    "label": "React Router + Hono Fullstack App",
+    "products": [
+      "Workers"
+    ],
+    "categories": [
+      "starter"
+    ],
+    "publish": true
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
+    "@aws-sdk/s3-request-presigner": "^3.940.0",
+    "@cloudflare/workers-types": "^4.20251223.0",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@react-router/node": "^7.9.4",
+    "@remix-run/node": "^2.17.1",
+    "@stripe/react-stripe-js": "^5.2.0",
+    "@stripe/stripe-js": "^8.1.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "git": "^0.1.5",
+    "gsap": "^3.13.0",
+    "hono": "4.8.2",
+    "isbot": "5.1.26",
+    "jose": "^6.1.3",
+    "json": "^11.0.0",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.561.0",
+    "motion": "^12.23.24",
+    "node-fetch": "^2.7.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-router": "^7.9.4",
+    "react-router-dom": "^7.9.4",
+    "shaka-player": "^4.16.11",
+    "stripe": "^19.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.7.5",
+    "@react-router/dev": "7.6.3",
+    "@tailwindcss/vite": "4.1.4",
+    "@types/form-data": "^2.5.0",
+    "@types/gsap": "^1.20.2",
+    "@types/node": "^24.10.4",
+    "@types/node-fetch": "^2.6.13",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12",
+    "tailwindcss": "4.1.1",
+    "typescript": "5.8.3",
+    "vite": "^6.0.0",
+    "vite-tsconfig-paths": "5.1.4"
+  },
+  "scripts": {
+    "build": "react-router build",
+    "cf-typegen": "wrangler types",
+    "deploy": "npm run build && wrangler deploy && echo '========================================' && echo '🌐 VOTRE SITE: https://videomi.uk' && echo '========================================'",
+    "dev": "react-router dev",
+    "preview": "npm run build && vite preview",
+    "typecheck": "npm run cf-typegen && react-router typegen && tsc -b",
+    "electron:build": "tsc -p tsconfig.electron.json",
+    "electron:deploy": "npm run electron:build && npm run electron:prod",
+    "electron:prod": "ELECTRON_START_URL=https://videomi.uk electron ./dist/electron/main.js",
+    "total:build": "npm run build && npm run electron:build",
+    "total:deploy": "npm run total:build && npm run deploy && npm run electron:deploy"
+  },
+  "build": {
+    "appId": "com.videomi.app",
+    "productName": "Videomi",
+    "files": [
+      "dist/electron/**/*",
+      "build/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}
