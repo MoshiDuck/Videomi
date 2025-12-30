@@ -68,7 +68,7 @@ https://github.com/MoshiDuck/Videomi
 
 3. Version
    ```bash
-   git tag 0.0.2.4
+   git tag 0.0.0.0
    ```
 
 4. Force le push
