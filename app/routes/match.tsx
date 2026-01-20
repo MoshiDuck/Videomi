@@ -39,6 +39,8 @@ export default function MatchRoute() {
     const [albums, setAlbums] = useState<MediaMatch[]>([]);
     const [selectedAlbums, setSelectedAlbums] = useState<MediaMatch[]>([]); // Permettre plusieurs albums
     const [allowNoAlbum, setAllowNoAlbum] = useState(false); // Permettre de ne pas sélectionner d'album
+    const [showingAllAlbums, setShowingAllAlbums] = useState(false); // Indique si on affiche tous les albums de l'artiste
+    const [loadingAllAlbums, setLoadingAllAlbums] = useState(false); // État de chargement pour tous les albums
     
     // Pour films/séries : liste des matches
     const [matches, setMatches] = useState<MediaMatch[]>([]);
@@ -256,6 +258,7 @@ export default function MatchRoute() {
         if (!artistId || !artistName || !title || category !== 'musics') return;
         
         setSearching(true);
+        setShowingAllAlbums(false); // Réinitialiser l'état
         
         try {
             // Rechercher des tracks avec ce titre exact et cet artiste
@@ -300,6 +303,40 @@ export default function MatchRoute() {
         }
     };
 
+    // Pour musique : charger tous les albums de l'artiste
+    const loadAllArtistAlbums = async (artistId: string, artistName: string) => {
+        if (!artistId || !artistName || category !== 'musics') return;
+        
+        setLoadingAllAlbums(true);
+        setShowingAllAlbums(true);
+        
+        try {
+            // Utiliser searchAlbumsForArtistOnSpotify sans titre pour récupérer tous les albums
+            const albumsResult = await searchAlbumsForArtistOnSpotify(
+                artistId,
+                null, // Pas de titre spécifique
+                config?.spotifyClientId || undefined,
+                config?.spotifyClientSecret || undefined,
+                50,
+                artistName
+            );
+            
+            // Trier par année (plus récent en premier)
+            const albumsList = albumsResult.matches.sort((a, b) => {
+                const yearA = a.year || 0;
+                const yearB = b.year || 0;
+                return yearB - yearA;
+            });
+            
+            setAlbums(albumsList);
+        } catch (error) {
+            console.error('Erreur chargement albums artiste:', error);
+            setAlbums([]);
+        } finally {
+            setLoadingAllAlbums(false);
+        }
+    };
+
     // Pour films/séries : rechercher films et séries
     const performMovieSearch = async (query: string) => {
         if (!query || query.trim() === '' || category !== 'videos') return;
@@ -332,6 +369,8 @@ export default function MatchRoute() {
         setAlbums([]);
         setSelectedAlbums([]);
         setAllowNoAlbum(false);
+        setShowingAllAlbums(false);
+        setLoadingAllAlbums(false);
     };
 
     const handleTitleSubmit = () => {
@@ -863,14 +902,17 @@ export default function MatchRoute() {
                                     justifyContent: 'space-between',
                                     marginBottom: '16px'
                                 }}>
-                                    <div>
+                                    <div style={{ flex: 1 }}>
                                         <h2 style={{
                                             fontSize: '20px',
                                             fontWeight: '600',
                                             color: darkTheme.text.primary,
                                             marginBottom: '4px'
                                         }}>
-                                            Albums contenant "{titleQuery}"
+                                            {showingAllAlbums 
+                                                ? `Tous les albums de ${selectedArtist.name}`
+                                                : `Albums contenant "${titleQuery}"`
+                                            }
                                         </h2>
                                         <p style={{
                                             color: darkTheme.text.secondary,
@@ -888,6 +930,37 @@ export default function MatchRoute() {
                                                 Album détecté dans les métadonnées : <strong>{fileInfo.album}</strong>
                                             </p>
                                         )}
+                                        {showingAllAlbums && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowingAllAlbums(false);
+                                                    setAlbums([]);
+                                                    setSelectedAlbums([]);
+                                                    performAlbumSearch(selectedArtist.id, selectedArtist.name, titleQuery.trim());
+                                                }}
+                                                style={{
+                                                    marginTop: '12px',
+                                                    padding: '8px 16px',
+                                                    backgroundColor: 'transparent',
+                                                    border: `1px solid ${darkTheme.border.primary}`,
+                                                    borderRadius: '6px',
+                                                    color: darkTheme.text.secondary,
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.borderColor = darkTheme.accent.blue;
+                                                    e.currentTarget.style.color = darkTheme.accent.blue;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.borderColor = darkTheme.border.primary;
+                                                    e.currentTarget.style.color = darkTheme.text.secondary;
+                                                }}
+                                            >
+                                                ← Revenir à la recherche par titre
+                                            </button>
+                                        )}
                                     </div>
                                     <button
                                         onClick={() => {
@@ -895,6 +968,8 @@ export default function MatchRoute() {
                                             setAlbums([]);
                                             setSelectedAlbums([]);
                                             setAllowNoAlbum(false);
+                                            setShowingAllAlbums(false);
+                                            setLoadingAllAlbums(false);
                                         }}
                                         style={{
                                             padding: '8px 16px',
@@ -1016,13 +1091,13 @@ export default function MatchRoute() {
                                         );
                                     })}
                                 </div>
-                            ) : searching ? (
+                            ) : searching || loadingAllAlbums ? (
                                 <div style={{
                                     textAlign: 'center',
                                     padding: '40px',
                                     color: darkTheme.text.tertiary
                                 }}>
-                                    Recherche en cours...
+                                    {loadingAllAlbums ? 'Chargement des albums...' : 'Recherche en cours...'}
                                 </div>
                             ) : (
                                 <div style={{
@@ -1030,7 +1105,28 @@ export default function MatchRoute() {
                                     padding: '40px',
                                     color: darkTheme.text.tertiary
                                 }}>
-                                    Aucun album trouvé. Essayez une autre recherche.
+                                    <p style={{ marginBottom: '24px' }}>
+                                        Aucun album trouvé contenant "{titleQuery}".
+                                    </p>
+                                    {selectedArtist && !showingAllAlbums && (
+                                        <button
+                                            onClick={() => loadAllArtistAlbums(selectedArtist.id, selectedArtist.name)}
+                                            disabled={loadingAllAlbums}
+                                            style={{
+                                                padding: '12px 24px',
+                                                backgroundColor: loadingAllAlbums ? darkTheme.text.disabled : darkTheme.accent.blue,
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                fontSize: '16px',
+                                                fontWeight: '500',
+                                                cursor: loadingAllAlbums ? 'not-allowed' : 'pointer',
+                                                transition: 'background-color 0.2s'
+                                            }}
+                                        >
+                                            {loadingAllAlbums ? 'Chargement...' : `Voir tous les albums de ${selectedArtist.name}`}
+                                        </button>
+                                    )}
                                 </div>
                             )}
 

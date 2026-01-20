@@ -173,6 +173,82 @@ function generateTitleVariants(title: string): string[] {
 }
 
 /**
+ * Nettoie un titre en retirant les "ft" / "feat" / "featuring" suivis d'un nom d'artiste
+ * Retourne le titre nettoyé et le nom de l'artiste featuring si trouvé
+ */
+function cleanTitleFromFeaturing(title: string): { cleanedTitle: string; featuringArtist?: string } {
+    // Patterns pour détecter "ft", "feat", "featuring" suivis d'un nom
+    const featPatterns = [
+        /\s+(?:ft|feat|featuring)\.?\s+([^,]+?)(?:\s*[,\-]|$)/i,
+        /\s+(?:ft|feat|featuring)\.?\s+([^,]+?)(?:\s*\(|$)/i,
+        /\s+\(ft\.?\s+([^)]+)\)/i,
+        /\s+\(feat\.?\s+([^)]+)\)/i,
+        /\s+\(featuring\s+([^)]+)\)/i,
+    ];
+    
+    let cleanedTitle = title;
+    let featuringArtist: string | undefined;
+    
+    for (const pattern of featPatterns) {
+        const match = title.match(pattern);
+        if (match && match[1]) {
+            featuringArtist = match[1].trim();
+            cleanedTitle = title.replace(pattern, '').trim();
+            break; // Prendre le premier match trouvé
+        }
+    }
+    
+    return { cleanedTitle, featuringArtist };
+}
+
+/**
+ * Nettoie un nom d'artiste en retirant "Official" si présent
+ * Retourne un tableau avec l'artiste sans "Official" en premier (si différent), puis l'original
+ * L'ordre est important : on essaie d'abord sans "Official", puis avec si on ne trouve rien
+ */
+function cleanArtistName(artist: string): string[] {
+    const variants: string[] = [];
+    
+    // Retirer "Official" à la fin ou au début
+    const withoutOfficial = artist
+        .replace(/\s+Official\s*$/i, '')
+        .replace(/^\s*Official\s+/i, '')
+        .trim();
+    
+    if (withoutOfficial !== artist && withoutOfficial.length > 0) {
+        // Mettre la variante sans "Official" en premier (priorité)
+        variants.push(withoutOfficial);
+        variants.push(artist); // Garder l'original en second
+    } else {
+        // Si pas de "Official", garder juste l'original
+        variants.push(artist);
+    }
+    
+    return Array.from(new Set(variants));
+}
+
+/**
+ * Extrait les artistes multiples d'une chaîne (séparés par des virgules, "&", "and", etc.)
+ * Retourne un tableau d'artistes nettoyés
+ */
+function extractMultipleArtists(artistString: string): string[] {
+    // Séparer par virgule, "&", "and", "et", etc.
+    const separators = /[,&]|\s+and\s+|\s+et\s+/i;
+    const artists = artistString.split(separators)
+        .map(a => a.trim())
+        .filter(a => a.length > 0);
+    
+    // Nettoyer chaque artiste (retirer "Official", etc.)
+    const cleanedArtists: string[] = [];
+    for (const artist of artists) {
+        const cleaned = cleanArtistName(artist);
+        cleanedArtists.push(...cleaned);
+    }
+    
+    return Array.from(new Set(cleanedArtists));
+}
+
+/**
  * Télécharge une image depuis une URL et la stocke dans R2 (via API)
  */
 export async function downloadAndStoreThumbnail(
@@ -1541,10 +1617,31 @@ export async function enrichWithCompleteMetadata(
                 album = album.replace(/\b(Live|Remastered|Remix|Version|Extended|Deluxe|Edition)\b.*$/i, '').trim();
             }
             
+            // Nettoyer le titre pour retirer les "ft" / "feat" / "featuring"
+            if (title) {
+                const { cleanedTitle: titleWithoutFeat, featuringArtist } = cleanTitleFromFeaturing(title);
+                // Utiliser le titre sans "feat" comme titre principal, mais garder l'original en variante
+                title = titleWithoutFeat || title;
+            }
+            
             // Nettoyer l'artiste (enlever les numéros, mots techniques)
             if (artist) {
                 artist = artist.replace(/^\d+\s*/, '').trim();
                 artist = artist.replace(/\s+(Live|Remastered|Remix|Version|Extended|Deluxe|Edition).*$/i, '').trim();
+            }
+            
+            // Extraire les artistes multiples (séparés par virgules, "&", "and", etc.)
+            let artistVariants: string[] = [];
+            if (artist) {
+                // D'abord, extraire tous les artistes possibles
+                const multipleArtists = extractMultipleArtists(artist);
+                if (multipleArtists.length > 1) {
+                    // Si plusieurs artistes trouvés, on va essayer chacun séparément
+                    artistVariants = multipleArtists;
+                } else {
+                    // Sinon, générer les variantes avec/sans "Official"
+                    artistVariants = cleanArtistName(artist);
+                }
             }
             
             
@@ -1557,9 +1654,14 @@ export async function enrichWithCompleteMetadata(
                 searchVariants.push({ title, description: 'titre seul' });
             }
             
-            // Variante 2: Artiste + Titre
-            if (title && title.length >= 2 && artist && artist.length >= 2) {
-                searchVariants.push({ title, artist, description: 'artiste + titre' });
+            // Variante 2: Artiste(s) + Titre
+            // Si plusieurs artistes, essayer chacun séparément
+            if (title && title.length >= 2 && artistVariants.length > 0) {
+                for (const artistVariant of artistVariants) {
+                    if (artistVariant.length >= 2) {
+                        searchVariants.push({ title, artist: artistVariant, description: `artiste + titre: ${artistVariant}` });
+                    }
+                }
             }
             
             // Variante 3: Titre seul (variantes générées) - PRIORITÉ HAUTE
@@ -1572,12 +1674,17 @@ export async function enrichWithCompleteMetadata(
                 }
             }
             
-            // Variante 4: Artiste + Titre (variantes) - PRIORITÉ HAUTE
-            if (title && title.length >= 2 && artist && artist.length >= 2) {
+            // Variante 4: Artiste(s) + Titre (variantes) - PRIORITÉ HAUTE
+            // Si plusieurs artistes, essayer chacun avec les variantes de titre
+            if (title && title.length >= 2 && artistVariants.length > 0) {
                 const titleVariants = generateTitleVariants(title);
-                for (const variant of titleVariants) {
-                    if (variant !== title && !searchVariants.some(v => v.title === variant && v.artist === artist)) {
-                        searchVariants.push({ title: variant, artist, description: `artiste + titre variant: ${artist} - ${variant}` });
+                for (const artistVariant of artistVariants) {
+                    if (artistVariant.length >= 2) {
+                        for (const variant of titleVariants) {
+                            if (variant !== title && !searchVariants.some(v => v.title === variant && v.artist === artistVariant)) {
+                                searchVariants.push({ title: variant, artist: artistVariant, description: `artiste + titre variant: ${artistVariant} - ${variant}` });
+                            }
+                        }
                     }
                 }
             }
@@ -1585,10 +1692,13 @@ export async function enrichWithCompleteMetadata(
             // Variante 5b: Titre sans "Part" ou numéros (pour les chansons avec plusieurs parties)
             if (title && title.length >= 2) {
                 const titleWithoutPart = title.replace(/\s+Part\s+\d+/i, '').replace(/\s+Parts?\s+\d+[-–]\d+/i, '').trim();
-                if (titleWithoutPart !== title && titleWithoutPart.length >= 2 && !searchVariants.some(v => v.title === titleWithoutPart)) {
+                if (titleWithoutPart !== title && titleWithoutPart.length >= 2 && !searchVariants.some(v => v.title === titleWithoutPart && !v.artist)) {
                     searchVariants.push({ title: titleWithoutPart, description: `titre sans Part: ${titleWithoutPart}` });
-                    if (artist && artist.length >= 2) {
-                        searchVariants.push({ title: titleWithoutPart, artist, description: `artiste + titre sans Part: ${artist} - ${titleWithoutPart}` });
+                    // Ajouter avec chaque variante d'artiste
+                    for (const artistVariant of artistVariants) {
+                        if (artistVariant.length >= 2) {
+                            searchVariants.push({ title: titleWithoutPart, artist: artistVariant, description: `artiste + titre sans Part: ${artistVariant} - ${titleWithoutPart}` });
+                        }
                     }
                 }
             }
@@ -1598,9 +1708,13 @@ export async function enrichWithCompleteMetadata(
                 searchVariants.push({ title, album, description: 'titre + album' });
             }
             
-            // Variante 7: Artiste + Titre + Album - PRIORITÉ BASSE
-            if (title && title.length >= 2 && artist && artist.length >= 2 && album && album.length >= 2) {
-                searchVariants.push({ title, artist, album, description: 'artiste + titre + album' });
+            // Variante 7: Artiste(s) + Titre + Album - PRIORITÉ BASSE
+            if (title && title.length >= 2 && album && album.length >= 2 && artistVariants.length > 0) {
+                for (const artistVariant of artistVariants) {
+                    if (artistVariant.length >= 2) {
+                        searchVariants.push({ title, artist: artistVariant, album, description: `artiste + titre + album: ${artistVariant}` });
+                    }
+                }
             }
             
             // Limiter à 20 variantes maximum pour éviter trop de requêtes
