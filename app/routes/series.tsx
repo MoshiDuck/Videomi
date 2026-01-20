@@ -10,9 +10,11 @@ import { AuthGuard } from '~/components/auth/AuthGuard';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 import { CategoryBar } from '~/components/ui/categoryBar';
 import { VideoSubCategoryBar } from '~/components/ui/VideoSubCategoryBar';
+import { NetflixCarousel } from '~/components/ui/NetflixCarousel';
 import { getCategoryRoute } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { useFloating, useHover, useInteractions, FloatingPortal } from '@floating-ui/react';
 
 interface FileItem {
     file_id: string;
@@ -58,7 +60,7 @@ interface TVShow {
 
 interface OrganizedSeries {
     unidentified: FileItem[];
-    tvShows: TVShow[];
+    byGenre: Array<{ genre: string; shows: TVShow[] }>;
     continueWatching: FileItem[];
 }
 
@@ -91,13 +93,12 @@ export default function SeriesRoute() {
     const [error, setError] = useState<string | null>(null);
     const [organizedSeries, setOrganizedSeries] = useState<OrganizedSeries>({
         unidentified: [],
-        tvShows: [],
+        byGenre: [],
         continueWatching: []
     });
     const [heroShow, setHeroShow] = useState<TVShow | null>(null);
     const [selectedShow, setSelectedShow] = useState<string | null>(null);
     const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
-    const [hoveredCard, setHoveredCard] = useState<string | null>(null);
     
     const handleCategoryChange = useCallback((category: FileCategory) => {
         setSelectedCategory(category);
@@ -176,7 +177,18 @@ export default function SeriesRoute() {
                 }
                 
                 if (!tvShowsMap.has(showKey)) {
-                    const genres = file.genres ? JSON.parse(file.genres) : [];
+                    let genres: string[] = [];
+                    try {
+                        if (file.genres) {
+                            if (typeof file.genres === 'string') {
+                                genres = JSON.parse(file.genres);
+                            } else if (Array.isArray(file.genres)) {
+                                genres = file.genres;
+                            }
+                        }
+                    } catch (parseError) {
+                        console.warn(`⚠️ [SERIES] Erreur parsing genres pour ${file.file_id}:`, parseError, `genres raw:`, file.genres);
+                    }
                     tvShowsMap.set(showKey, {
                         showId: showKey,
                         showName: showName,
@@ -221,6 +233,31 @@ export default function SeriesRoute() {
                 }))
         })).sort((a, b) => a.showName.localeCompare(b.showName));
 
+        // Grouper par genre
+        const genreMap = new Map<string, TVShow[]>();
+        for (const show of tvShows) {
+            const genres = show.genres && show.genres.length > 0 ? show.genres : ['Sans genre'];
+            for (const genre of genres) {
+                if (!genreMap.has(genre)) {
+                    genreMap.set(genre, []);
+                }
+                genreMap.get(genre)!.push(show);
+            }
+        }
+
+        // Convertir en tableau et trier par nom de genre
+        const byGenre = Array.from(genreMap.entries())
+            .map(([genre, shows]) => ({
+                genre,
+                shows: shows.sort((a, b) => a.showName.localeCompare(b.showName))
+            }))
+            .sort((a, b) => {
+                // Mettre "Sans genre" à la fin
+                if (a.genre === 'Sans genre') return 1;
+                if (b.genre === 'Sans genre') return -1;
+                return a.genre.localeCompare(b.genre);
+            });
+
         // Sélectionner une série aléatoire pour le hero
         const showsWithThumbnail = tvShows.filter(s => s.showThumbnail);
         if (showsWithThumbnail.length > 0) {
@@ -230,7 +267,7 @@ export default function SeriesRoute() {
 
         setOrganizedSeries({
             unidentified: unidentified.sort((a, b) => b.uploaded_at - a.uploaded_at),
-            tvShows,
+            byGenre,
             continueWatching: [] // À implémenter avec le watch history
         });
     }, [t]);
@@ -251,272 +288,244 @@ export default function SeriesRoute() {
         navigate(`/match/videos/${fileId}`);
     }, [navigate]);
 
-    // Composant Carrousel Netflix
-    const NetflixCarousel = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
-        const scrollRef = useRef<HTMLDivElement>(null);
-        const [showLeftArrow, setShowLeftArrow] = useState(false);
-        const [showRightArrow, setShowRightArrow] = useState(true);
-
-        const scroll = (direction: 'left' | 'right') => {
-            if (scrollRef.current) {
-                const scrollAmount = scrollRef.current.clientWidth * 0.8;
-                scrollRef.current.scrollBy({
-                    left: direction === 'left' ? -scrollAmount : scrollAmount,
-                    behavior: 'smooth'
-                });
-            }
-        };
-
-        const handleScroll = () => {
-            if (scrollRef.current) {
-                setShowLeftArrow(scrollRef.current.scrollLeft > 0);
-                setShowRightArrow(
-                    scrollRef.current.scrollLeft < scrollRef.current.scrollWidth - scrollRef.current.clientWidth - 10
-                );
-            }
-        };
-
-        return (
-            <div style={{ marginBottom: '40px', position: 'relative' }}>
-                <h2 style={{
-                    fontSize: '20px',
-                    fontWeight: '700',
-                    color: netflixTheme.text.primary,
-                    marginBottom: '16px',
-                    marginLeft: '60px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                }}>
-                    <span>{icon}</span> {title}
-                </h2>
-                
-                <div style={{ position: 'relative' }}>
-                    {showLeftArrow && (
-                        <button
-                            onClick={() => scroll('left')}
-                            style={{
-                                position: 'absolute',
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: '60px',
-                                background: 'linear-gradient(to right, rgba(20,20,20,0.9), transparent)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                zIndex: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '40px',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                        >
-                            ‹
-                        </button>
-                    )}
-                    
-                    <div
-                        ref={scrollRef}
-                        onScroll={handleScroll}
-                        style={{
-                            display: 'flex',
-                            gap: '8px',
-                            overflowX: 'auto',
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                            paddingLeft: '60px',
-                            paddingRight: '60px',
-                            paddingTop: '10px',
-                            paddingBottom: '10px'
-                        }}
-                    >
-                        {children}
-                    </div>
-                    
-                    {showRightArrow && (
-                        <button
-                            onClick={() => scroll('right')}
-                            style={{
-                                position: 'absolute',
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: '60px',
-                                background: 'linear-gradient(to left, rgba(20,20,20,0.9), transparent)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                zIndex: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '40px',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                        >
-                            ›
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
-    };
 
     // Carte Série Netflix
-    const SeriesCard = ({ show, onClick }: { show: TVShow; onClick: () => void }) => {
-        const isHovered = hoveredCard === show.showId;
+    const SeriesCard = ({ show, genre, onClick }: { show: TVShow; genre: string; onClick: () => void }) => {
+        const cardId = `${genre}-${show.showId}`;
+        
+        // Utiliser Floating UI pour gérer le hover et le positionnement
+        const [isOpen, setIsOpen] = useState(false);
+        
+        const { refs, floatingStyles, context } = useFloating({
+            open: isOpen,
+            onOpenChange: setIsOpen,
+            placement: 'top',
+            middleware: []
+        });
+        
+        const hover = useHover(context, {
+            delay: { open: 0, close: 200 },
+            restMs: 25
+        });
 
-        return (
-            <div
-                onClick={onClick}
-                onMouseEnter={() => setHoveredCard(show.showId)}
-                onMouseLeave={() => setHoveredCard(null)}
-                style={{
-                    position: 'relative',
-                    width: '185px',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                    transition: 'transform 0.3s ease, z-index 0s 0.3s',
-                    transform: isHovered ? 'scale(1.3)' : 'scale(1)',
-                    zIndex: isHovered ? 100 : 1,
-                    transformOrigin: 'center center'
-                }}
-            >
+        const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+        
+        // Calculer la position centrée manuellement et la mettre à jour
+        const [customPosition, setCustomPosition] = useState<{ top: number; left: number } | null>(null);
+        const rafRef = useRef<number | null>(null);
+        
+        useEffect(() => {
+            if (isOpen && refs.reference.current) {
+                const updatePosition = () => {
+                    if (refs.reference.current) {
+                        const referenceRect = refs.reference.current.getBoundingClientRect();
+                        const centerX = referenceRect.left + referenceRect.width / 2;
+                        const centerY = referenceRect.top + referenceRect.height / 2;
+                        setCustomPosition({ top: centerY, left: centerX });
+                    }
+                };
+                
+                updatePosition();
+                
+                // Optimiser avec requestAnimationFrame
+                const handleUpdate = () => {
+                    if (rafRef.current) {
+                        cancelAnimationFrame(rafRef.current);
+                    }
+                    rafRef.current = requestAnimationFrame(updatePosition);
+                };
+                
+                // Mettre à jour la position lors du scroll avec throttling
+                window.addEventListener('scroll', handleUpdate, { passive: true });
+                window.addEventListener('resize', handleUpdate, { passive: true });
+                
+                return () => {
+                    window.removeEventListener('scroll', handleUpdate);
+                    window.removeEventListener('resize', handleUpdate);
+                    if (rafRef.current) {
+                        cancelAnimationFrame(rafRef.current);
+                    }
+                };
+            } else {
+                setCustomPosition(null);
+            }
+        }, [isOpen, refs.reference]);
+
+        const renderCardContent = (isZoomed = false) => (
+            <div style={{
+                borderRadius: '6px',
+                overflow: 'hidden',
+                backgroundColor: netflixTheme.bg.card,
+                boxShadow: isZoomed ? '0 10px 40px rgba(0,0,0,0.8)' : 'none',
+                transition: 'box-shadow 0.3s ease',
+                width: '185px'
+            }}>
+                {/* Image */}
                 <div style={{
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    backgroundColor: netflixTheme.bg.card,
-                    boxShadow: isHovered ? '0 10px 40px rgba(0,0,0,0.8)' : 'none',
-                    transition: 'box-shadow 0.3s ease'
+                    width: '100%',
+                    aspectRatio: '2/3',
+                    backgroundColor: '#2a2a2a',
+                    position: 'relative'
                 }}>
-                    {/* Image */}
+                    {show.showThumbnail ? (
+                        <img
+                            src={show.showThumbnail}
+                            alt={show.showName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                    ) : (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '100%',
+                            height: '100%',
+                            color: netflixTheme.text.muted,
+                            fontSize: '48px'
+                        }}>
+                            📺
+                        </div>
+                    )}
+                    
+                    {/* Badge épisodes */}
                     <div style={{
-                        width: '100%',
-                        aspectRatio: '2/3',
-                        backgroundColor: '#2a2a2a',
-                        position: 'relative'
+                        position: 'absolute',
+                        bottom: '8px',
+                        right: '8px',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        color: '#fff',
+                        padding: '4px 8px',
+                        borderRadius: '3px',
+                        fontSize: '11px',
+                        fontWeight: '600'
                     }}>
-                        {show.showThumbnail ? (
-                            <img
-                                src={show.showThumbnail}
-                                alt={show.showName}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <div style={{
+                        {show.totalEpisodes} ép.
+                    </div>
+                </div>
+                
+                {/* Infos au hover */}
+                {isZoomed && (
+                    <div style={{
+                        padding: '12px',
+                        backgroundColor: netflixTheme.bg.card
+                    }}>
+                        {/* Boutons */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                            <button style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: '#fff',
+                                border: 'none',
+                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                width: '100%',
-                                height: '100%',
-                                color: netflixTheme.text.muted,
-                                fontSize: '48px'
+                                fontSize: '18px'
                             }}>
-                                📺
+                                ▶
+                            </button>
+                            <button style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: 'transparent',
+                                border: '2px solid rgba(255,255,255,0.5)',
+                                cursor: 'pointer',
+                                color: '#fff',
+                                fontSize: '16px'
+                            }}>
+                                +
+                            </button>
+                        </div>
+                        
+                        {/* Titre */}
+                        <div style={{
+                            fontWeight: '600',
+                            color: netflixTheme.text.primary,
+                            fontSize: '13px',
+                            marginBottom: '4px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}>
+                            {show.showName}
+                        </div>
+                        
+                        {/* Info saisons */}
+                        <div style={{
+                            color: '#46d369',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            marginBottom: '4px'
+                        }}>
+                            {show.seasons.length} {t('videos.season')}{show.seasons.length > 1 ? 's' : ''}
+                        </div>
+                        
+                        {/* Genres */}
+                        {show.genres.length > 0 && (
+                            <div style={{
+                                color: netflixTheme.text.secondary,
+                                fontSize: '11px',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '4px'
+                            }}>
+                                {show.genres.slice(0, 3).map((g, i) => (
+                                    <span key={i}>{g}{i < Math.min(show.genres.length, 3) - 1 && ' •'}</span>
+                                ))}
                             </div>
                         )}
-                        
-                        {/* Badge épisodes */}
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '8px',
-                            right: '8px',
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            color: '#fff',
-                            padding: '4px 8px',
-                            borderRadius: '3px',
-                            fontSize: '11px',
-                            fontWeight: '600'
-                        }}>
-                            {show.totalEpisodes} ép.
-                        </div>
                     </div>
-                    
-                    {/* Infos au hover */}
-                    {isHovered && (
-                        <div style={{
-                            padding: '12px',
-                            backgroundColor: netflixTheme.bg.card
-                        }}>
-                            {/* Boutons */}
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                                <button style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#fff',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '18px'
-                                }}>
-                                    ▶
-                                </button>
-                                <button style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    backgroundColor: 'transparent',
-                                    border: '2px solid rgba(255,255,255,0.5)',
-                                    cursor: 'pointer',
-                                    color: '#fff',
-                                    fontSize: '16px'
-                                }}>
-                                    +
-                                </button>
-                            </div>
-                            
-                            {/* Titre */}
-                            <div style={{
-                                fontWeight: '600',
-                                color: netflixTheme.text.primary,
-                                fontSize: '13px',
-                                marginBottom: '4px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
-                                {show.showName}
-                            </div>
-                            
-                            {/* Info saisons */}
-                            <div style={{
-                                color: '#46d369',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                marginBottom: '4px'
-                            }}>
-                                {show.seasons.length} {t('videos.season')}{show.seasons.length > 1 ? 's' : ''}
-                            </div>
-                            
-                            {/* Genres */}
-                            {show.genres.length > 0 && (
-                                <div style={{
-                                    color: netflixTheme.text.secondary,
-                                    fontSize: '11px',
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '4px'
-                                }}>
-                                    {show.genres.slice(0, 3).map((g, i) => (
-                                        <span key={i}>{g}{i < Math.min(show.genres.length, 3) - 1 && ' •'}</span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
+        );
+
+        return (
+            <>
+                <div
+                    ref={refs.setReference}
+                    {...getReferenceProps()}
+                    onClick={onClick}
+                    style={{
+                        position: 'relative',
+                        width: '185px',
+                        height: 'calc(185px * 1.5)',
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                        opacity: isOpen ? 0 : 1,
+                        transition: 'opacity 0.3s ease'
+                    }}
+                >
+                    {renderCardContent(false)}
+                </div>
+                
+                {isOpen && customPosition && (
+                    <FloatingPortal>
+                        <div
+                            ref={refs.setFloating}
+                            {...getFloatingProps({
+                                onMouseEnter: () => {},
+                                onMouseLeave: () => {}
+                            })}
+                            onClick={onClick}
+                            style={{
+                                position: 'fixed',
+                                top: `${customPosition.top}px`,
+                                left: `${customPosition.left}px`,
+                                transform: 'translate(-50%, -50%) scale(1.3)',
+                                transformOrigin: 'center center',
+                                zIndex: 1000,
+                                pointerEvents: 'auto',
+                                transition: 'transform 0.3s ease',
+                                willChange: 'transform'
+                            }}
+                        >
+                            {renderCardContent(true)}
+                        </div>
+                    </FloatingPortal>
+                )}
+            </>
         );
     };
 
@@ -977,14 +986,14 @@ export default function SeriesRoute() {
         );
     }
 
-    const hasContent = organizedSeries.unidentified.length > 0 || organizedSeries.tvShows.length > 0;
+    const hasContent = organizedSeries.unidentified.length > 0 || organizedSeries.byGenre.length > 0;
 
     return (
         <AuthGuard>
             <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
                 <Navigation user={user!} onLogout={logout} />
                 
-                <div style={{ padding: '0 0 60px 0' }}>
+                <div style={{ padding: '0 0 60px 0', overflow: 'visible' }}>
                     <div style={{ padding: '20px 60px' }}>
                         <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
                         <VideoSubCategoryBar selectedSubCategory="series" onSubCategoryChange={handleSubCategoryChange} />
@@ -1119,18 +1128,19 @@ export default function SeriesRoute() {
                         </NetflixCarousel>
                     )}
                     
-                    {/* Mes Séries */}
-                    {organizedSeries.tvShows.length > 0 && (
-                        <NetflixCarousel title={t('videos.mySeries')} icon="📺">
-                            {organizedSeries.tvShows.map((show) => (
+                    {/* Séries par genre */}
+                    {organizedSeries.byGenre.map((genreGroup) => (
+                        <NetflixCarousel key={genreGroup.genre} title={genreGroup.genre}>
+                            {genreGroup.shows.map((show) => (
                                 <SeriesCard
-                                    key={show.showId}
+                                    key={`${genreGroup.genre}-${show.showId}`}
                                     show={show}
+                                    genre={genreGroup.genre}
                                     onClick={() => setSelectedShow(show.showId)}
                                 />
                             ))}
                         </NetflixCarousel>
-                    )}
+                    ))}
                     
                     {/* Message si aucun contenu */}
                     {!hasContent && !loading && (
@@ -1176,12 +1186,20 @@ export default function SeriesRoute() {
                 </div>
                 
                 {/* Modal détail série */}
-                {selectedShow && (
-                    <SeriesDetailModal
-                        show={organizedSeries.tvShows.find(s => s.showId === selectedShow)!}
-                        onClose={() => setSelectedShow(null)}
-                    />
-                )}
+                {selectedShow && (() => {
+                    // Trouver la série dans tous les genres
+                    let foundShow: TVShow | undefined;
+                    for (const genreGroup of organizedSeries.byGenre) {
+                        foundShow = genreGroup.shows.find(s => s.showId === selectedShow);
+                        if (foundShow) break;
+                    }
+                    return foundShow ? (
+                        <SeriesDetailModal
+                            show={foundShow}
+                            onClose={() => setSelectedShow(null)}
+                        />
+                    ) : null;
+                })()}
             </div>
         </AuthGuard>
     );

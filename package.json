@@ -22,6 +22,7 @@
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@floating-ui/react": "^0.27.16",
     "@react-oauth/google": "^0.13.4",
     "@react-router/node": "^7.9.4",
     "@remix-run/node": "^2.17.1",

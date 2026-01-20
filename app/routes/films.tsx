@@ -10,9 +10,11 @@ import { AuthGuard } from '~/components/auth/AuthGuard';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 import { CategoryBar } from '~/components/ui/categoryBar';
 import { VideoSubCategoryBar } from '~/components/ui/VideoSubCategoryBar';
+import { NetflixCarousel } from '~/components/ui/NetflixCarousel';
 import { getCategoryRoute } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { useFloating, useHover, useInteractions, FloatingPortal } from '@floating-ui/react';
 
 interface FileItem {
     file_id: string;
@@ -39,13 +41,7 @@ interface FileItem {
 
 interface OrganizedMovies {
     unidentified: FileItem[];
-    collections: Array<{
-        collectionId: string;
-        collectionName: string;
-        collectionThumbnail: string | null;
-        movies: Array<{ file: FileItem; title: string; year: number | null }>;
-    }>;
-    standaloneMovies: FileItem[];
+    byGenre: Array<{ genre: string; movies: FileItem[] }>;
     recentlyAdded: FileItem[];
 }
 
@@ -79,12 +75,10 @@ export default function FilmsRoute() {
     const [error, setError] = useState<string | null>(null);
     const [organizedMovies, setOrganizedMovies] = useState<OrganizedMovies>({
         unidentified: [],
-        collections: [],
-        standaloneMovies: [],
+        byGenre: [],
         recentlyAdded: []
     });
     const [heroMovie, setHeroMovie] = useState<FileItem | null>(null);
-    const [hoveredCard, setHoveredCard] = useState<string | null>(null);
     
     const handleCategoryChange = useCallback((category: FileCategory) => {
         setSelectedCategory(category);
@@ -129,13 +123,7 @@ export default function FilmsRoute() {
 
     const organizeMovies = useCallback((files: FileItem[]) => {
         const unidentified: FileItem[] = [];
-        const collectionsMap = new Map<string, {
-            collectionId: string;
-            collectionName: string;
-            collectionThumbnail: string | null;
-            movies: Array<{ file: FileItem; title: string; year: number | null }>;
-        }>();
-        const standaloneMovies: FileItem[] = [];
+        const genreMap = new Map<string, FileItem[]>();
         const allMovies: FileItem[] = [];
 
         for (const file of files) {
@@ -150,27 +138,50 @@ export default function FilmsRoute() {
                 unidentified.push(file);
             } else if (file.source_api === 'tmdb' || file.source_api === 'omdb') {
                 allMovies.push(file);
-                if (file.collection_id && file.collection_name) {
-                    if (!collectionsMap.has(file.collection_id)) {
-                        collectionsMap.set(file.collection_id, {
-                            collectionId: file.collection_id,
-                            collectionName: file.collection_name,
-                            collectionThumbnail: file.thumbnail_url,
-                            movies: []
-                        });
+                
+                // Grouper par genre
+                let genres: string[] = [];
+                try {
+                    if (file.genres) {
+                        if (typeof file.genres === 'string') {
+                            genres = JSON.parse(file.genres);
+                        } else if (Array.isArray(file.genres)) {
+                            genres = file.genres;
+                        }
                     }
-                    collectionsMap.get(file.collection_id)!.movies.push({
-                        file, title: file.title || 'Film inconnu', year: file.year
-                    });
+                } catch (parseError) {
+                    console.warn(`⚠️ [FILMS] Erreur parsing genres pour ${file.file_id}:`, parseError, `genres raw:`, file.genres);
+                }
+                
+                if (genres.length > 0) {
+                    for (const genre of genres) {
+                        if (!genreMap.has(genre)) {
+                            genreMap.set(genre, []);
+                        }
+                        genreMap.get(genre)!.push(file);
+                    }
                 } else {
-                    standaloneMovies.push(file);
+                    // Si pas de genre, mettre dans "Sans genre"
+                    if (!genreMap.has('Sans genre')) {
+                        genreMap.set('Sans genre', []);
+                    }
+                    genreMap.get('Sans genre')!.push(file);
                 }
             }
         }
 
-        const collections = Array.from(collectionsMap.values())
-            .map(col => ({ ...col, movies: col.movies.sort((a, b) => (a.year || 0) - (b.year || 0)) }))
-            .sort((a, b) => a.collectionName.localeCompare(b.collectionName));
+        // Convertir en tableau et trier par nom de genre
+        const byGenre = Array.from(genreMap.entries())
+            .map(([genre, movies]) => ({
+                genre,
+                movies: movies.sort((a, b) => (b.year || 0) - (a.year || 0)) // Trier par année décroissante
+            }))
+            .sort((a, b) => {
+                // Mettre "Sans genre" à la fin
+                if (a.genre === 'Sans genre') return 1;
+                if (b.genre === 'Sans genre') return -1;
+                return a.genre.localeCompare(b.genre);
+            });
 
         // Trier par date d'ajout pour les récents
         const recentlyAdded = [...allMovies].sort((a, b) => b.uploaded_at - a.uploaded_at).slice(0, 20);
@@ -184,8 +195,7 @@ export default function FilmsRoute() {
 
         setOrganizedMovies({
             unidentified: unidentified.sort((a, b) => b.uploaded_at - a.uploaded_at),
-            collections,
-            standaloneMovies: standaloneMovies.sort((a, b) => (b.year || 0) - (a.year || 0)),
+            byGenre,
             recentlyAdded
         });
     }, []);
@@ -206,284 +216,253 @@ export default function FilmsRoute() {
         navigate(`/match/videos/${fileId}`);
     }, [navigate]);
 
-    // Composant Carrousel Netflix
-    const NetflixCarousel = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
-        const scrollRef = useRef<HTMLDivElement>(null);
-        const [showLeftArrow, setShowLeftArrow] = useState(false);
-        const [showRightArrow, setShowRightArrow] = useState(true);
-
-        const scroll = (direction: 'left' | 'right') => {
-            if (scrollRef.current) {
-                const scrollAmount = scrollRef.current.clientWidth * 0.8;
-                scrollRef.current.scrollBy({
-                    left: direction === 'left' ? -scrollAmount : scrollAmount,
-                    behavior: 'smooth'
-                });
-            }
-        };
-
-        const handleScroll = () => {
-            if (scrollRef.current) {
-                setShowLeftArrow(scrollRef.current.scrollLeft > 0);
-                setShowRightArrow(
-                    scrollRef.current.scrollLeft < scrollRef.current.scrollWidth - scrollRef.current.clientWidth - 10
-                );
-            }
-        };
-
-        return (
-            <div style={{ marginBottom: '40px', position: 'relative' }}>
-                <h2 style={{
-                    fontSize: '20px',
-                    fontWeight: '700',
-                    color: netflixTheme.text.primary,
-                    marginBottom: '16px',
-                    marginLeft: '60px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                }}>
-                    <span>{icon}</span> {title}
-                </h2>
-                
-                <div style={{ position: 'relative' }}>
-                    {/* Flèche gauche */}
-                    {showLeftArrow && (
-                        <button
-                            onClick={() => scroll('left')}
-                            style={{
-                                position: 'absolute',
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: '60px',
-                                background: 'linear-gradient(to right, rgba(20,20,20,0.9), transparent)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                zIndex: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '40px',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                        >
-                            ‹
-                        </button>
-                    )}
-                    
-                    {/* Conteneur scrollable */}
-                    <div
-                        ref={scrollRef}
-                        onScroll={handleScroll}
-                        style={{
-                            display: 'flex',
-                            gap: '8px',
-                            overflowX: 'auto',
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                            paddingLeft: '60px',
-                            paddingRight: '60px',
-                            paddingTop: '10px',
-                            paddingBottom: '10px'
-                        }}
-                    >
-                        {children}
-                    </div>
-                    
-                    {/* Flèche droite */}
-                    {showRightArrow && (
-                        <button
-                            onClick={() => scroll('right')}
-                            style={{
-                                position: 'absolute',
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: '60px',
-                                background: 'linear-gradient(to left, rgba(20,20,20,0.9), transparent)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                zIndex: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '40px',
-                                opacity: 0.7,
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                        >
-                            ›
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
-    };
 
     // Carte Film Netflix
-    const MovieCard = ({ file, onClick }: { file: FileItem; onClick: () => void }) => {
+    const MovieCard = ({ file, genre, onClick }: { file: FileItem; genre?: string; onClick: () => void }) => {
         const thumbnailUrl = getThumbnailUrl(file);
         const displayName = file.title || file.filename?.replace(/\.[^/.]+$/, '') || 'Sans titre';
-        const isHovered = hoveredCard === file.file_id;
+        const cardId = genre ? `${genre}-${file.file_id}` : file.file_id;
         const genres = file.genres ? JSON.parse(file.genres) : [];
+        
+        // Utiliser Floating UI pour gérer le hover et le positionnement
+        const [isOpen, setIsOpen] = useState(false);
+        
+        const { refs, floatingStyles, context } = useFloating({
+            open: isOpen,
+            onOpenChange: setIsOpen,
+            placement: 'top',
+            middleware: []
+        });
+        
+        // Calculer la position centrée manuellement et la mettre à jour
+        const [customPosition, setCustomPosition] = useState<{ top: number; left: number } | null>(null);
+        const rafRef = useRef<number | null>(null);
+        
+        useEffect(() => {
+            if (isOpen && refs.reference.current) {
+                const updatePosition = () => {
+                    if (refs.reference.current) {
+                        const referenceRect = refs.reference.current.getBoundingClientRect();
+                        const centerX = referenceRect.left + referenceRect.width / 2;
+                        const centerY = referenceRect.top + referenceRect.height / 2;
+                        setCustomPosition({ top: centerY, left: centerX });
+                    }
+                };
+                
+                updatePosition();
+                
+                // Optimiser avec requestAnimationFrame
+                const handleUpdate = () => {
+                    if (rafRef.current) {
+                        cancelAnimationFrame(rafRef.current);
+                    }
+                    rafRef.current = requestAnimationFrame(updatePosition);
+                };
+                
+                // Mettre à jour la position lors du scroll avec throttling
+                window.addEventListener('scroll', handleUpdate, { passive: true });
+                window.addEventListener('resize', handleUpdate, { passive: true });
+                
+                return () => {
+                    window.removeEventListener('scroll', handleUpdate);
+                    window.removeEventListener('resize', handleUpdate);
+                    if (rafRef.current) {
+                        cancelAnimationFrame(rafRef.current);
+                    }
+                };
+            } else {
+                setCustomPosition(null);
+            }
+        }, [isOpen, refs.reference]);
 
-        return (
-            <div
-                onClick={onClick}
-                onMouseEnter={() => setHoveredCard(file.file_id)}
-                onMouseLeave={() => setHoveredCard(null)}
-                style={{
-                    position: 'relative',
-                    width: '185px',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                    transition: 'transform 0.3s ease, z-index 0s 0.3s',
-                    transform: isHovered ? 'scale(1.3)' : 'scale(1)',
-                    zIndex: isHovered ? 100 : 1,
-                    transformOrigin: 'center center'
-                }}
-            >
+        const hover = useHover(context, {
+            delay: { open: 0, close: 200 },
+            restMs: 25
+        });
+
+        const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+
+        const renderCardContent = (isZoomed = false) => (
+            <div style={{
+                borderRadius: '6px',
+                overflow: 'hidden',
+                backgroundColor: netflixTheme.bg.card,
+                boxShadow: isZoomed ? '0 10px 40px rgba(0,0,0,0.8)' : 'none',
+                transition: 'box-shadow 0.3s ease',
+                width: '185px'
+            }}>
+                {/* Image */}
                 <div style={{
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    backgroundColor: netflixTheme.bg.card,
-                    boxShadow: isHovered ? '0 10px 40px rgba(0,0,0,0.8)' : 'none',
-                    transition: 'box-shadow 0.3s ease'
+                    width: '100%',
+                    aspectRatio: '2/3',
+                    backgroundColor: '#2a2a2a',
+                    position: 'relative'
                 }}>
-                    {/* Image */}
-                    <div style={{
-                        width: '100%',
-                        aspectRatio: '2/3',
-                        backgroundColor: '#2a2a2a',
-                        position: 'relative'
-                    }}>
-                        {thumbnailUrl ? (
-                            <img
-                                src={thumbnailUrl}
-                                alt={displayName}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '100%',
-                                height: '100%',
-                                color: netflixTheme.text.muted,
-                                fontSize: '48px'
-                            }}>
-                                🎬
-                            </div>
-                        )}
-                        
-                        {/* Badge durée */}
-                        {file.duration && (
-                            <div style={{
-                                position: 'absolute',
-                                bottom: '8px',
-                                right: '8px',
-                                backgroundColor: 'rgba(0,0,0,0.8)',
-                                color: '#fff',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                                fontSize: '11px',
-                                fontWeight: '500'
-                            }}>
-                                {formatDuration(file.duration)}
-                            </div>
-                        )}
-                    </div>
-                    
-                    {/* Infos au hover */}
-                    {isHovered && (
+                    {thumbnailUrl ? (
+                        <img
+                            src={thumbnailUrl}
+                            alt={displayName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                    ) : (
                         <div style={{
-                            padding: '12px',
-                            backgroundColor: netflixTheme.bg.card
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '100%',
+                            height: '100%',
+                            color: netflixTheme.text.muted,
+                            fontSize: '48px'
                         }}>
-                            {/* Boutons */}
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                                <button style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#fff',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '18px'
-                                }}>
-                                    ▶
-                                </button>
-                                <button style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    backgroundColor: 'transparent',
-                                    border: '2px solid rgba(255,255,255,0.5)',
-                                    cursor: 'pointer',
-                                    color: '#fff',
-                                    fontSize: '16px'
-                                }}>
-                                    +
-                                </button>
-                            </div>
-                            
-                            {/* Titre */}
-                            <div style={{
-                                fontWeight: '600',
-                                color: netflixTheme.text.primary,
-                                fontSize: '13px',
-                                marginBottom: '4px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
-                                {displayName}
-                            </div>
-                            
-                            {/* Année */}
-                            {file.year && (
-                                <div style={{
-                                    color: '#46d369',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    marginBottom: '4px'
-                                }}>
-                                    {file.year}
-                                </div>
-                            )}
-                            
-                            {/* Genres */}
-                            {genres.length > 0 && (
-                                <div style={{
-                                    color: netflixTheme.text.secondary,
-                                    fontSize: '11px',
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '4px'
-                                }}>
-                                    {genres.slice(0, 3).map((g: string, i: number) => (
-                                        <span key={i}>
-                                            {g}{i < Math.min(genres.length, 3) - 1 && ' •'}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                            🎬
+                        </div>
+                    )}
+                    
+                    {/* Badge durée */}
+                    {file.duration && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '8px',
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            color: '#fff',
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                        }}>
+                            {formatDuration(file.duration)}
                         </div>
                     )}
                 </div>
+                
+                {/* Infos au hover */}
+                {isZoomed && (
+                    <div style={{
+                        padding: '12px',
+                        backgroundColor: netflixTheme.bg.card
+                    }}>
+                        {/* Boutons */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                            <button style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: '#fff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '18px'
+                            }}>
+                                ▶
+                            </button>
+                            <button style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: 'transparent',
+                                border: '2px solid rgba(255,255,255,0.5)',
+                                cursor: 'pointer',
+                                color: '#fff',
+                                fontSize: '16px'
+                            }}>
+                                +
+                            </button>
+                        </div>
+                        
+                        {/* Titre */}
+                        <div style={{
+                            fontWeight: '600',
+                            color: netflixTheme.text.primary,
+                            fontSize: '13px',
+                            marginBottom: '4px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}>
+                            {displayName}
+                        </div>
+                        
+                        {/* Année */}
+                        {file.year && (
+                            <div style={{
+                                color: '#46d369',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                marginBottom: '4px'
+                            }}>
+                                {file.year}
+                            </div>
+                        )}
+                        
+                        {/* Genres */}
+                        {genres.length > 0 && (
+                            <div style={{
+                                color: netflixTheme.text.secondary,
+                                fontSize: '11px',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '4px'
+                            }}>
+                                {genres.slice(0, 3).map((g: string, i: number) => (
+                                    <span key={i}>
+                                        {g}{i < Math.min(genres.length, 3) - 1 && ' •'}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+        );
+
+        return (
+            <>
+                <div
+                    ref={refs.setReference}
+                    {...getReferenceProps()}
+                    onClick={onClick}
+                    style={{
+                        position: 'relative',
+                        width: '185px',
+                        height: 'calc(185px * 1.5)',
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                        opacity: isOpen ? 0 : 1,
+                        transition: 'opacity 0.3s ease'
+                    }}
+                >
+                    {renderCardContent(false)}
+                </div>
+                
+                {isOpen && customPosition && (
+                    <FloatingPortal>
+                        <div
+                            ref={refs.setFloating}
+                            {...getFloatingProps({
+                                onMouseEnter: () => {},
+                                onMouseLeave: () => {}
+                            })}
+                            onClick={onClick}
+                            style={{
+                                position: 'fixed',
+                                top: `${customPosition.top}px`,
+                                left: `${customPosition.left}px`,
+                                transform: 'translate(-50%, -50%) scale(1.3)',
+                                transformOrigin: 'center center',
+                                zIndex: 1000,
+                                pointerEvents: 'auto',
+                                transition: 'transform 0.3s ease',
+                                willChange: 'transform'
+                            }}
+                        >
+                            {renderCardContent(true)}
+                        </div>
+                    </FloatingPortal>
+                )}
+            </>
         );
     };
 
@@ -533,75 +512,6 @@ export default function FilmsRoute() {
         </div>
     );
 
-    // Carte Collection
-    const CollectionCard = ({ collection }: { collection: OrganizedMovies['collections'][0] }) => {
-        const [expanded, setExpanded] = useState(false);
-        
-        return (
-            <div style={{ marginBottom: '30px' }}>
-                <div
-                    onClick={() => setExpanded(!expanded)}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '20px',
-                        padding: '20px',
-                        marginLeft: '60px',
-                        marginRight: '60px',
-                        backgroundColor: netflixTheme.bg.secondary,
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = netflixTheme.bg.hover}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = netflixTheme.bg.secondary}
-                >
-                    {collection.collectionThumbnail && (
-                        <img
-                            src={collection.collectionThumbnail}
-                            alt={collection.collectionName}
-                            style={{ width: '80px', height: '120px', objectFit: 'cover', borderRadius: '4px' }}
-                        />
-                    )}
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '20px', fontWeight: '700', color: netflixTheme.text.primary }}>
-                            {collection.collectionName}
-                        </div>
-                        <div style={{ fontSize: '14px', color: netflixTheme.text.secondary, marginTop: '4px' }}>
-                            {collection.movies.length} {t('videos.film')}{collection.movies.length > 1 ? 's' : ''}
-                        </div>
-                    </div>
-                    <span style={{
-                        fontSize: '24px',
-                        color: netflixTheme.text.secondary,
-                        transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s'
-                    }}>
-                        ▼
-                    </span>
-                </div>
-                
-                {expanded && (
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        marginTop: '16px',
-                        paddingLeft: '80px',
-                        overflowX: 'auto',
-                        paddingBottom: '10px'
-                    }}>
-                        {collection.movies.map((movie) => (
-                            <MovieCard
-                                key={movie.file.file_id}
-                                file={movie.file}
-                                onClick={() => handleVideoClick(movie.file.file_id, movie.file.category)}
-                            />
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     if (error) {
         return (
@@ -621,15 +531,14 @@ export default function FilmsRoute() {
     }
 
     const hasContent = organizedMovies.unidentified.length > 0 || 
-                       organizedMovies.collections.length > 0 || 
-                       organizedMovies.standaloneMovies.length > 0;
+                       organizedMovies.byGenre.length > 0;
 
     return (
         <AuthGuard>
             <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
                 <Navigation user={user!} onLogout={logout} />
                 
-                <div style={{ padding: '0 0 60px 0' }}>
+                <div style={{ padding: '0 0 60px 0', overflow: 'visible' }}>
                     <div style={{ padding: '20px 60px' }}>
                         <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
                         <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
@@ -787,39 +696,19 @@ export default function FilmsRoute() {
                         </NetflixCarousel>
                     )}
                     
-                    {/* Collections */}
-                    {organizedMovies.collections.length > 0 && (
-                        <div style={{ marginBottom: '40px' }}>
-                            <h2 style={{
-                                fontSize: '20px',
-                                fontWeight: '700',
-                                color: netflixTheme.text.primary,
-                                marginBottom: '20px',
-                                marginLeft: '60px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}>
-                                📚 {t('videos.collections')}
-                            </h2>
-                            {organizedMovies.collections.map((collection) => (
-                                <CollectionCard key={collection.collectionId} collection={collection} />
-                            ))}
-                        </div>
-                    )}
-                    
-                    {/* Mes Films */}
-                    {organizedMovies.standaloneMovies.length > 0 && (
-                        <NetflixCarousel title={t('videos.myFilms')} icon="🎬">
-                            {organizedMovies.standaloneMovies.map((file) => (
+                    {/* Films par genre */}
+                    {organizedMovies.byGenre.map((genreGroup) => (
+                        <NetflixCarousel key={genreGroup.genre} title={genreGroup.genre}>
+                            {genreGroup.movies.map((file) => (
                                 <MovieCard
-                                    key={file.file_id}
+                                    key={`${genreGroup.genre}-${file.file_id}`}
                                     file={file}
+                                    genre={genreGroup.genre}
                                     onClick={() => handleVideoClick(file.file_id, file.category)}
                                 />
                             ))}
                         </NetflixCarousel>
-                    )}
+                    ))}
                     
                     {/* Message si aucun contenu */}
                     {!hasContent && !loading && (

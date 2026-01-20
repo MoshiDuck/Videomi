@@ -1041,6 +1041,35 @@ app.post('/api/upload/complete', async (c) => {
                         if (!tmdbApiKey && !omdbApiKey) {
                             console.warn(`⚠️ [ENRICHMENT] Aucune clé API vidéo configurée (TMDb/OMDb)`);
                         } else {
+                            // Fonction helper pour récupérer les genres TMDb (film ou série)
+                            const fetchTmdbGenres = async (
+                                type: 'movie' | 'tv',
+                                id: number
+                            ): Promise<string[] | null> => {
+                                try {
+                                    console.log(`[GENRES] [ENRICHMENT] Récupération genres TMDb pour ${type} ID ${id}...`);
+                                    const detailsUrl = `https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR`;
+                                    const detailsResp = await fetch(detailsUrl);
+                                    if (!detailsResp.ok) {
+                                        console.warn(`⚠️ [ENRICHMENT] Impossible de récupérer les genres TMDb (${type}) pour ID ${id}: ${detailsResp.status}`);
+                                        return null;
+                                    }
+                                    const details = await detailsResp.json() as { genres?: Array<{ id: number; name?: string | null }> };
+                                    console.log(`[GENRES] [ENRICHMENT] Réponse TMDb details pour ${type} ID ${id}:`, JSON.stringify(details.genres || [], null, 2));
+                                    if (details.genres && Array.isArray(details.genres)) {
+                                        const names = details.genres
+                                            .map(g => (g && typeof g.name === 'string' ? g.name.trim() : ''))
+                                            .filter(n => n.length > 0);
+                                        console.log(`[GENRES] [ENRICHMENT] Genres extraits pour ${type} ID ${id}:`, names);
+                                        return names.length > 0 ? names : null;
+                                    }
+                                    console.warn(`⚠️ [ENRICHMENT] Aucun genre trouvé dans la réponse TMDb pour ${type} ID ${id}`);
+                                } catch (genreError) {
+                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération genres TMDb (${type}) pour ID ${id}:`, genreError);
+                                }
+                                return null;
+                            };
+
                             // Si pattern série détecté, chercher d'abord sur TMDb TV
                             if (isLikelySeries && tmdbApiKey) {
                                 for (const variant of titleVariants) {
@@ -1054,6 +1083,8 @@ app.post('/api/upload/complete', async (c) => {
                                         if (tvData.results && tvData.results.length > 0) {
                                             const tv = tvData.results[0];
                                             console.log(`✅ [ENRICHMENT] Série trouvée sur TMDb: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
+                                            const genres = await fetchTmdbGenres('tv', tv.id);
+                                            console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour série "${tv.name}":`, genres);
                                             enrichedMetadata = {
                                                 source_api: 'tmdb_tv',
                                                 source_id: String(tv.id),
@@ -1061,9 +1092,11 @@ app.post('/api/upload/complete', async (c) => {
                                                 year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null,
                                                 thumbnail_url: tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : null,
                                                 description: tv.overview || null,
+                                                genres: genres || undefined,
                                                 season: detectedSeason,
                                                 episode: detectedEpisode
                                             };
+                                            console.log(`[GENRES] [ENRICHMENT] Métadonnées avec genres:`, JSON.stringify({ genres: enrichedMetadata.genres }, null, 2));
                                         }
                                     } else {
                                         console.error(`❌ [ENRICHMENT] Erreur API TMDb TV (${tvResponse.status}) pour variante "${variant}"`);
@@ -1084,14 +1117,18 @@ app.post('/api/upload/complete', async (c) => {
                                         if (movieData.results && movieData.results.length > 0) {
                                             const movie = movieData.results[0];
                                             console.log(`✅ [ENRICHMENT] Film trouvé sur TMDb: "${movie.title}" (ID: ${movie.id}, Année: ${movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
+                                            const genres = await fetchTmdbGenres('movie', movie.id);
+                                            console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour film "${movie.title}":`, genres);
                                             enrichedMetadata = {
                                                 source_api: 'tmdb',
                                                 source_id: String(movie.id),
                                                 title: movie.title || null,
                                                 year: movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : null,
                                                 thumbnail_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-                                                description: movie.overview || null
+                                                description: movie.overview || null,
+                                                genres: genres || undefined
                                             };
+                                            console.log(`[GENRES] [ENRICHMENT] Métadonnées avec genres:`, JSON.stringify({ genres: enrichedMetadata.genres }, null, 2));
                                         }
                                     } else {
                                         console.error(`❌ [ENRICHMENT] Erreur API TMDb Movie (${movieResponse.status}) pour variante "${variant}"`);
@@ -1112,14 +1149,18 @@ app.post('/api/upload/complete', async (c) => {
                                         if (tvData.results && tvData.results.length > 0) {
                                             const tv = tvData.results[0];
                                             console.log(`✅ [ENRICHMENT] Série trouvée sur TMDb: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
+                                            const genres = await fetchTmdbGenres('tv', tv.id);
+                                            console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour série "${tv.name}":`, genres);
                                             enrichedMetadata = {
                                                 source_api: 'tmdb_tv',
                                                 source_id: String(tv.id),
                                                 title: tv.name || null,
                                                 year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null,
                                                 thumbnail_url: tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : null,
-                                                description: tv.overview || null
+                                                description: tv.overview || null,
+                                                genres: genres || undefined
                                             };
+                                            console.log(`[GENRES] [ENRICHMENT] Métadonnées avec genres:`, JSON.stringify({ genres: enrichedMetadata.genres }, null, 2));
                                         }
                                     } else {
                                         console.error(`❌ [ENRICHMENT] Erreur API TMDb TV (${tvResponse.status}) pour variante "${variant}"`);
@@ -1491,6 +1532,7 @@ app.post('/api/upload/complete', async (c) => {
                             albums: enrichedMetadata.albums,
                             year: enrichedMetadata.year,
                             source_api: enrichedMetadata.source_api,
+                            genres: enrichedMetadata.genres,
                             has_thumbnail: !!enrichedMetadata.thumbnail_url
                         }, null, 2));
                         
@@ -1577,7 +1619,7 @@ app.post('/api/upload/complete', async (c) => {
                                         enrichedMetadata.thumbnail_r2_path || null,
                                         enrichedMetadata.source_api || null,
                                         enrichedMetadata.source_id || null,
-                                        enrichedMetadata.genres ? JSON.stringify(enrichedMetadata.genres) : null,
+                                        enrichedMetadata.genres && Array.isArray(enrichedMetadata.genres) && enrichedMetadata.genres.length > 0 ? JSON.stringify(enrichedMetadata.genres) : null,
                                         enrichedMetadata.subgenres ? JSON.stringify(enrichedMetadata.subgenres) : null,
                                         enrichedMetadata.season || null,
                                         enrichedMetadata.episode || null,
@@ -1603,7 +1645,7 @@ app.post('/api/upload/complete', async (c) => {
                                             enrichedMetadata.thumbnail_r2_path || null,
                                             enrichedMetadata.source_api || null,
                                             enrichedMetadata.source_id || null,
-                                            enrichedMetadata.genres ? JSON.stringify(enrichedMetadata.genres) : null,
+                                            enrichedMetadata.genres && Array.isArray(enrichedMetadata.genres) && enrichedMetadata.genres.length > 0 ? JSON.stringify(enrichedMetadata.genres) : null,
                                             enrichedMetadata.subgenres ? JSON.stringify(enrichedMetadata.subgenres) : null,
                                             enrichedMetadata.season || null,
                                             enrichedMetadata.episode || null,
@@ -1736,7 +1778,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                     fm.thumbnail_r2_path, fm.thumbnail_url,
                     fm.source_id, fm.source_api,
                     fm.title, fm.artists, fm.albums, fm.album_thumbnails,
-                    fm.year
+                    fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
              FROM files f
                       JOIN user_files uf ON f.file_id = uf.file_id
                       LEFT JOIN file_metadata fm ON f.file_id = fm.file_id
@@ -1762,7 +1804,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                         fm.thumbnail_r2_path, fm.thumbnail_url,
                         fm.source_id, fm.source_api,
                         fm.title, fm.artists, fm.albums, NULL as album_thumbnails,
-                        fm.year
+                        fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
                  FROM files f
                           JOIN user_files uf ON f.file_id = uf.file_id
                           LEFT JOIN file_metadata fm ON f.file_id = fm.file_id
