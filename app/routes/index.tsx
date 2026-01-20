@@ -1,10 +1,8 @@
-// Info : app/routes/index.tsx
-import { redirect } from "react-router";
+// INFO : app/routes/index.tsx
+import React from 'react';
+import { Navigate } from 'react-router';
 
-export async function loader() {
-    return redirect("/login");
-}
-
-export default function Index() {
-    return null;
+export default function IndexRoute() {
+    // Rediriger vers /login comme page d'accueil par défaut
+    return <Navigate to="/login" replace />;
 }

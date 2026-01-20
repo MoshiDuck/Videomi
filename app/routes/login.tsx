@@ -1,231 +1,213 @@
 // INFO : app/routes/login.tsx
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router";
-import { useAuth } from "~/contexts/AuthContext";
-import PublicRoute from "~/components/PublicRoute";
+import React from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import type { CredentialResponse } from '@react-oauth/google';
 
-interface LoginResponse {
-    success: boolean;
-    token?: string;
-    refreshToken?: string; // Pour Electron
-    error?: string;
-    message?: string;
-}
+import { useConfig } from '~/hooks/useConfig';
+import { useElectronAuth } from '~/hooks/useElectronAuth';
+import { useAuth } from '~/hooks/useAuth';
+import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { GoogleAuthButton } from '~/components/auth/GoogleAuthButton';
+import { darkTheme } from '~/utils/ui/theme';
+import { useLanguage } from '~/contexts/LanguageContext';
 
-export default function Login() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [info, setInfo] = useState("");
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { login } = useAuth();
+export default function LoginRoute() {
+    const { config, loading: configLoading, error: configError } = useConfig();
+    const { credential, error: electronError, openAuthInBrowser } = useElectronAuth();
+    const { handleAuthWithToken, setError, loading: authLoading, error: authError } = useAuth();
+    const { t } = useLanguage();
+    const isElectron = typeof window !== 'undefined' && (window.electronAPI?.isElectron || false);
 
-    // Vérifier s'il y a un message de redirection
-    useEffect(() => {
-        if (location.state?.message) {
-            setInfo(location.state.message);
+    // Gérer le token reçu via Electron
+    React.useEffect(() => {
+        if (credential && config) {
+            handleAuthWithToken(credential, config);
         }
-        if (location.state?.email) {
-            setEmail(location.state.email);
+    }, [credential, config, handleAuthWithToken]);
+
+    // Gérer les erreurs d'Electron
+    React.useEffect(() => {
+        if (electronError) {
+            setError(electronError);
         }
-    }, [location]);
+    }, [electronError, setError]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-        setInfo("");
-
-        try {
-            let response;
-
-            if (window.electronAPI?.isElectron) {
-                // Pour Electron: utiliser l'API IPC
-                const result = await window.electronAPI.login(email, password);
-
-                if (result.success && result.user) {
-                    // Stocker le token dans localStorage
-                    localStorage.setItem('token', result.user.token);
-                    login(result.user.token, email, result.user.uid);
-                    navigate("/home", { replace: true });
-                    return;
-                } else {
-                    setError(result.error || "Email ou mot de passe incorrect");
-                }
-            } else {
-                // Pour le web: appel API normal
-                response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include', // Important pour les cookies
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data: LoginResponse = await response.json();
-
-                if (data.success && data.token) {
-                    // Le refresh token est dans le cookie HTTP-only
-                    localStorage.setItem('token', data.token);
-                    login(data.token, email);
-                    navigate("/home", { replace: true });
-                } else {
-                    setError(data.error || "Email ou mot de passe incorrect");
-                }
-            }
-        } catch (err) {
-            setError("Erreur de connexion au serveur");
-            console.error(err);
-        } finally {
-            setLoading(false);
+    const handleWebAuth = async (cred: CredentialResponse) => {
+        if (cred.credential && config) {
+            await handleAuthWithToken(cred.credential, config);
         }
     };
 
-    return (
-        <PublicRoute>
+    const handleElectronAuth = () => {
+        if (config?.googleClientId) {
+            const authUrl = `${config.baseUrl}/api/auth/google/electron?client_id=${config.googleClientId}`;
+            openAuthInBrowser(authUrl);
+        }
+    };
+
+    if (configLoading) {
+        return (
             <div style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                minHeight: "100vh",
-                backgroundColor: "#f5f5f5",
-                padding: "20px"
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                backgroundColor: darkTheme.background.primary
+            }}>
+                <LoadingSpinner message={t('common.loading')} size="large" />
+            </div>
+        );
+    }
+
+    if (configError || !config) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: 40,
+                backgroundColor: darkTheme.background.primary
             }}>
                 <div style={{
-                    backgroundColor: "white",
-                    padding: "40px",
-                    borderRadius: "10px",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                    width: "100%",
-                    maxWidth: "400px"
+                    maxWidth: 500,
+                    width: '100%',
+                    backgroundColor: darkTheme.background.secondary,
+                    borderRadius: 12,
+                    padding: 40,
+                    boxShadow: darkTheme.shadow.medium
                 }}>
-                    <h1 style={{
-                        textAlign: "center",
-                        marginBottom: "30px",
-                        color: "#333"
-                    }}>
-                        Connexion
-                    </h1>
-
-                    {info && (
-                        <div style={{
-                            backgroundColor: "#e3f2fd",
-                            color: "#1565c0",
-                            padding: "10px",
-                            borderRadius: "5px",
-                            marginBottom: "20px",
-                            textAlign: "center"
-                        }}>
-                            ℹ️ {info}
-                        </div>
-                    )}
-
-                    {error && (
-                        <div style={{
-                            backgroundColor: "#ffebee",
-                            color: "#c62828",
-                            padding: "10px",
-                            borderRadius: "5px",
-                            marginBottom: "20px",
-                            textAlign: "center"
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: "20px" }}>
-                            <label style={{
-                                display: "block",
-                                marginBottom: "8px",
-                                color: "#555",
-                                fontWeight: "500"
-                            }}>
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                style={{
-                                    width: "100%",
-                                    padding: "12px",
-                                    border: "1px solid #ddd",
-                                    borderRadius: "5px",
-                                    fontSize: "16px",
-                                    boxSizing: "border-box"
-                                }}
-                                placeholder="votre@email.com"
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: "30px" }}>
-                            <label style={{
-                                display: "block",
-                                marginBottom: "8px",
-                                color: "#555",
-                                fontWeight: "500"
-                            }}>
-                                Mot de passe
-                            </label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                style={{
-                                    width: "100%",
-                                    padding: "12px",
-                                    border: "1px solid #ddd",
-                                    borderRadius: "5px",
-                                    fontSize: "16px",
-                                    boxSizing: "border-box"
-                                }}
-                                placeholder="Votre mot de passe"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            style={{
-                                width: "100%",
-                                padding: "14px",
-                                backgroundColor: loading ? "#666" : "#0070f3",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "5px",
-                                fontSize: "16px",
-                                fontWeight: "bold",
-                                cursor: loading ? "not-allowed" : "pointer",
-                                marginBottom: "20px"
-                            }}
-                        >
-                            {loading ? "Connexion..." : "Se connecter"}
-                        </button>
-
-                        <div style={{
-                            textAlign: "center",
-                            color: "#666",
-                            fontSize: "14px"
-                        }}>
-                            Pas encore de compte ?{" "}
-                            <Link
-                                to="/register"
-                                style={{
-                                    color: "#0070f3",
-                                    textDecoration: "none",
-                                    fontWeight: "500"
-                                }}
-                            >
-                                S'inscrire
-                            </Link>
-                        </div>
-                    </form>
+                    <ErrorDisplay 
+                        error={configError || t('login.configUnavailable')} 
+                    />
                 </div>
             </div>
-        </PublicRoute>
+        );
+    }
+
+    if (!config.googleClientId) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: 40,
+                backgroundColor: darkTheme.background.primary
+            }}>
+                <div style={{
+                    maxWidth: 500,
+                    width: '100%',
+                    backgroundColor: darkTheme.background.secondary,
+                    borderRadius: 12,
+                    padding: 40,
+                    boxShadow: darkTheme.shadow.medium
+                }}>
+                    <ErrorDisplay 
+                        error={t('login.configError') + ': GOOGLE_CLIENT_ID non configuré côté Cloudflare. Veuillez configurer votre application.'} 
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <GoogleOAuthProvider clientId={config.googleClientId}>
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: 20,
+                backgroundColor: '#121212'
+            }}>
+                <div style={{
+                    maxWidth: 400,
+                    width: '100%',
+                    backgroundColor: darkTheme.background.secondary,
+                    borderRadius: 12,
+                    padding: 40,
+                    boxShadow: darkTheme.shadow.medium
+                }}>
+                    <div style={{ textAlign: 'center', marginBottom: 30 }}>
+                        <h1 style={{
+                            fontSize: 28,
+                            fontWeight: 'bold',
+                            marginBottom: 10,
+                            color: darkTheme.text.primary
+                        }}>
+                            {t('login.title')}
+                        </h1>
+                        <p style={{
+                            color: darkTheme.text.secondary,
+                            fontSize: 16,
+                            marginBottom: 30
+                        }}>
+                            {t('login.subtitle')}
+                        </p>
+                    </div>
+
+                    {isElectron && (
+                        <div style={{
+                            backgroundColor: darkTheme.surface.info,
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            marginBottom: '24px',
+                            border: `1px solid ${darkTheme.accent.blue}`
+                        }}>
+                            <p style={{
+                                margin: 0,
+                                fontSize: '14px',
+                                color: darkTheme.accent.blue
+                            }}>
+                                <strong>{t('login.electronMode')}</strong>
+                            </p>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: 'center' }}>
+                        <p style={{
+                            marginBottom: 20,
+                            color: darkTheme.text.secondary,
+                            fontSize: 15
+                        }}>
+                            {t('login.connectWithGoogle')}
+                        </p>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <GoogleAuthButton
+                                isElectron={isElectron}
+                                googleClientId={config.googleClientId}
+                                loading={authLoading}
+                                onElectronAuth={handleElectronAuth}
+                                onWebAuth={handleWebAuth}
+                                onError={() => setError('Erreur lors de l\'authentification Google')}
+                            />
+                        </div>
+
+                        {(authError || electronError) && (
+                            <ErrorDisplay error={authError || electronError || ''} />
+                        )}
+                    </div>
+
+                    <div style={{
+                        marginTop: 30,
+                        paddingTop: 20,
+                        borderTop: `1px solid ${darkTheme.border.primary}`,
+                        textAlign: 'center'
+                    }}>
+                        <p style={{
+                            fontSize: 12,
+                            color: darkTheme.text.tertiary,
+                            margin: 0
+                        }}>
+                            {t('login.terms')}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </GoogleOAuthProvider>
     );
 }

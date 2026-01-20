@@ -1,475 +1,658 @@
-// INFO : app/routes/upload.tsx
-import React, { JSX, useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
-import ProtectedRoute from "~/components/ProtectedRoute";
+// INFO : app/routes/upload.tsx - VERSION CORRIGÉE
+import React, { useState, useCallback, useRef } from 'react';
+import { useAuth } from '~/hooks/useAuth';
+import { Navigation } from '~/components/navigation/Navigation';
+import { AuthGuard } from '~/components/auth/AuthGuard';
+import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
+import { UploadManager, UploadManagerHandle } from '~/components/upload/UploadManager';
+import { darkTheme } from '~/utils/ui/theme';
+import { formatFileSize, formatDate } from '~/utils/format';
+import { useLanguage } from '~/contexts/LanguageContext';
 
-// Types
-type UploadStatus = "idle" | "selecting" | "uploading" | "success" | "error";
-type UploadProgress = {
-    overall: number;
-    currentFile: number;
-    currentFileName: string;
-    uploadedSegments?: number;
-    totalSegments?: number;
-};
+interface UploadProgress {
+    loaded: number;
+    total: number;
+    percentage: number;
+}
 
-// Fonction pour extraire le nom de fichier sans extension
-const extractFileName = (fullName: string): string => {
-    // Supprime l'extension (tout après le dernier point)
-    const lastDotIndex = fullName.lastIndexOf('.');
-    if (lastDotIndex === -1) {
-        return fullName; // Pas d'extension
-    }
-    return fullName.substring(0, lastDotIndex);
-};
+interface UploadedFile {
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+    uploadedAt: string;
+}
 
-// Fonction pour formater le nom de fichier (optionnel)
-const formatFileName = (fileName: string): string => {
-    // Remplacer les underscores et tirets par des espaces pour plus de lisibilité
-    return fileName
-        .replace(/[_-]/g, ' ')
-        .replace(/\s+/g, ' ') // Supprimer les espaces multiples
-        .trim();
-};
+export default function UploadRoute() {
+    const { user, logout } = useAuth();
+    const { t } = useLanguage();
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-export default function Upload(): JSX.Element {
-    const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
-    const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-        overall: 0,
-        currentFile: 0,
-        currentFileName: ""
-    });
-    const [statusMessage, setStatusMessage] = useState<string>("");
-    const [isElectron, setIsElectron] = useState<boolean>(false);
-    const [isClient, setIsClient] = useState<boolean>(false);
-    const navigate = useNavigate();
-    const progressListenerRef = useRef<boolean>(false);
+    // Référence à l'UploadManager
+    const uploadManagerRef = useRef<UploadManagerHandle>(null);
 
-    // Vérification de l'environnement Electron
-    useEffect(() => {
-        console.log("🔍 Upload component mounted");
-        setIsClient(true);
+    // Gérer la sélection de fichier
+    const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-        const checkElectron = () => {
-            const electronDetected = !!(window.electronAPI?.isElectron);
-            console.log(`⚡ Electron détecté: ${electronDetected}`);
-            setIsElectron(electronDetected);
+        setSelectedFile(file);
+        setUploadError(null);
+        setUploadSuccess(false);
 
-            if (!electronDetected && isClient) {
-                console.log("🌐 Redirection vers /home (non-Electron)");
-                navigate("/home");
-            }
-        };
+        if (file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+        } else {
+            setPreviewUrl(null);
+        }
+    }, []);
 
-        checkElectron();
-        const timer = setTimeout(checkElectron, 100);
-
-        return () => {
-            clearTimeout(timer);
-            console.log("🧹 Upload component unmounted");
-        };
-    }, [navigate, isClient]);
-
-    // Configurer l'écouteur de progression
-    useEffect(() => {
-        if (!isElectron || progressListenerRef.current) {
-            console.log("⏭️ Écouteur de progression déjà configuré ou pas Electron");
+    // Gérer l'upload via l'UploadManager
+    const handleUpload = useCallback(async () => {
+        if (!selectedFile) {
+            setUploadError('Veuillez sélectionner un fichier');
             return;
         }
 
-        console.log('🎯 Configuration de l\'écouteur de progression');
+        // Utiliser l'UploadManager pour uploader
+        if (uploadManagerRef.current) {
+            uploadManagerRef.current.uploadFiles([selectedFile]);
+            setUploadSuccess(true);
+            setSelectedFile(null);
+            setPreviewUrl(null);
 
-        window.electronAPI.onUploadProgress((progress: any) => {
-            console.log('📨 Progression reçue:', progress);
-
-            if (progress.stage === 'conversion_and_upload') {
-                const overall = progress.progress || 0;
-                const uploadedSegments = progress.uploadedSegments || 0;
-                const totalSegments = progress.totalSegments || 0;
-
-                // Message simple sans répétition du pourcentage
-                setStatusMessage(`Préparation de la vidéo...`);
-
-                setUploadProgress(prev => ({
-                    ...prev,
-                    currentFile: overall,
-                    uploadedSegments,
-                    totalSegments
-                }));
-            } else if (progress.stage === 'upload_subtitles') {
-                const currentSubtitle = progress.currentSubtitle || 0;
-                const totalSubtitles = progress.totalSubtitles || 0;
-
-                if (totalSubtitles > 0) {
-                    setStatusMessage(`Ajout des sous-titres (${currentSubtitle}/${totalSubtitles})...`);
-                } else {
-                    setStatusMessage("Finalisation...");
-                }
-                setUploadProgress(prev => ({
-                    ...prev,
-                    currentFile: progress.progress || 0
-                }));
-            } else if (progress.stage === 'upload_playlist') {
-                setStatusMessage("Création du fichier de lecture...");
-                setUploadProgress(prev => ({
-                    ...prev,
-                    currentFile: progress.progress || 0
-                }));
-            } else if (progress.stage === 'upload_dash') {
-                setStatusMessage("Optimisation pour différents appareils...");
-                setUploadProgress(prev => ({
-                    ...prev,
-                    currentFile: progress.progress || 0
-                }));
-            } else {
-                // Progression classique
-                const percent = progress.progress || 0;
-                setStatusMessage("Préparation de la vidéo...");
-                setUploadProgress(prev => ({
-                    ...prev,
-                    currentFile: percent,
-                    currentFileName: progress.fileName || prev.currentFileName
-                }));
+            // Réinitialiser formulaire
+            if (typeof document !== 'undefined') {
+                const fileInput = document.getElementById('file-input') as HTMLInputElement;
+                if (fileInput) fileInput.value = '';
             }
-        });
-
-        progressListenerRef.current = true;
-
-        return () => {
-            console.log("🧹 Nettoyage écouteur progression");
-            if (window.electronAPI?.removeUploadProgressListener) {
-                window.electronAPI.removeUploadProgressListener();
-                progressListenerRef.current = false;
-            }
-        };
-    }, [isElectron]);
-
-    // Gestion de l'upload Streaming (HLS + DASH) via Worker
-    const handleStreamingUpload = async () => {
-        if (!window.electronAPI) {
-            console.error("❌ L'API Electron n'est pas disponible");
-            setStatusMessage("L'API Electron n'est pas disponible");
-            setUploadStatus("error");
-            return;
+        } else {
+            setUploadError('UploadManager non disponible');
         }
+    }, [selectedFile]);
 
-        console.log('🚀 Début de l\'upload Streaming (HLS + DASH) via Worker');
 
-        // Réinitialiser l'état
-        setUploadStatus("selecting");
-        setUploadProgress({
-            overall: 0,
-            currentFile: 0,
-            currentFileName: "",
-        });
-        setStatusMessage("Sélection du fichier...");
-
-        try {
-            // Sélectionner les fichiers
-            console.log('📁 Sélection du fichier...');
-            const filePaths = await window.electronAPI.selectFiles();
-
-            if (filePaths.length === 0) {
-                console.log("⏭️ Aucun fichier sélectionné");
-                setStatusMessage("Aucun fichier sélectionné");
-                setUploadStatus("idle");
-                return;
-            }
-
-            // Pour l'instant, on ne prend qu'un seul fichier
-            const filePath = filePaths[0];
-            console.log(`📄 Fichier sélectionné: ${filePath}`);
-
-            const fileInfo = await window.electronAPI.getFileInfo(filePath);
-            // Extraire le nom sans extension et formater
-            const baseName = extractFileName(fileInfo.name);
-            const formattedName = formatFileName(baseName);
-
-            setStatusMessage(`Analyse de "${formattedName}"...`);
-            setUploadStatus("uploading");
-            setUploadProgress(prev => ({
-                ...prev,
-                currentFileName: formattedName
-            }));
-
-            // Convertir et uploader en Streaming (HLS + DASH) via Worker
-            console.log(`🎬 Début conversion pour ${formattedName}`);
-            console.time("Conversion totale");
-
-            const result = await window.electronAPI.convertAndUploadToStreaming(filePath);
-            console.timeEnd("Conversion totale");
-
-            if (result && result.success) {
-                console.log(`✅ Upload Streaming réussi: ${formattedName}`);
-
-                // Mettre à jour la progression
-                setUploadProgress(prev => ({
-                    ...prev,
-                    overall: 100,
-                    currentFile: 100
-                }));
-
-                setStatusMessage(`✅ "${formattedName}" a été uploadé avec succès!`);
-                setUploadStatus("success");
-
-                // Message final
-                setTimeout(() => {
-                    setStatusMessage(prev => prev + " La vidéo est prête pour la lecture.");
-                }, 1500);
-            } else {
-                throw new Error(`Échec de l'upload de "${formattedName}"`);
-            }
-        } catch (error: any) {
-            console.error(`❌ Erreur lors de l'upload Streaming:`, error);
-            console.error(`❌ Stack trace:`, error.stack);
-            setStatusMessage(`❌ Erreur: ${error.message}`);
-            setUploadStatus("error");
-        }
-    };
-
-    // Rendu conditionnel pour non-Electron
-    if (!isClient || !isElectron) {
-        return (
-            <div style={{ padding: 20, maxWidth: 900, margin: "0 auto", fontFamily: "sans-serif" }}>
-                <h2>Accès non autorisé</h2>
-                <p>La fonction d'upload n'est disponible que depuis l'application desktop.</p>
-                <button onClick={() => navigate("/home")} style={{
-                    padding: "0.5rem 1rem",
-                    background: "#0070f3",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer"
-                }}>
-                    Retour à l'accueil
-                </button>
-            </div>
-        );
-    }
-
-    // Déterminer le texte du bouton
-    const getButtonText = () => {
-        switch (uploadStatus) {
-            case "selecting": return "Sélection en cours...";
-            case "uploading": return "Upload en cours...";
-            case "success": return "✅ Upload réussi";
-            case "error": return "❌ Erreur - Réessayer";
-            default: return "📁 Choisir une vidéo";
-        }
-    };
-
-    // Déterminer la couleur de fond du bouton
-    const getButtonColor = () => {
-        switch (uploadStatus) {
-            case "selecting":
-            case "uploading":
-                return "#666666";
-            case "success":
-                return "#4caf50";
-            case "error":
-                return "#f44336";
-            default:
-                return "#0070f3";
-        }
-    };
-
-    // Formater le compteur de segments (ex: "32/936")
-    const formatSegmentCounter = () => {
-        if (uploadProgress.uploadedSegments !== undefined && uploadProgress.totalSegments !== undefined) {
-            return `${uploadProgress.uploadedSegments}/${uploadProgress.totalSegments}`;
-        }
-        return null;
-    };
-
-    console.log("🎨 Rendu du composant Upload", { uploadStatus, uploadProgress, statusMessage });
+    // Annuler l'upload en cours
+    const handleCancel = useCallback(() => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        setUploadError(null);
+        setUploadSuccess(false);
+        setUploadProgress(null);
+    }, []);
 
     return (
-        <ProtectedRoute>
-        <div style={{ padding: 20, maxWidth: 600, margin: "0 auto", fontFamily: "sans-serif" }}>
-            <h2 style={{ textAlign: "center", marginBottom: "2rem", color: "#333" }}>
-                Uploader une vidéo
-            </h2>
+        <AuthGuard>
+            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
+                <Navigation user={user!} onLogout={logout} />
 
-            {/* Bouton d'upload principal */}
-            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-                <button
-                    onClick={handleStreamingUpload}
-                    disabled={uploadStatus === "selecting" || uploadStatus === "uploading"}
-                    style={{
-                        padding: "1rem 2rem",
-                        background: getButtonColor(),
-                        color: "white",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: uploadStatus === "selecting" || uploadStatus === "uploading" ? "not-allowed" : "pointer",
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                        transition: "all 0.3s",
-                        minWidth: "250px",
-                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
-                    }}
-                >
-                    {getButtonText()}
-                </button>
-            </div>
-
-            {/* Zone de progression */}
-            {(uploadStatus === "uploading" || uploadStatus === "success" || uploadStatus === "error") && (
-                <div style={{
-                    background: "#f8f9fa",
-                    padding: "1.5rem",
-                    borderRadius: "12px",
-                    marginBottom: "1.5rem",
-                    border: "1px solid #e9ecef",
-                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+                <main style={{
+                    maxWidth: 1200,
+                    margin: '0 auto',
+                    padding: '0 20px 40px',
+                    fontFamily: 'system-ui, sans-serif'
                 }}>
-                    {/* Nom du fichier */}
-                    {uploadProgress.currentFileName && (
-                        <div style={{ marginBottom: "1rem" }}>
-                            <div style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: "0.5rem"
-                            }}>
-                                <h3 style={{
-                                    margin: 0,
-                                    color: "#333",
-                                    fontSize: "1.1rem",
-                                    maxWidth: "60%",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap"
-                                }}>
-                                    {uploadProgress.currentFileName}
-                                </h3>
-                                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                                    {/* Compteur de segments (si disponible) */}
-                                    {formatSegmentCounter() && (
-                                        <span style={{
-                                            fontSize: "0.9rem",
-                                            color: "#666",
-                                            background: "#e9ecef",
-                                            padding: "0.25rem 0.5rem",
-                                            borderRadius: "4px",
-                                            whiteSpace: "nowrap"
-                                        }}>
-                                            {formatSegmentCounter()} segments
-                                        </span>
-                                    )}
-                                    {/* Pourcentage */}
-                                    <span style={{
-                                        fontWeight: "bold",
-                                        color: uploadStatus === "success" ? "#4caf50" :
-                                            uploadStatus === "error" ? "#f44336" : "#0070f3",
-                                        fontSize: "1.1rem",
-                                        minWidth: "45px",
-                                        textAlign: "right"
-                                    }}>
-                                        {uploadProgress.currentFile.toFixed(0)}%
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Barre de progression */}
-                            <div style={{
-                                width: "100%",
-                                height: "10px",
-                                background: "#e9ecef",
-                                borderRadius: "5px",
-                                overflow: "hidden",
-                                marginBottom: "0.5rem"
-                            }}>
-                                <div
-                                    style={{
-                                        width: `${uploadProgress.currentFile}%`,
-                                        height: "100%",
-                                        background: uploadStatus === "success" ? "#4caf50" :
-                                            uploadStatus === "error" ? "#f44336" : "#0070f3",
-                                        transition: "width 0.5s ease-out",
-                                        borderRadius: "5px"
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Message d'état */}
-                    <div style={{
-                        padding: "0.75rem",
-                        background: uploadStatus === "success" ? "#e8f5e9" :
-                            uploadStatus === "error" ? "#ffebee" : "#e3f2fd",
-                        borderRadius: "6px",
-                        borderLeft: `4px solid ${
-                            uploadStatus === "success" ? "#4caf50" :
-                                uploadStatus === "error" ? "#f44336" : "#2196f3"
-                        }`
-                    }}>
-                        <p style={{ margin: 0, color: "#333", fontSize: "0.95rem" }}>
-                            {statusMessage}
+                    <div style={{ marginBottom: '40px' }}>
+                        <h1 style={{
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                            marginBottom: '8px',
+                            color: darkTheme.text.primary
+                        }}>
+                            Upload de fichiers
+                        </h1>
+                        <p style={{
+                            color: darkTheme.text.secondary,
+                            fontSize: '16px'
+                        }}>
+                            Téléchargez vos fichiers vers le cloud
                         </p>
                     </div>
-                </div>
-            )}
 
-            {/* Instructions */}
-            {uploadStatus === "idle" && (
-                <div style={{
-                    background: "#f8f9fa",
-                    padding: "1.5rem",
-                    borderRadius: "12px",
-                    textAlign: "center",
-                    border: "1px solid #e9ecef"
-                }}>
-                    <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎬</div>
-                    <h3 style={{ marginTop: 0, color: "#333" }}>Comment ça marche ?</h3>
-                    <ol style={{
-                        textAlign: "left",
-                        paddingLeft: "1.5rem",
-                        margin: "1rem 0",
-                        color: "#555"
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '30px',
+                        marginBottom: '40px'
                     }}>
-                        <li style={{ marginBottom: "0.5rem" }}>Cliquez sur "Choisir une vidéo"</li>
-                        <li style={{ marginBottom: "0.5rem" }}>Sélectionnez votre fichier vidéo</li>
-                        <li style={{ marginBottom: "0.5rem" }}>Laissez l'application convertir et uploader</li>
-                        <li>Votre vidéo sera disponible pour lecture</li>
-                    </ol>
-                    <p style={{ color: "#666", fontSize: "0.9rem", marginTop: "1rem" }}>
-                        Formats supportés: MP4, MKV, AVI, MOV, WebM, etc.
-                    </p>
-                </div>
-            )}
+                        {/* Zone d'upload */}
+                        <div style={{
+                            backgroundColor: darkTheme.background.secondary,
+                            borderRadius: '12px',
+                            padding: '30px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                            border: '2px dashed #e0e0e0'
+                        }}>
+                            <h2 style={{
+                                fontSize: '20px',
+                                fontWeight: '600',
+                                marginBottom: '20px',
+                                color: '#333'
+                            }}>
+                                Sélectionnez un fichier
+                            </h2>
 
-            {/* Bouton de réinitialisation */}
-            {(uploadStatus === "success" || uploadStatus === "error") && (
-                <div style={{ textAlign: "center", marginTop: "2rem" }}>
-                    <button
-                        onClick={() => {
-                            console.log("🔄 Réinitialisation de l'upload");
-                            setUploadStatus("idle");
-                            setUploadProgress({
-                                overall: 0,
-                                currentFile: 0,
-                                currentFileName: ""
-                            });
-                            setStatusMessage("");
+                            <div style={{
+                                border: '2px dashed #4285f4',
+                                borderRadius: '8px',
+                                padding: '40px 20px',
+                                textAlign: 'center',
+                                backgroundColor: darkTheme.background.tertiary,
+                                transition: 'all 0.3s',
+                                cursor: 'pointer',
+                                marginBottom: '20px'
+                            }}
+                                 onClick={() => {
+                                     if (typeof document === 'undefined') return;
+                                     const input = document.createElement('input');
+                                     input.type = 'file';
+                                     input.accept = '*/*';
+                                     input.multiple = true;
+                                     input.onchange = (e) => {
+                                         const files = (e.target as HTMLInputElement).files;
+                                         if (files && files.length > 0 && uploadManagerRef.current) {
+                                             uploadManagerRef.current.uploadFiles(files);
+                                         }
+                                     };
+                                     input.click();
+                                 }}
+                            >
+                                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📤</div>
+                                <p style={{ marginBottom: '8px', color: '#4285f4', fontWeight: '500' }}>
+                                    {t('upload.dragDrop')}
+                                </p>
+                                <p style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>
+                                    {t('upload.dragDropOr')}
+                                </p>
+                                <p style={{ color: '#888', fontSize: '12px' }}>
+                                    {t('upload.supportedFormats')}
+                                </p>
+                            </div>
+
+                            <input
+                                id="file-input"
+                                type="file"
+                                onChange={handleFileSelect}
+                                style={{ display: 'none' }}
+                            />
+
+                            {selectedFile && (
+                                <div style={{
+                                    backgroundColor: '#e8f5e9',
+                                    borderRadius: '8px',
+                                    padding: '16px',
+                                    marginBottom: '20px',
+                                    border: '1px solid #c8e6c9'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            backgroundColor: '#4caf50',
+                                            borderRadius: '6px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '20px'
+                                        }}>
+                                            📄
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: 0, fontWeight: '500', fontSize: '14px' }}>
+                                                {selectedFile.name}
+                                            </p>
+                                            <p style={{ margin: '4px 0 0', color: '#666', fontSize: '12px' }}>
+                                                {formatFileSize(selectedFile.size)} • {selectedFile.type}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleCancel}
+                                            style={{
+                                                backgroundColor: 'transparent',
+                                                border: 'none',
+                                                color: '#f44336',
+                                                cursor: 'pointer',
+                                                fontSize: '20px',
+                                                padding: '4px'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {previewUrl && (
+                                <div style={{
+                                    marginBottom: '20px',
+                                    textAlign: 'center'
+                                }}>
+                                    <img
+                                        src={previewUrl}
+                                        alt="Aperçu"
+                                        style={{
+                                            maxWidth: '100%',
+                                            maxHeight: '200px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e0e0e0'
+                                        }}
+                                    />
+                                    <p style={{
+                                        marginTop: '8px',
+                                        color: darkTheme.text.secondary,
+                                        fontSize: '12px'
+                                    }}>
+                                        Aperçu de l'image
+                                    </p>
+                                </div>
+                            )}
+
+                            {uploadProgress && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <span style={{ fontSize: '14px', color: '#666' }}>Progression</span>
+                                        <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                                            {uploadProgress.percentage.toFixed(1)}%
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        height: '8px',
+                                        backgroundColor: '#e0e0e0',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            height: '100%',
+                                            width: `${uploadProgress.percentage}%`,
+                                            backgroundColor: '#4285f4',
+                                            borderRadius: '4px',
+                                            transition: 'width 0.3s'
+                                        }} />
+                                    </div>
+                                    <p style={{
+                                        marginTop: '4px',
+                                        fontSize: '12px',
+                                        color: '#888',
+                                        textAlign: 'center'
+                                    }}>
+                                        {formatFileSize(uploadProgress.loaded)} / {formatFileSize(uploadProgress.total)}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    onClick={handleUpload}
+                                    disabled={!selectedFile || uploading}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: selectedFile && !uploading ? '#4285f4' : '#cccccc',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '14px 24px',
+                                        borderRadius: '6px',
+                                        cursor: selectedFile && !uploading ? 'pointer' : 'not-allowed',
+                                        fontSize: '16px',
+                                        fontWeight: '500',
+                                        transition: 'background-color 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {uploading ? (
+                                        <>
+                                            <span style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                border: '2px solid white',
+                                                borderTopColor: 'transparent',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite'
+                                            }} />
+                                            Upload en cours...
+                                        </>
+                                    ) : (
+                                        '📤 Uploader'
+                                    )}
+                                </button>
+
+                                {selectedFile && !uploading && (
+                                    <button
+                                        onClick={handleCancel}
+                                        style={{
+                                            backgroundColor: 'transparent',
+                                            color: darkTheme.text.secondary,
+                                            border: '1px solid #ddd',
+                                            padding: '14px 20px',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '16px',
+                                            fontWeight: '500'
+                                        }}
+                                    >
+                                        Annuler
+                                    </button>
+                                )}
+                            </div>
+
+                            <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+
+                            {uploadError && <ErrorDisplay error={uploadError} />}
+
+                            {uploadSuccess && (
+                                <div style={{
+                                    backgroundColor: '#e8f5e9',
+                                    color: '#2e7d32',
+                                    padding: '12px 16px',
+                                    borderRadius: '6px',
+                                    marginTop: '16px',
+                                    border: '1px solid #c8e6c9'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '18px' }}>✅</span>
+                                        <p style={{ margin: 0, fontWeight: '500' }}>
+                                            Fichier uploadé avec succès !
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Fichiers récents */}
+                        <div style={{
+                            backgroundColor: darkTheme.background.secondary,
+                            borderRadius: '12px',
+                            padding: '30px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+                        }}>
+                            <h2 style={{
+                                fontSize: '20px',
+                                fontWeight: '600',
+                                marginBottom: '20px',
+                                color: '#333'
+                            }}>
+                                Fichiers récents
+                            </h2>
+
+                            {uploadedFiles.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '40px 20px',
+                                    color: '#888'
+                                }}>
+                                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📁</div>
+                                    <p style={{ marginBottom: '8px', fontSize: '16px' }}>
+                                        Aucun fichier uploadé
+                                    </p>
+                                    <p style={{ fontSize: '14px' }}>
+                                        Les fichiers que vous uploaderez apparaîtront ici
+                                    </p>
+                                </div>
+                            ) : (
+                                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    {uploadedFiles.map((file) => (
+                                        <div
+                                            key={file.id}
+                                            style={{
+                                                padding: '16px',
+                                                borderBottom: '1px solid #eee',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                transition: 'background-color 0.2s'
+                                            }}
+                                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        >
+                                            <div style={{
+                                                width: '40px',
+                                                height: '40px',
+                                                backgroundColor: darkTheme.surface.info,
+                                                borderRadius: '6px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#4285f4',
+                                                fontSize: '20px'
+                                            }}>
+                                                {file.type.startsWith('image/') ? '🖼️' :
+                                                    file.type.startsWith('video/') ? '🎬' :
+                                                        file.type.includes('pdf') ? '📕' :
+                                                            file.type.includes('word') ? '📝' : '📄'}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <p style={{ margin: 0, fontWeight: '500', fontSize: '14px' }}>
+                                                    {file.name}
+                                                </p>
+                                                <p style={{ margin: '4px 0 0', color: '#666', fontSize: '12px' }}>
+                                                    {formatFileSize(file.size)} • {formatDateTime(file.uploadedAt)}
+                                                </p>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => window.open(file.url, '_blank')}
+                                                    style={{
+                                                        backgroundColor: darkTheme.surface.info,
+                                                        color: '#4285f4',
+                                                        border: 'none',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '12px',
+                                                        fontWeight: '500'
+                                                    }}
+                                                >
+                                                    Ouvrir
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div style={{
+                                marginTop: '20px',
+                                paddingTop: '20px',
+                                borderTop: '1px solid #eee'
+                            }}>
+                                <p style={{
+                                    fontSize: '12px',
+                                    color: '#888',
+                                    margin: 0,
+                                    textAlign: 'center'
+                                }}>
+                                    {uploadedFiles.length} fichier{uploadedFiles.length !== 1 ? 's' : ''} uploadé{uploadedFiles.length !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section UploadManager */}
+                    <UploadManager
+                        ref={uploadManagerRef}
+                        onUploadComplete={(fileId) => {
+                            // Actualiser la liste des fichiers
                         }}
-                        style={{
-                            padding: "0.75rem 1.5rem",
-                            background: "#6c757d",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "1rem",
-                            fontWeight: "bold"
+                        onProgress={(progress) => {
                         }}
-                    >
-                        Uploader une autre vidéo
-                    </button>
-                </div>
-            )}
-        </div>
-        </ProtectedRoute>
+                    />
+
+                    {/* Informations */}
+                    <div style={{
+                        backgroundColor: darkTheme.background.secondary,
+                        borderRadius: '12px',
+                        padding: '30px',
+                        boxShadow: darkTheme.shadow.medium
+                    }}>
+                        <h2 style={{
+                            fontSize: '20px',
+                            fontWeight: '600',
+                            marginBottom: '20px',
+                            color: darkTheme.text.primary
+                        }}>
+                            Informations sur l'upload
+                        </h2>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                            gap: '20px'
+                        }}>
+                            <div style={{
+                                backgroundColor: darkTheme.background.tertiary,
+                                borderRadius: '8px',
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    backgroundColor: darkTheme.surface.info,
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: '16px',
+                                    color: '#4285f4',
+                                    fontSize: '24px'
+                                }}>
+                                    ⚡
+                                </div>
+                                <h3 style={{
+                                    margin: '0 0 8px',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: darkTheme.text.primary
+                                }}>
+                                    Rapide
+                                </h3>
+                                <p style={{
+                                    margin: 0,
+                                    color: darkTheme.text.secondary,
+                                    fontSize: '14px',
+                                    lineHeight: '1.5'
+                                }}>
+                                    Upload optimisé avec progression en temps réel
+                                </p>
+                            </div>
+
+                            <div style={{
+                                backgroundColor: darkTheme.background.tertiary,
+                                borderRadius: '8px',
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    backgroundColor: darkTheme.surface.success,
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: '16px',
+                                    color: '#34a853',
+                                    fontSize: '24px'
+                                }}>
+                                    🔒
+                                </div>
+                                <h3 style={{
+                                    margin: '0 0 8px',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: darkTheme.text.primary
+                                }}>
+                                    Sécurisé
+                                </h3>
+                                <p style={{
+                                    margin: 0,
+                                    color: darkTheme.text.secondary,
+                                    fontSize: '14px',
+                                    lineHeight: '1.5'
+                                }}>
+                                    Tous les uploads sont authentifiés et protégés
+                                </p>
+                            </div>
+
+                            <div style={{
+                                backgroundColor: darkTheme.background.tertiary,
+                                borderRadius: '8px',
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    backgroundColor: darkTheme.surface.error,
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: '16px',
+                                    color: '#ea4335',
+                                    fontSize: '24px'
+                                }}>
+                                    💾
+                                </div>
+                                <h3 style={{
+                                    margin: '0 0 8px',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: darkTheme.text.primary
+                                }}>
+                                    Stockage Cloudflare
+                                </h3>
+                                <p style={{
+                                    margin: 0,
+                                    color: darkTheme.text.secondary,
+                                    fontSize: '14px',
+                                    lineHeight: '1.5'
+                                }}>
+                                    Vos fichiers sont stockés sur R2 de Cloudflare
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+
+                <footer style={{
+                    backgroundColor: '#1a1a1a',
+                    color: '#cccccc',
+                    padding: '20px 0',
+                    marginTop: '40px',
+                    textAlign: 'center'
+                }}>
+                    <div style={{
+                        maxWidth: 1200,
+                        margin: '0 auto',
+                        padding: '0 20px'
+                    }}>
+                        <p style={{ margin: 0, fontSize: '14px' }}>
+                            © {new Date().getFullYear()} Videomi. Tous droits réservés.
+                            <span style={{ marginLeft: '20px', color: '#888' }}>
+                                Espace utilisé : {formatFileSize(0)} / Illimité
+                            </span>
+                        </p>
+                    </div>
+                </footer>
+            </div>
+        </AuthGuard>
     );
 }

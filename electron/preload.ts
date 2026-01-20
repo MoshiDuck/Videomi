@@ -1,145 +1,59 @@
 // INFO : electron/preload.ts
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
+// Déterminer si on est dans Electron
 const isElectron = typeof process !== 'undefined' && !!(process as any).versions?.electron;
-type UploadProgressPayload = { [key: string]: any };
 
-if (isElectron) {
-    console.log('🔌 Preload.js chargé en mode Electron');
+// API Electron
+const electronAPI = {
+    isElectron,
 
-    contextBridge.exposeInMainWorld('electronAPI', {
-        // NOUVELLE API D'INSCRIPTION
-        register: async (email: string, password: string) => {
-            const result = await ipcRenderer.invoke('register', { email, password });
+    // Authentification
+    openAuthWindow: (url: string) => ipcRenderer.invoke('open-auth-window', url),
+    closeAuthWindow: () => ipcRenderer.invoke('close-auth-window'),
+    sendOAuthToken: (token: string) => ipcRenderer.send('oauth-complete', token),
 
-            // Stocker les tokens dans localStorage pour le frontend Electron
-            if (result.success && result.user) {
-                localStorage.setItem('token', result.user.token);
-                if (result.refreshToken) {
-                    localStorage.setItem('refreshToken', result.refreshToken);
-                }
-                console.log('✅ Tokens stockés dans localStorage après inscription');
-            }
+    // Écouteurs d'événements avec cleanup
+    onOAuthToken: (callback: (token: string) => void) => {
+        const listener = (_event: IpcRendererEvent, token: string) => callback(token);
+        ipcRenderer.on('oauth-token-received', listener);
+        return () => ipcRenderer.removeListener('oauth-token-received', listener);
+    },
 
-            return result;
-        },
+    onOAuthCancelled: (callback: () => void) => {
+        const listener = () => callback();
+        ipcRenderer.on('oauth-cancelled', listener);
+        return () => ipcRenderer.removeListener('oauth-cancelled', listener);
+    },
 
-        // Authentification avec support refresh token
-        login: async (email: string, password: string) => {
-            const result = await ipcRenderer.invoke('login', { email, password });
+    // Navigation externe
+    openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
+};
 
-            // Stocker le refresh token dans localStorage pour le frontend Electron
-            if (result.success && result.refreshToken) {
-                localStorage.setItem('refreshToken', result.refreshToken);
-                console.log('✅ Refresh token stocké dans localStorage');
-            }
+// API mock pour le web
+const mockAPI = {
+    isElectron: false,
+    openAuthWindow: () => Promise.reject(new Error('Not in Electron')),
+    closeAuthWindow: () => Promise.reject(new Error('Not in Electron')),
+    sendOAuthToken: () => console.warn('Not in Electron'),
+    onOAuthToken: () => () => {},
+    onOAuthCancelled: () => () => {},
+    openExternal: () => Promise.reject(new Error('Not in Electron'))
+};
 
-            return result;
-        },
+// Exposition de l'API
+contextBridge.exposeInMainWorld('electronAPI', isElectron ? electronAPI : mockAPI);
 
-        logout: async () => {
-            // Récupérer le refresh token du localStorage avant déconnexion
-            const refreshToken = localStorage.getItem('refreshToken');
-            const result = await ipcRenderer.invoke('logout', { refreshToken });
+// Détection automatique du callback OAuth dans la fenêtre d'auth
+if (isElectron && window.location.href.includes('/oauth-callback')) {
+    window.addEventListener('load', () => {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const idToken = params.get('id_token');
 
-            // Nettoyer le localStorage
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('token');
-
-            return result;
-        },
-
-        getCurrentUser: async () => {
-            return await ipcRenderer.invoke('get-current-user');
-        },
-
-        checkAuth: async () => {
-            return await ipcRenderer.invoke('check-auth');
-        },
-
-        hasRefreshToken: async () => {
-            return await ipcRenderer.invoke('has-refresh-token');
-        },
-
-        refreshAuth: async () => {
-            console.log('🔄 Appel à refreshAuth depuis le frontend');
-            const result = await ipcRenderer.invoke('refresh-auth');
-            console.log('📥 Résultat de refreshAuth:', result);
-            return result;
-        },
-
-        // [Les APIs existantes restent inchangées...]
-        openExternal: async (url: string) => {
-            console.log(`🌐 openExternal: ${url}`);
-            return await ipcRenderer.invoke('open-external', url);
-        },
-
-        download: async (url: string, filename?: string) => {
-            console.log(`📥 download: ${url}, filename: ${filename}`);
-            return await ipcRenderer.invoke('download', { url, filename });
-        },
-
-        selectFiles: async (): Promise<string[]> => {
-            console.log('📁 Sélection de fichiers demandée');
-            return await ipcRenderer.invoke('select-files');
-        },
-
-        getFileInfo: async (filePath: string) => {
-            console.log(`📄 getFileInfo: ${filePath}`);
-            return await ipcRenderer.invoke('get-file-info', filePath);
-        },
-
-        convertAndUploadToHLS: async (filePath: string) => {
-            console.log(`🎬 Conversion HLS demandée pour: ${filePath}`);
-            return await ipcRenderer.invoke('convert-and-upload-streaming', filePath);
-        },
-
-        convertAndUploadToStreaming: async (filePath: string) => {
-            console.log(`🎬 Conversion Streaming (HLS+DASH) demandée pour: ${filePath}`);
-            return await ipcRenderer.invoke('convert-and-upload-streaming', filePath);
-        },
-
-        onUploadProgress: (callback: (progress: UploadProgressPayload) => void) => {
-            console.log('🎯 Enregistrement de l\'écouteur de progression');
-            const handler = (_ev: IpcRendererEvent, progress: UploadProgressPayload) => {
-                console.log('📨 Événement de progression reçu dans preload:', progress);
-                callback(progress);
-            };
-            ipcRenderer.on('upload-progress', handler);
-            return () => {
-                ipcRenderer.removeListener('upload-progress', handler);
-            };
-        },
-
-        removeUploadProgressListener: () => {
-            console.log('🧹 Suppression des écouteurs de progression');
-            ipcRenderer.removeAllListeners('upload-progress');
-        },
-
-        isElectron: true
-    });
-} else {
-    console.log('🌐 Preload.js chargé en mode web');
-
-    contextBridge.exposeInMainWorld('electronAPI', {
-        // Authentification web
-        register: async () => ({ success: false, error: 'Not in Electron' }),
-        login: async () => ({ success: false, error: 'Not in Electron' }),
-        logout: async () => ({ success: false, error: 'Not in Electron' }),
-        getCurrentUser: async () => ({ user: null, isAuthenticated: false }),
-        checkAuth: async () => ({ isAuthenticated: false }),
-        hasRefreshToken: async () => ({ hasRefreshToken: false }),
-        refreshAuth: async () => ({ success: false, error: 'Not in Electron' }),
-
-        // Autres APIs
-        openExternal: async () => ({ ok: false, error: 'Not in Electron' }),
-        download: async () => ({ ok: false, error: 'Not in Electron' }),
-        selectFiles: async () => [],
-        getFileInfo: async () => null,
-        convertAndUploadToHLS: async () => ({ success: false, error: 'Not in Electron' }),
-        convertAndUploadToStreaming: async () => ({ success: false, error: 'Not in Electron' }),
-        onUploadProgress: () => () => {},
-        removeUploadProgressListener: () => {},
-        isElectron: false
+        if (idToken) {
+            console.log('🔑 Token OAuth détecté dans la fenêtre de callback');
+            electronAPI.sendOAuthToken(idToken);
+        }
     });
 }

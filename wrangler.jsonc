@@ -1,36 +1,30 @@
-// Todo : wrangler.jsonc
+// INFO : wrangler.jsonc
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "videomi",
-	"compatibility_date": "2025-10-08",
-	"main": "./workers/app.ts",
-	"observability": {
-		"enabled": true
-	},
-	"upload_source_maps": true,
-	"routes": [
-		{
-			"pattern": "videomi.uk",
-			"custom_domain": true
-		}
-	],
-	"r2_buckets": [
-		{
-			"binding": "STORAGE",
-			"bucket_name": "videomi"
-		}
-	],
-    "d1_databases": [
-      {
-        "binding": "DATABASE",
-        "database_name": "users",
-        "database_id": "6f14fc5d-f686-4422-911b-adf9b7c226d7"
-      }
-    ],
-	"vars": {
-		"R2_BUCKET": "videomi",
-		"UPLOAD_PART_SIZE": "10485760",
-        "JWT_SECRET": "sHWE2gLXSgH9Ejp+RVAvv1ZXwJEPhP9rk8JbRIKLqNmCb4hNhfOTxnS8vQLnGKOF8RJ5smP5xXaTp1CrR8UVng==",
-        "REFRESH_SECRET": "2doDxy0tGjdg7e8ZROSn+MmbHj6O/S8mGlUFbE95LRlB6H2ADtgHpskim2tH5hojUmtD4s0BC0r4QZJd9GqjXQ=="
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "videomi",
+  "compatibility_date": "2025-10-08",
+  "main": "./workers/app.ts",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "routes": [
+    {
+      "pattern": "videomi.uk",
+      "custom_domain": true
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "videomi"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DATABASE",
+      "database_name": "users",
+      "database_id": "3a2fb995-cf6b-4f66-abee-30ad5965089c"
+    }
+  ]
 }

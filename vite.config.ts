@@ -12,4 +12,29 @@ export default defineConfig({
     reactRouter(),
     tsconfigPaths(),
   ],
+  define: {
+    // Polyfill Buffer pour le navigateur
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+    },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+    include: ['buffer'],
+  },
+  worker: {
+    format: 'es', // Utiliser le format ES modules pour les workers (pas IIFE)
+    rollupOptions: {
+      output: {
+        format: 'es', // Forcer le format ES pour les workers
+      },
+    },
+  },
 });

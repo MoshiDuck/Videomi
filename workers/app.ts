@@ -1,259 +1,434 @@
 // INFO : workers/app.ts
-import { Hono } from "hono";
-import { createRequestHandler } from "react-router";
-import type { Bindings, Variables } from './types';
-import { corsMiddleware, authMiddleware, getContentTypeFromKey } from './utils';
-import { registerUploadRoutes } from './upload';
+import { Hono } from 'hono';
+import { createRequestHandler } from 'react-router';
+import type { Bindings } from './types.js';
 import { registerAuthRoutes } from './auth.js';
+import { generateGoogleAuthUrl, corsHeaders, noCacheHeaders } from './utils.js';
+import uploadRoutes from './upload.js';
 
+const app = new Hono<{ Bindings: Bindings }>();
 
-// Créer l'app avec les types étendus
-const app = new Hono<{
-    Bindings: Bindings;
-    Variables: Variables;
-}>();
+// Constantes
+const OAUTH_REDIRECT_URI = 'https://videomi.uk/oauth-callback';
+const CORS_ALLOWED_METHODS = 'GET, POST, OPTIONS';
 
-// Appliquer le middleware CORS (global)
-app.use('*', corsMiddleware);
+// Middleware CORS pour les routes API
+app.use('/api/*', async (c, next) => {
+    // Log pour diagnostic des routes /api/upload/*
+    const path = new URL(c.req.url).pathname;
+    if (path.startsWith('/api/upload/')) {
+    }
+    await next();
+    c.res.headers.set('Access-Control-Allow-Origin', '*');
+    c.res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    c.res.headers.set('Access-Control-Allow-Credentials', 'true');
+    c.res.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    c.res.headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
+});
 
-// Appliquer le middleware d'authentification sur les routes API
-app.use('/api/*', authMiddleware);
+// Handler global pour OPTIONS (CORS preflight)
+app.options('*', (c) => {
+    return c.json({}, {
+        headers: {
+            ...corsHeaders(CORS_ALLOWED_METHODS),
+            'Access-Control-Max-Age': '86400'
+        }
+    });
+});
 
-// Enregistrer les routes d'upload / asset-check
-registerUploadRoutes(app);
+// API publique
+app.get('/api/config', (c) => {
+    return c.json(
+        {
+            googleClientId: c.env.GOOGLE_CLIENT_ID || null,
+            tmdbApiKey: c.env.TMDB_API_KEY || null,
+            omdbApiKey: c.env.OMDB_API_KEY || null,
+            spotifyClientId: c.env.SPOTIFY_CLIENT_ID || null,
+            spotifyClientSecret: c.env.SPOTIFY_CLIENT_SECRET || null,
+            discogsApiToken: c.env.DISCOGS_API_TOKEN || null
+        },
+        { headers: noCacheHeaders() }
+    );
+});
 
-// Enregistrer les routes d'authentification
-registerAuthRoutes(app);
-
-// Route pour lister les vidéos (basées sur SHA-256)
-app.get('/api/videos', async (c) => {
+app.post('/api/upload', async (c) => {
     try {
-        // Récupérer l'utilisateur depuis le contexte (ajouté par authMiddleware)
-        const user = c.get('user');
-        console.log(`📋 GET /api/videos - Utilisateur: ${user?.email || 'Non authentifié'}, UID: ${user?.uid}`);
-
-        // Vérifier que l'utilisateur est connecté
-        if (!user || !user.uid) {
-            return c.json({ success: false, error: 'Non authentifié' }, 401);
+        const authHeader = c.req.header('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return c.json({ error: 'Unauthorized' }, 401);
         }
 
-        const uid = user.uid;
-        const prefix = `${uid}/videos/`;
-
-        const objects = await c.env.STORAGE.list({ prefix });
-        console.log(`📊 ${objects.objects.length} objets dans R2 pour l'utilisateur ${uid}`);
-
-        const videoMap = new Map<string, {
-            sha256: string;
-            name: string;
-            url?: string;
-            dashUrl?: string;
-            size: number;
-            uploaded: Date;
-            type: 'hls' | 'dash' | 'direct';
-            files: Array<{ key: string; size: number }>;
-            metadata?: any;
-        }>();
-
-        for (const obj of objects.objects) {
-            const key = obj.key;
-
-            if (!key.includes('/') || key === `${uid}/videos/`) {
-                continue;
+        const formData = await c.req.formData();
+        const file = formData.get('file') as File;
+        const userId = formData.get('userId') as string;
+        const basicMetadataStr = formData.get('basicMetadata') as string | null;
+        let basicMetadata: any = null;
+        
+        // Parser les métadonnées de base si présentes
+        if (basicMetadataStr) {
+            try {
+                basicMetadata = JSON.parse(basicMetadataStr);
+            } catch (parseError) {
+                console.warn('⚠️ Erreur parsing basicMetadata:', parseError);
             }
+        }
 
-            const parts = key.split('/');
-            // Structure attendue: uid/videos/sha256/fichier
-            if (parts.length < 4) {
-                continue;
-            }
+        if (!file || !userId) {
+            return c.json({ error: 'Missing file or userId' }, 400);
+        }
 
-            const userId = parts[0];
-            const sha256 = parts[2]; // Index 2 car: [uid, videos, sha256, fichier]
+        // Vérifier que l'utilisateur existe
+        const user = await c.env.DATABASE.prepare(
+            `SELECT id FROM profil WHERE id = ?`
+        ).bind(userId).first();
 
-            // Vérifier que le fichier appartient bien à l'utilisateur
-            if (userId !== uid) {
-                continue;
-            }
+        if (!user) {
+            return c.json({ error: 'User not found' }, 404);
+        }
 
-            if (!/^[a-f0-9]{64}$/i.test(sha256)) {
-                continue;
-            }
+        // 1. Calculer le hash SHA-256 du fichier
+        const fileBuffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', fileBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-            if (!videoMap.has(sha256)) {
-                videoMap.set(sha256, {
-                    sha256,
-                    name: sha256.substring(0, 8),
-                    size: 0,
-                    uploaded: obj.uploaded,
-                    type: 'hls',
-                    files: []
-                });
-            }
+        // 2. Classifier le fichier
+        const category = classifyFileByMimeType(file.type);
 
-            const video = videoMap.get(sha256)!;
-            video.files.push({ key, size: obj.size });
-            video.size += obj.size;
+        // 3. Générer un fileId basé sur le hash
+        const timestamp = Date.now();
+        const extension = file.name.split('.').pop() || 'bin';
+        const fileId = `${hash.slice(0, 16)}_${timestamp}.${extension}`;
 
-            if (obj.uploaded > video.uploaded) {
-                video.uploaded = obj.uploaded;
-            }
+        // 4. Vérifier si le fichier existe déjà (déduplication)
+        const existingFile = await c.env.DATABASE.prepare(
+            `SELECT file_id FROM files WHERE hash = ?`
+        ).bind(hash).first();
 
-            const fileName = parts[parts.length - 1];
+        if (existingFile) {
+            // Fichier existe déjà, juste lier l'utilisateur
+            const existingFileId = existingFile.file_id as string;
 
-            if (fileName.toLowerCase().endsWith('.m3u8')) {
-                video.type = 'hls';
-                video.url = `/api/streaming/${key}`;
-            } else if (fileName.toLowerCase().endsWith('.mpd')) {
-                video.type = 'dash';
-                video.dashUrl = `/api/streaming/${key}`;
-            } else if (fileName.toLowerCase().endsWith('.mp4')) {
-                video.type = 'direct';
-                video.url = `/api/streaming/${key}`;
-            } else if (fileName.toLowerCase() === 'metadata.json') {
-                try {
-                    const metadataObj = await c.env.STORAGE.get(key);
-                    if (metadataObj) {
-                        const metadataText = await metadataObj.text();
-                        video.metadata = JSON.parse(metadataText);
-                        video.name = video.metadata.originalName || video.name;
-                    }
-                } catch (err) {
-                    console.warn(`⚠️ Impossible de lire metadata.json pour ${sha256}:`, err);
+            await c.env.DATABASE.prepare(
+                `INSERT OR IGNORE INTO user_files (user_id, file_id) VALUES (?, ?)`
+            ).bind(userId, existingFileId).run();
+
+            return c.json({
+                success: true,
+                file: {
+                    id: existingFileId,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    url: `/api/files/${category}/${existingFileId}`,
+                    exists: true
+                }
+            });
+        }
+
+        // 5. Uploader le fichier sur R2 avec la bonne extension
+        const fileExtension = file.name.split('.').pop() || 'bin';
+        await c.env.STORAGE.put(
+            `${category}/${fileId}/content.${fileExtension}`,
+            fileBuffer,
+            {
+                httpMetadata: {
+                    contentType: file.type,
+                    cacheControl: 'public, max-age=31536000, immutable'
                 }
             }
+        );
+
+        // 6. Enregistrer dans la table files avec le nom original du fichier
+        await c.env.DATABASE.prepare(
+            `INSERT INTO files (file_id, category, size, mime_type, hash, filename, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+            fileId,
+            category,
+            file.size,
+            file.type,
+            hash,
+            file.name, // TOUJOURS utiliser le nom original du fichier
+            Math.floor(Date.now() / 1000)
+        ).run();
+
+        // 7. Lier l'utilisateur au fichier
+        await c.env.DATABASE.prepare(
+            `INSERT INTO user_files (user_id, file_id) VALUES (?, ?)`
+        ).bind(userId, fileId).run();
+
+        // 8. Stocker les métadonnées de base (ID3 tags) si disponibles
+        if (basicMetadata && (category === 'musics' || category === 'videos')) {
+            try {
+                
+                if (category === 'musics') {
+                    const artists = basicMetadata.artist ? JSON.stringify([basicMetadata.artist]) : null;
+                    const albums = basicMetadata.album ? JSON.stringify([basicMetadata.album]) : null;
+                    // IMPORTANT: Utiliser le title des métadonnées SEULEMENT s'il existe et n'est pas vide
+                    const title = (basicMetadata.title && basicMetadata.title.trim() !== '') ? basicMetadata.title.trim() : null;
+                    const year = basicMetadata.year || null;
+                    
+                    await c.env.DATABASE.prepare(
+                        `INSERT OR REPLACE INTO file_metadata 
+                        (file_id, title, artists, albums, year, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)`
+                    ).bind(
+                        fileId,
+                        title, // NULL si pas de titre dans les métadonnées (ne pas utiliser filename)
+                        artists,
+                        albums,
+                        year,
+                        Math.floor(Date.now() / 1000),
+                        Math.floor(Date.now() / 1000)
+                    ).run();
+                    
+                } else if (category === 'videos') {
+                    // IMPORTANT: Utiliser le title des métadonnées SEULEMENT s'il existe et n'est pas vide
+                    const title = (basicMetadata.title && basicMetadata.title.trim() !== '') ? basicMetadata.title.trim() : null;
+                    const year = basicMetadata.year || null;
+                    
+                    await c.env.DATABASE.prepare(
+                        `INSERT OR REPLACE INTO file_metadata 
+                        (file_id, title, year, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?)`
+                    ).bind(
+                        fileId,
+                        title, // NULL si pas de titre dans les métadonnées (ne pas utiliser filename)
+                        year,
+                        Math.floor(Date.now() / 1000),
+                        Math.floor(Date.now() / 1000)
+                    ).run();
+                    
+                }
+            } catch (metadataError) {
+                console.error('❌ Erreur stockage métadonnées de base (non-bloquant):', metadataError);
+                // Ne pas bloquer l'upload si le stockage des métadonnées échoue
+            }
         }
-
-        const videos = Array.from(videoMap.values()).map(video => ({
-            sha256: video.sha256,
-            name: video.name,
-            url: video.url || video.dashUrl || '',
-            dashUrl: video.dashUrl,
-            size: video.size,
-            uploaded: video.uploaded.toISOString(),
-            type: video.type,
-            metadata: video.metadata
-        }));
-
-        console.log(`🎬 ${videos.length} vidéos trouvées pour l'utilisateur ${uid}`);
-        return c.json({
-            success: true,
-            videos
-        });
-    } catch (error) {
-        console.error('Erreur lors de la récupération des vidéos:', error);
-        return c.json({ success: false, error: 'Erreur serveur' }, 500);
-    }
-});
-
-// Route pour obtenir les métadonnées d'une vidéo spécifique
-app.get('/api/video/:sha256/metadata', async (c) => {
-    try {
-        const user = c.get('user');
-        if (!user || !user.uid) {
-            return c.json({ success: false, error: 'Non authentifié' }, 401);
-        }
-
-        const sha256 = c.req.param('sha256');
-        const uid = user.uid;
-        console.log(`📋 GET /api/video/${sha256}/metadata pour l'utilisateur ${uid}`);
-
-        if (!sha256 || !/^[a-f0-9]{64}$/i.test(sha256)) {
-            return c.json({ success: false, error: 'SHA-256 invalide' }, 400);
-        }
-
-        const metadataKey = `${uid}/videos/${sha256}/metadata.json`;
-        const metadataObject = await c.env.STORAGE.get(metadataKey);
-
-        if (!metadataObject) {
-            return c.json({ success: false, error: 'Vidéo non trouvée' }, 404);
-        }
-
-        const metadata = JSON.parse(await metadataObject.text());
-        return c.json({
-            success: true,
-            metadata
-        });
-    } catch (error) {
-        console.error('Erreur lors de la récupération des métadonnées:', error);
-        return c.json({ success: false, error: 'Erreur serveur' }, 500);
-    }
-});
-
-// Route pour servir les fichiers Streaming (HLS + DASH)
-app.get('/api/streaming/*', async (c) => {
-    try {
-        const key = c.req.path.replace('/api/streaming/', '');
-        console.log(`📥 GET /api/streaming/${key}`);
-
-        const object = await c.env.STORAGE.get(key);
-
-        if (!object) {
-            console.warn(`❌ Fichier non trouvé: ${key}`);
-            return c.text('Fichier non trouvé', 404);
-        }
-
-        const headers = new Headers();
-        const contentType = getContentTypeFromKey(key);
-        headers.set('Content-Type', contentType);
-
-        if (key.endsWith('.m3u8')) {
-            headers.set('Cache-Control', 'no-cache');
-            headers.set('Access-Control-Allow-Origin', '*');
-            console.log(`📄 Servi playlist HLS: ${key}`);
-        } else if (key.endsWith('.mpd')) {
-            headers.set('Cache-Control', 'no-cache');
-            headers.set('Access-Control-Allow-Origin', '*');
-            console.log(`📄 Servi manifest DASH: ${key}`);
-        } else if (key.endsWith('.m4s')) {
-            headers.set('Cache-Control', 'public, max-age=31536000');
-            console.log(`📄 Servi segment: ${key} (${object.size} bytes)`);
-        } else if (key.endsWith('.vtt')) {
-            headers.set('Content-Type', 'text/vtt');
-            headers.set('Access-Control-Allow-Origin', '*');
-            console.log(`📄 Servi sous-titre: ${key}`);
-        } else if (key.endsWith('.json')) {
-            headers.set('Content-Type', 'application/json');
-            headers.set('Cache-Control', 'no-cache');
-            console.log(`📄 Servi fichier JSON: ${key}`);
-        } else {
-            console.log(`📄 Servi fichier: ${key} (${contentType}, ${object.size} bytes)`);
-        }
-
-        return new Response(object.body, { headers });
-    } catch (error) {
-        console.error('Erreur lors de la récupération du fichier:', error);
-        return c.text('Erreur serveur', 500);
-    }
-});
-
-// Route pour générer un token de session (pour compatibilité)
-app.get('/api/session', async (c) => {
-    try {
-        const token = `electron-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log(`🔐 Token de session généré: ${token}`);
 
         return c.json({
             success: true,
-            token: token,
-            expiresIn: 3600
+            file: {
+                id: fileId,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                url: `/api/files/${category}/${fileId}`
+            }
         });
+
     } catch (error) {
-        console.error('Erreur génération session:', error);
-        return c.json({ success: false, error: 'Erreur génération session' }, 500);
+        console.error('Upload error:', error);
+        return c.json({ error: 'Internal server error' }, 500);
     }
 });
 
-// React Router catch-all
-app.all('*', (c) => {
-    console.log(`🌐 Route React Router: ${c.req.path}`);
-    const handler = createRequestHandler(
-        () => import('virtual:react-router/server-build'),
-        import.meta.env.MODE
-    );
-    return handler(c.req.raw, {
+function classifyFileByMimeType(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'images';
+    if (mimeType.startsWith('video/')) return 'videos';
+    if (mimeType.startsWith('audio/')) return 'musics';
+    if (mimeType === 'application/pdf') return 'documents';
+    if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('powerpoint')) return 'documents';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar') || mimeType.includes('7z')) return 'archives';
+    if (mimeType.includes('exe') || mimeType.includes('dmg') || mimeType.includes('msi')) return 'executables';
+    return 'others';
+}
+
+// Routes d'authentification
+app.get('/api/auth/electron-init', (c) => {
+    return handleGoogleAuthInit(c, OAUTH_REDIRECT_URI);
+});
+
+app.get('/api/auth/google/electron', (c) => {
+    return handleGoogleAuthInit(c, OAUTH_REDIRECT_URI, 'select_account');
+});
+
+// Callback OAuth
+app.get('/oauth-callback', handleOAuthCallback);
+
+// Routes d'authentification supplémentaires
+registerAuthRoutes(app);
+
+// Routes d'upload - IMPORTANT: monter avant le catch-all React Router
+app.route('/', uploadRoutes);
+
+// Route pour la santé de l'application
+app.get('/health', (c) => {
+    return c.json({
+        status: 'ok',
+        d1_available: !!c.env.DATABASE,
+        has_jwt_secret: !!c.env.JWT_SECRET,
+        has_google_client_id: !!c.env.GOOGLE_CLIENT_ID
+    });
+});
+
+// Handler pour React Router (catch-all) - DOIT être en dernier
+const requestHandler = createRequestHandler(
+    () => import('virtual:react-router/server-build'),
+    import.meta.env.MODE
+);
+
+app.all('*', async (c) => {
+    return requestHandler(c.req.raw, {
         cloudflare: { env: c.env, ctx: c.executionCtx },
     });
 });
+
+// Fonctions utilitaires locales
+function handleGoogleAuthInit(
+    c: any,
+    redirectUri: string,
+    prompt?: string
+) {
+    const clientId = c.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+        console.error('❌ GOOGLE_CLIENT_ID non configuré');
+        return c.json({ error: 'GOOGLE_CLIENT_ID not configured' }, 500);
+    }
+
+    const nonce = Math.random().toString(36).substring(2);
+    const authUrl = generateGoogleAuthUrl(clientId, redirectUri, nonce, { prompt });
+
+    return c.redirect(authUrl.toString());
+}
+
+function handleOAuthCallback(c: any) {
+    const html = getOAuthCallbackHtml();
+    return c.html(html);
+}
+
+function getOAuthCallbackHtml(): string {
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Connexion - Videomi</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval';">
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; }
+      .container { text-align: center; margin-top: 50px; }
+      .success { color: green; font-size: 24px; }
+      .error { color: red; font-size: 24px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="message">Traitement de la connexion...</div>
+    </div>
+    <script>
+      ${getOAuthCallbackScript()}
+    </script>
+  </body>
+</html>`;
+}
+
+function getOAuthCallbackScript(): string {
+    return `
+    
+    function extractTokenFromUrl() {
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const params = new URLSearchParams(hash);
+        const token = params.get('id_token');
+        if (token) {
+          return token;
+        }
+      }
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('id_token');
+      if (token) {
+        return token;
+      }
+      
+      console.error('❌ Aucun token trouvé dans l\\'URL');
+      return null;
+    }
+    
+    function handleToken(token) {
+      
+      if (window.electronAPI?.sendOAuthToken) {
+        window.electronAPI.sendOAuthToken(token);
+        document.getElementById('message').innerHTML = 
+          '<div class="success">✅ Connexion réussie!</div>' +
+          '<p>Fermeture de la fenêtre...</p>';
+        
+        setTimeout(() => {
+          window.electronAPI?.closeAuthWindow?.() || window.close();
+        }, 1000);
+        
+      } else if (window.opener) {
+        
+        // Vérifier si window.opener est accessible et si postMessage est disponible
+        let postMessageSucceeded = false;
+        
+        // Vérifier d'abord si window.opener existe et postMessage est une fonction
+        if (window.opener && typeof window.opener.postMessage === 'function') {
+          try {
+            // Vérifier si on peut accéder à window.opener (peut être null si bloqué par COOP)
+            // Cette vérification peut déjà échouer si COOP bloque l'accès
+            const openerCheck = window.opener !== null && window.opener !== undefined;
+            
+            if (openerCheck) {
+              // Essayer d'envoyer le message avec une vérification d'erreur synchrone
+              // Note: postMessage ne lance pas d'exception, mais le navigateur peut afficher un avertissement
+              // On essaie quand même car l'avertissement est non-bloquant
+        window.opener.postMessage({
+          type: 'oauth-callback',
+          token: token
+        }, '*');
+              
+              postMessageSucceeded = true;
+            }
+          } catch (e) {
+            // Cette catch ne sera probablement jamais exécuté car postMessage ne lance pas d'exception
+            // Mais on le garde pour sécurité
+            console.warn('⚠️ Exception lors de l\'appel postMessage:', e.message || String(e));
+            postMessageSucceeded = false;
+          }
+        } else {
+          console.warn('⚠️ window.opener ou postMessage non disponible');
+          postMessageSucceeded = false;
+        }
+        
+        // Toujours utiliser localStorage comme backup pour garantir que le token est stocké
+        try {
+          localStorage.setItem('google_id_token', token);
+        } catch (storageError) {
+          console.error('❌ Erreur lors du stockage dans localStorage:', storageError.message || String(storageError));
+        }
+        
+        document.getElementById('message').innerHTML = 
+          '<div class="success">✅ Connexion réussie!</div>' +
+          '<p>Vous pouvez fermer cette fenêtre.</p>';
+          
+      } else {
+        localStorage.setItem('google_id_token', token);
+        document.getElementById('message').innerHTML = 
+          '<div class="success">✅ Connexion réussie!</div>' +
+          '<p>Token stocké. Vous pouvez fermer cette fenêtre.</p>';
+      }
+    }
+    
+    function handleOAuthCallback() {
+      const token = extractTokenFromUrl();
+      
+      if (token) {
+        handleToken(token);
+      } else {
+        document.getElementById('message').innerHTML = 
+          '<div class="error">❌ Erreur: Aucun token d\\'authentification trouvé</div>' +
+          '<p>Veuillez réessayer.</p>';
+      }
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleOAuthCallback);
+    } else {
+      handleOAuthCallback();
+    }
+  `;
+}
 
 export default app;
