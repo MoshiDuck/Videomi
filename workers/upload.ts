@@ -709,6 +709,7 @@ app.post('/api/upload/complete', async (c) => {
                     CREATE TABLE IF NOT EXISTS file_metadata (
                         file_id TEXT PRIMARY KEY,
                         thumbnail_url TEXT,
+                        backdrop_url TEXT,
                         thumbnail_r2_path TEXT,
                         source_api TEXT,
                         source_id TEXT,
@@ -732,7 +733,8 @@ app.post('/api/upload/complete', async (c) => {
                 const fileMetadataColumnsToAdd = [
                     { name: 'created_at', type: 'INTEGER' },
                     { name: 'updated_at', type: 'INTEGER' },
-                    { name: 'album_thumbnails', type: 'TEXT' }
+                    { name: 'album_thumbnails', type: 'TEXT' },
+                    { name: 'backdrop_url', type: 'TEXT' }
                 ];
                 
                 for (const column of fileMetadataColumnsToAdd) {
@@ -1070,6 +1072,40 @@ app.post('/api/upload/complete', async (c) => {
                                 return null;
                             };
 
+                            // Fonction helper pour récupérer le still_path d'un épisode
+                            const fetchEpisodeStill = async (
+                                tvId: number,
+                                seasonNumber: number,
+                                episodeNumber: number
+                            ): Promise<string | null> => {
+                                try {
+                                    console.log(`[ENRICHMENT] Récupération still_path pour épisode S${seasonNumber}E${episodeNumber} de série ID ${tvId}...`);
+                                    const seasonUrl = `https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${tmdbApiKey}&language=fr-FR`;
+                                    const seasonResp = await fetch(seasonUrl);
+                                    if (!seasonResp.ok) {
+                                        console.warn(`⚠️ [ENRICHMENT] Impossible de récupérer la saison ${seasonNumber} pour série ID ${tvId}: ${seasonResp.status}`);
+                                        return null;
+                                    }
+                                    const seasonData = await seasonResp.json() as { 
+                                        episodes?: Array<{ 
+                                            episode_number: number; 
+                                            still_path?: string | null 
+                                        }> 
+                                    };
+                                    if (seasonData.episodes && Array.isArray(seasonData.episodes)) {
+                                        const episode = seasonData.episodes.find(e => e.episode_number === episodeNumber);
+                                        if (episode && episode.still_path) {
+                                            console.log(`✅ [ENRICHMENT] Still_path trouvé pour épisode S${seasonNumber}E${episodeNumber}`);
+                                            return episode.still_path;
+                                        }
+                                    }
+                                    console.warn(`⚠️ [ENRICHMENT] Aucun still_path trouvé pour épisode S${seasonNumber}E${episodeNumber}`);
+                                } catch (stillError) {
+                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération still_path pour épisode S${seasonNumber}E${episodeNumber}:`, stillError);
+                                }
+                                return null;
+                            };
+
                             // Si pattern série détecté, chercher d'abord sur TMDb TV
                             if (isLikelySeries && tmdbApiKey) {
                                 for (const variant of titleVariants) {
@@ -1079,24 +1115,45 @@ app.post('/api/upload/complete', async (c) => {
                                     const tvResponse = await fetch(tvUrl);
                                     
                                     if (tvResponse.ok) {
-                                        const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; first_air_date?: string; overview?: string | null }> };
+                                        const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null }> };
                                         if (tvData.results && tvData.results.length > 0) {
                                             const tv = tvData.results[0];
                                             console.log(`✅ [ENRICHMENT] Série trouvée sur TMDb: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
                                             const genres = await fetchTmdbGenres('tv', tv.id);
                                             console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour série "${tv.name}":`, genres);
+                                            
+                                            // Séparer backdrop_url (poster original pour bannière) et thumbnail_url (pour miniatures en 16:9)
+                                            const backdropUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w1280${tv.poster_path}` : null;
+                                            let thumbnailUrl: string | null = null;
+                                            
+                                            if (detectedSeason !== null && detectedEpisode !== null) {
+                                                // C'est un épisode, utiliser still_path pour la miniature (16:9)
+                                                const stillPath = await fetchEpisodeStill(tv.id, detectedSeason, detectedEpisode);
+                                                thumbnailUrl = stillPath ? `https://image.tmdb.org/t/p/w1280${stillPath}` : null;
+                                            } else {
+                                                // C'est une série, utiliser backdrop_path pour la miniature (16:9)
+                                                thumbnailUrl = tv.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tv.backdrop_path}` : null;
+                                            }
+                                            
                                             enrichedMetadata = {
                                                 source_api: 'tmdb_tv',
                                                 source_id: String(tv.id),
                                                 title: tv.name || null,
                                                 year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null,
-                                                thumbnail_url: tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : null,
+                                                thumbnail_url: thumbnailUrl,
+                                                backdrop_url: backdropUrl,
                                                 description: tv.overview || null,
                                                 genres: genres || undefined,
                                                 season: detectedSeason,
                                                 episode: detectedEpisode
                                             };
                                             console.log(`[GENRES] [ENRICHMENT] Métadonnées avec genres:`, JSON.stringify({ genres: enrichedMetadata.genres }, null, 2));
+                                            // Vérifier que les deux images sont différentes
+                                            if (thumbnailUrl && backdropUrl && thumbnailUrl === backdropUrl) {
+                                                console.warn(`⚠️ [ENRICHMENT] thumbnail_url et backdrop_url sont identiques pour ${tv.name}:`, thumbnailUrl);
+                                            } else {
+                                                console.log(`✅ [ENRICHMENT] Images séparées - thumbnail_url: ${thumbnailUrl ? thumbnailUrl.substring(0, 60) + '...' : 'null'}, backdrop_url: ${backdropUrl ? backdropUrl.substring(0, 60) + '...' : 'null'}`);
+                                            }
                                         }
                                     } else {
                                         console.error(`❌ [ENRICHMENT] Erreur API TMDb TV (${tvResponse.status}) pour variante "${variant}"`);
@@ -1113,18 +1170,22 @@ app.post('/api/upload/complete', async (c) => {
                                     const movieResponse = await fetch(movieUrl);
                                     
                                     if (movieResponse.ok) {
-                                        const movieData = await movieResponse.json() as { results?: Array<{ id: number; title?: string; poster_path?: string | null; release_date?: string; overview?: string | null }> };
+                                        const movieData = await movieResponse.json() as { results?: Array<{ id: number; title?: string; poster_path?: string | null; backdrop_path?: string | null; release_date?: string; overview?: string | null }> };
                                         if (movieData.results && movieData.results.length > 0) {
                                             const movie = movieData.results[0];
                                             console.log(`✅ [ENRICHMENT] Film trouvé sur TMDb: "${movie.title}" (ID: ${movie.id}, Année: ${movie.release_date ? movie.release_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
                                             const genres = await fetchTmdbGenres('movie', movie.id);
                                             console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour film "${movie.title}":`, genres);
+                                            // Séparer backdrop_url (poster original pour bannière) et thumbnail_url (pour miniatures en 16:9)
+                                            const backdropUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : null;
+                                            const thumbnailUrl = movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null;
                                             enrichedMetadata = {
                                                 source_api: 'tmdb',
                                                 source_id: String(movie.id),
                                                 title: movie.title || null,
                                                 year: movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : null,
-                                                thumbnail_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+                                                thumbnail_url: thumbnailUrl, // Backdrop pour miniatures (16:9)
+                                                backdrop_url: backdropUrl, // Poster original pour bannière/page info
                                                 description: movie.overview || null,
                                                 genres: genres || undefined
                                             };
@@ -1145,18 +1206,22 @@ app.post('/api/upload/complete', async (c) => {
                                     const tvResponse = await fetch(tvUrl);
                                     
                                     if (tvResponse.ok) {
-                                        const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; first_air_date?: string; overview?: string | null }> };
+                                        const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null }> };
                                         if (tvData.results && tvData.results.length > 0) {
                                             const tv = tvData.results[0];
                                             console.log(`✅ [ENRICHMENT] Série trouvée sur TMDb: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
                                             const genres = await fetchTmdbGenres('tv', tv.id);
                                             console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour série "${tv.name}":`, genres);
+                                            // Séparer backdrop_url (poster original pour bannière) et thumbnail_url (pour miniatures en 16:9)
+                                            const backdropUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w1280${tv.poster_path}` : null;
+                                            const thumbnailUrl = tv.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tv.backdrop_path}` : null;
                                             enrichedMetadata = {
                                                 source_api: 'tmdb_tv',
                                                 source_id: String(tv.id),
                                                 title: tv.name || null,
                                                 year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null,
-                                                thumbnail_url: tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : null,
+                                                thumbnail_url: thumbnailUrl, // Backdrop pour miniatures (16:9)
+                                                backdrop_url: backdropUrl, // Poster original pour bannière/page info
                                                 description: tv.overview || null,
                                                 genres: genres || undefined
                                             };
@@ -1533,7 +1598,9 @@ app.post('/api/upload/complete', async (c) => {
                             year: enrichedMetadata.year,
                             source_api: enrichedMetadata.source_api,
                             genres: enrichedMetadata.genres,
-                            has_thumbnail: !!enrichedMetadata.thumbnail_url
+                            has_thumbnail: !!enrichedMetadata.thumbnail_url,
+                            thumbnail_url: enrichedMetadata.thumbnail_url,
+                            backdrop_url: enrichedMetadata.backdrop_url
                         }, null, 2));
                         
                         // Télécharger et stocker la miniature si disponible (appel interne direct)
@@ -1610,12 +1677,13 @@ app.post('/api/upload/complete', async (c) => {
                                 try {
                                     result = await c.env.DATABASE.prepare(`
                                         INSERT OR REPLACE INTO file_metadata (
-                                            file_id, thumbnail_url, thumbnail_r2_path, source_api, source_id,
+                                            file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
                                             genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description
-                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                     `).bind(
                                         uploadInfo.file_id,
                                         enrichedMetadata.thumbnail_url || null,
+                                        enrichedMetadata.backdrop_url || null,
                                         enrichedMetadata.thumbnail_r2_path || null,
                                         enrichedMetadata.source_api || null,
                                         enrichedMetadata.source_id || null,
@@ -1636,12 +1704,13 @@ app.post('/api/upload/complete', async (c) => {
                                     if (errorMsg.includes('album_thumbnails') || errorMsg.includes('no such column')) {
                                         result = await c.env.DATABASE.prepare(`
                                             INSERT OR REPLACE INTO file_metadata (
-                                                file_id, thumbnail_url, thumbnail_r2_path, source_api, source_id,
+                                                file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
                                                 genres, subgenres, season, episode, artists, albums, title, year, description
-                                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                         `).bind(
                                             uploadInfo.file_id,
                                             enrichedMetadata.thumbnail_url || null,
+                                            enrichedMetadata.backdrop_url || null,
                                             enrichedMetadata.thumbnail_r2_path || null,
                                             enrichedMetadata.source_api || null,
                                             enrichedMetadata.source_id || null,
@@ -1774,8 +1843,8 @@ app.get('/api/upload/user/:userId', async (c) => {
 
         // Essayer d'abord avec album_thumbnails (nouvelle colonne)
         // Si la colonne n'existe pas, fallback sur une requête sans cette colonne
-        let query = `SELECT f.*, uf.uploaded_at,
-                    fm.thumbnail_r2_path, fm.thumbnail_url,
+        let             query = `SELECT f.*, uf.uploaded_at,
+                    fm.thumbnail_r2_path, fm.thumbnail_url, fm.backdrop_url,
                     fm.source_id, fm.source_api,
                     fm.title, fm.artists, fm.albums, fm.album_thumbnails,
                     fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
@@ -1801,7 +1870,7 @@ app.get('/api/upload/user/:userId', async (c) => {
             const errorMsg = queryError instanceof Error ? queryError.message : String(queryError);
             if (errorMsg.includes('album_thumbnails') || errorMsg.includes('no such column')) {
                 query = `SELECT f.*, uf.uploaded_at,
-                        fm.thumbnail_r2_path, fm.thumbnail_url,
+                        fm.thumbnail_r2_path, fm.thumbnail_url, fm.backdrop_url,
                         fm.source_id, fm.source_api,
                         fm.title, fm.artists, fm.albums, NULL as album_thumbnails,
                         fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
@@ -2399,12 +2468,13 @@ app.post('/api/files/:fileId/metadata', async (c) => {
         try {
             result = await c.env.DATABASE.prepare(`
                 INSERT OR REPLACE INTO file_metadata (
-                    file_id, thumbnail_url, thumbnail_r2_path, source_api, source_id,
+                    file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
                     genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(
                 fileId,
                 metadata.thumbnail_url || null,
+                metadata.backdrop_url || null,
                 metadata.thumbnail_r2_path || null,
                 metadata.source_api || null,
                 metadata.source_id || null,
@@ -2426,12 +2496,13 @@ app.post('/api/files/:fileId/metadata', async (c) => {
             if (errorMsg.includes('album_thumbnails') || errorMsg.includes('no such column')) {
                 result = await c.env.DATABASE.prepare(`
                     INSERT OR REPLACE INTO file_metadata (
-                        file_id, thumbnail_url, thumbnail_r2_path, source_api, source_id,
+                        file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
                         genres, subgenres, season, episode, artists, albums, title, year, description
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).bind(
                     fileId,
                     metadata.thumbnail_url || null,
+                    metadata.backdrop_url || null,
                     metadata.thumbnail_r2_path || null,
                     metadata.source_api || null,
                     metadata.source_id || null,

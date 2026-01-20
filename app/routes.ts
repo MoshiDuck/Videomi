@@ -21,5 +21,6 @@ export default [
     route("executables", "routes/executables.tsx"),
     route("others", "routes/others.tsx"),
     route("reader/:category/:fileId", "routes/reader.tsx"),
-    route("match/:category/:fileId", "routes/match.tsx")
+    route("match/:category/:fileId", "routes/match.tsx"),
+    route("info/:category/:fileId", "routes/info.tsx")
 ] satisfies RouteConfig;

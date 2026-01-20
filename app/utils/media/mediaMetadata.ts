@@ -7,6 +7,7 @@ type FileCategory = 'videos' | 'musics' | 'images' | 'raw_images' | 'documents' 
 export interface MediaMetadata {
     // Commun
     thumbnail_url: string | null;
+    backdrop_url: string | null; // URL du backdrop pour bannière/page info (films et séries)
     thumbnail_r2_path: string | null;
     source_api: 'tmdb' | 'tmdb_tv' | 'omdb' | 'musicbrainz' | 'spotify' | 'discogs' | null;
     source_id: string | null; // ID dans l'API source
@@ -354,7 +355,7 @@ async function searchTMDbMovieComplete(
             const searchResponse = await fetch(searchUrl);
             if (!searchResponse.ok) continue;
             
-            const searchData = await searchResponse.json() as { results?: Array<{ id: number; title?: string; poster_path?: string | null }> };
+            const searchData = await searchResponse.json() as { results?: Array<{ id: number; title?: string; poster_path?: string | null; backdrop_path?: string | null }> };
             if (searchData.results && searchData.results.length > 0) {
                 const movie = searchData.results[0];
                 const movieId = movie.id;
@@ -368,19 +369,24 @@ async function searchTMDbMovieComplete(
                     title?: string; 
                     genres?: Array<{ name: string }>; 
                     release_date?: string; 
-                    overview?: string | null 
+                    overview?: string | null;
+                    backdrop_path?: string | null;
                 };
                 
                 // Extraire les genres
                 const genres = detailsData.genres ? detailsData.genres.map((g) => g.name) : [];
                 
-                // URL de la miniature (poster)
-                const thumbnailUrl = movie.poster_path 
-                    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                // Séparer backdrop_url (poster original pour bannière) et thumbnail_url (pour miniatures en 16:9)
+                const backdropUrl = movie.poster_path
+                    ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}`
+                    : null;
+                const thumbnailUrl = (detailsData.backdrop_path || movie.backdrop_path)
+                    ? `https://image.tmdb.org/t/p/w1280${detailsData.backdrop_path || movie.backdrop_path}`
                     : null;
                 
                 const metadata: MediaMetadata = {
-                    thumbnail_url: thumbnailUrl,
+                    thumbnail_url: thumbnailUrl, // Backdrop pour miniatures (16:9)
+                    backdrop_url: backdropUrl, // Poster original pour bannière/page info
                     thumbnail_r2_path: null, // Sera rempli après téléchargement
                     source_api: 'tmdb',
                     source_id: String(movieId),
@@ -435,7 +441,7 @@ async function searchTMDbTVComplete(
             const searchResponse = await fetch(searchUrl);
             if (!searchResponse.ok) continue;
             
-            const searchData = await searchResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null }> };
+            const searchData = await searchResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null }> };
             if (searchData.results && searchData.results.length > 0) {
                 const tvShow = searchData.results[0];
                 const tvId = tvShow.id;
@@ -449,7 +455,8 @@ async function searchTMDbTVComplete(
                     name?: string; 
                     genres?: Array<{ name: string }>; 
                     first_air_date?: string; 
-                    overview?: string | null 
+                    overview?: string | null;
+                    backdrop_path?: string | null;
                 };
                 
                 // Extraire les genres
@@ -467,12 +474,38 @@ async function searchTMDbTVComplete(
                     episode = parseInt(episodeMatch[1]);
                 }
                 
-                const thumbnailUrl = tvShow.poster_path 
-                    ? `https://image.tmdb.org/t/p/w500${tvShow.poster_path}`
+                // Pour les épisodes, récupérer le still_path, sinon utiliser backdrop_path (format 16:9)
+                let thumbnailUrl: string | null = null;
+                if (season !== null && episode !== null) {
+                    // C'est un épisode, récupérer le still_path
+                    try {
+                        const seasonDetails = await getSeasonDetailsFromTMDB(tvId, season, apiKey);
+                        if (seasonDetails && seasonDetails.episodes) {
+                            const episodeData = seasonDetails.episodes.find(e => e.episode_number === episode);
+                            if (episodeData && episodeData.still_path) {
+                                thumbnailUrl = `https://image.tmdb.org/t/p/w1280${episodeData.still_path}`;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Erreur récupération still_path pour épisode:', error);
+                    }
+                }
+                
+                // Séparer backdrop_url (poster original pour bannière) et thumbnail_url (pour miniatures en 16:9)
+                const backdropUrl = tvShow.poster_path
+                    ? `https://image.tmdb.org/t/p/w1280${tvShow.poster_path}`
                     : null;
                 
+                if (!thumbnailUrl) {
+                    // C'est une série (pas d'épisode), utiliser backdrop_path pour la miniature (16:9)
+                    thumbnailUrl = (detailsData.backdrop_path || tvShow.backdrop_path)
+                        ? `https://image.tmdb.org/t/p/w1280${detailsData.backdrop_path || tvShow.backdrop_path}`
+                        : null;
+                }
+                
                 const metadata: MediaMetadata = {
-                    thumbnail_url: thumbnailUrl,
+                    thumbnail_url: thumbnailUrl, // still_path pour épisodes (16:9), backdrop_path pour séries (16:9)
+                    backdrop_url: backdropUrl, // Poster original pour bannière/page info
                     thumbnail_r2_path: null,
                     source_api: 'tmdb_tv',
                     source_id: String(tvId),
@@ -533,6 +566,7 @@ async function searchOMDbMovie(
                 
                 const metadata: MediaMetadata = {
                     thumbnail_url: data.Poster !== 'N/A' ? data.Poster : null,
+                    backdrop_url: null,
                     thumbnail_r2_path: null,
                     source_api: 'omdb',
                     source_id: data.imdbID || null,
@@ -671,7 +705,7 @@ export async function searchMoviesOnTMDB(
             id: `tmdb_movie_${movie.id}`,
             title: movie.title || movie.original_title,
             year: movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : null,
-            thumbnail_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+            thumbnail_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
             source_api: 'tmdb' as const,
             source_id: String(movie.id),
             description: movie.overview || null,
@@ -709,7 +743,7 @@ export async function searchTVShowsOnTMDB(
             id: `tmdb_tv_${show.id}`,
             title: show.name || show.original_name,
             year: show.first_air_date ? parseInt(show.first_air_date.substring(0, 4)) : null,
-            thumbnail_url: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+            thumbnail_url: show.backdrop_path ? `https://image.tmdb.org/t/p/w1280${show.backdrop_path}` : null,
             source_api: 'tmdb_tv' as const,
             source_id: String(show.id),
             description: show.overview || null,
@@ -1022,6 +1056,7 @@ async function searchSpotifyComplete(
                 
                 const metadata: MediaMetadata = {
                     thumbnail_url: thumbnailUrl,
+                    backdrop_url: null,
                     thumbnail_r2_path: null,
                     source_api: 'musicbrainz', // On utilise musicbrainz comme source_api pour la cohérence
                     source_id: track.id || null,
@@ -1190,6 +1225,7 @@ async function searchMusicBrainzComplete(
                 
                 const metadata: MediaMetadata = {
                     thumbnail_url: thumbnailUrl,
+                    backdrop_url: null,
                     thumbnail_r2_path: null,
                     source_api: 'musicbrainz',
                     source_id: recording.id || null,
@@ -1383,6 +1419,7 @@ async function searchDiscogsComplete(
                 
                 const metadata: MediaMetadata = {
                     thumbnail_url: thumbnailUrl,
+                    backdrop_url: null,
                     thumbnail_r2_path: null,
                     source_api: 'discogs',
                     source_id: release.id ? String(release.id) : null,
@@ -1883,6 +1920,7 @@ export async function enrichWithCompleteMetadata(
                             if (thumbnailUrl || recording.title) {
                                 metadata = {
                                     thumbnail_url: thumbnailUrl,
+                                    backdrop_url: null,
                                     thumbnail_r2_path: null,
                                     source_api: 'musicbrainz',
                                     source_id: recording.id || null,
@@ -2060,6 +2098,7 @@ export async function enrichWithCompleteMetadata(
                 
                 metadata = {
                     thumbnail_url: embeddedImageUrl,
+                    backdrop_url: null,
                     thumbnail_r2_path: id3ImageR2Path,
                     source_api: null,
                     source_id: null,
@@ -2174,6 +2213,7 @@ export async function searchMovies(
                 title?: string; 
                 release_date?: string;
                 poster_path?: string | null;
+                backdrop_path?: string | null;
                 overview?: string | null;
             }> 
         };
@@ -2183,8 +2223,8 @@ export async function searchMovies(
             
             for (const movie of limitedResults) {
                 const movieYear = movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : null;
-                const thumbnailUrl = movie.poster_path 
-                    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                const thumbnailUrl = movie.backdrop_path 
+                    ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
                     : null;
                 
                 matches.push({
@@ -2241,6 +2281,7 @@ export async function searchTVShows(
                 name?: string; 
                 first_air_date?: string;
                 poster_path?: string | null;
+                backdrop_path?: string | null;
                 overview?: string | null;
             }> 
         };
@@ -2250,8 +2291,8 @@ export async function searchTVShows(
             
             for (const tvShow of limitedResults) {
                 const tvYear = tvShow.first_air_date ? parseInt(tvShow.first_air_date.substring(0, 4)) : null;
-                const thumbnailUrl = tvShow.poster_path 
-                    ? `https://image.tmdb.org/t/p/w500${tvShow.poster_path}`
+                const thumbnailUrl = tvShow.backdrop_path 
+                    ? `https://image.tmdb.org/t/p/w1280${tvShow.backdrop_path}`
                     : null;
                 
                 matches.push({

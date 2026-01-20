@@ -5,7 +5,11 @@ import React, { useState, useRef } from 'react';
 
 const netflixTheme = {
     text: {
-        primary: '#ffffff'
+        primary: '#ffffff',
+        secondary: '#d2d2d2'
+    },
+    bg: {
+        primary: '#141414'
     }
 };
 
@@ -40,22 +44,24 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
     };
 
     return (
-        <div style={{ marginBottom: '40px', position: 'relative' }}>
+        <div style={{ marginBottom: '50px', position: 'relative' }}>
             <h2 style={{
-                fontSize: '20px',
-                fontWeight: '700',
+                fontSize: 'clamp(18px, 2vw, 24px)',
+                fontWeight: '800',
                 color: netflixTheme.text.primary,
-                marginBottom: '16px',
-                marginLeft: '60px',
+                marginBottom: '20px',
+                marginLeft: 'clamp(40px, 4vw, 60px)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px'
+                gap: '12px',
+                letterSpacing: '-0.02em',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
             }}>
-                {icon && <span>{icon}</span>} {title}
+                {icon && <span style={{ fontSize: '24px' }}>{icon}</span>} {title}
             </h2>
             
             <div style={{ position: 'relative', overflow: 'visible' }}>
-                {/* Flèche gauche */}
+                {/* Flèche gauche moderne */}
                 {showLeftArrow && (
                     <button
                         onClick={() => scroll('left')}
@@ -64,8 +70,8 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                             left: 0,
                             top: 0,
                             bottom: 0,
-                            width: '60px',
-                            background: 'linear-gradient(to right, rgba(20,20,20,0.9), transparent)',
+                            width: 'clamp(50px, 5vw, 80px)',
+                            background: 'linear-gradient(to right, rgba(20,20,20,0.95) 0%, rgba(20,20,20,0.7) 50%, transparent 100%)',
                             border: 'none',
                             cursor: 'pointer',
                             zIndex: 10,
@@ -73,38 +79,49 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: '#fff',
-                            fontSize: '40px',
-                            opacity: 0.7,
-                            transition: 'opacity 0.2s'
+                            fontSize: 'clamp(32px, 4vw, 48px)',
+                            opacity: 0,
+                            transition: 'opacity 0.3s ease',
+                            backdropFilter: 'blur(2px)'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                        className="carousel-arrow"
                     >
                         ‹
                     </button>
                 )}
                 
-                {/* Conteneur scrollable */}
+                {/* Conteneur scrollable moderne */}
                 <div
                     ref={scrollRef}
                     onScroll={handleScroll}
+                    onMouseEnter={() => {
+                        const arrows = document.querySelectorAll('.carousel-arrow');
+                        arrows.forEach(arrow => (arrow as HTMLElement).style.opacity = '0.8');
+                    }}
+                    onMouseLeave={() => {
+                        const arrows = document.querySelectorAll('.carousel-arrow');
+                        arrows.forEach(arrow => (arrow as HTMLElement).style.opacity = '0');
+                    }}
                     style={{
                         display: 'flex',
-                        gap: '8px',
+                        gap: '10px',
                         overflowX: 'auto',
                         overflowY: 'visible',
                         scrollbarWidth: 'none',
                         msOverflowStyle: 'none',
-                        paddingLeft: '60px',
-                        paddingRight: '60px',
+                        paddingLeft: 'clamp(40px, 4vw, 60px)',
+                        paddingRight: 'clamp(40px, 4vw, 60px)',
                         paddingTop: '60px',
-                        paddingBottom: '60px'
+                        paddingBottom: '60px',
+                        scrollBehavior: 'smooth'
                     }}
                 >
                     {children}
                 </div>
                 
-                {/* Flèche droite */}
+                {/* Flèche droite moderne */}
                 {showRightArrow && (
                     <button
                         onClick={() => scroll('right')}
@@ -113,8 +130,8 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                             right: 0,
                             top: 0,
                             bottom: 0,
-                            width: '60px',
-                            background: 'linear-gradient(to left, rgba(20,20,20,0.9), transparent)',
+                            width: 'clamp(50px, 5vw, 80px)',
+                            background: 'linear-gradient(to left, rgba(20,20,20,0.95) 0%, rgba(20,20,20,0.7) 50%, transparent 100%)',
                             border: 'none',
                             cursor: 'pointer',
                             zIndex: 10,
@@ -122,12 +139,14 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: '#fff',
-                            fontSize: '40px',
-                            opacity: 0.7,
-                            transition: 'opacity 0.2s'
+                            fontSize: 'clamp(32px, 4vw, 48px)',
+                            opacity: 0,
+                            transition: 'opacity 0.3s ease',
+                            backdropFilter: 'blur(2px)'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                        className="carousel-arrow"
                     >
                         ›
                     </button>

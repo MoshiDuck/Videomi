@@ -26,6 +26,7 @@ interface FileItem {
     uploaded_at: number;
     thumbnail_r2_path: string | null;
     thumbnail_url: string | null;
+    backdrop_url: string | null;
     source_id: string | null;
     source_api: string | null;
     title: string | null;
@@ -43,6 +44,7 @@ interface TVShow {
     showId: string;
     showName: string;
     showThumbnail: string | null;
+    showBackdrop: string | null; // Poster original pour bannière
     year: number | null;
     description: string | null;
     genres: string[];
@@ -61,25 +63,36 @@ interface TVShow {
 interface OrganizedSeries {
     unidentified: FileItem[];
     byGenre: Array<{ genre: string; shows: TVShow[] }>;
-    continueWatching: FileItem[];
+    continueWatching: Array<{ show: TVShow; lastEpisode: FileItem; progress_percent: number }>;
+    top10: TVShow[];
+    recentlyAdded: TVShow[];
 }
 
-// Style Netflix
+// Style Netflix moderne
 const netflixTheme = {
     bg: {
         primary: '#141414',
         secondary: '#1a1a1a',
         card: '#181818',
-        hover: '#252525',
+        hover: '#2a2a2a',
+        gradient: 'linear-gradient(to bottom, rgba(20,20,20,0) 0%, rgba(20,20,20,0.7) 50%, rgba(20,20,20,1) 100%)',
+        gradientHero: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.7) 100%)'
     },
     text: {
         primary: '#ffffff',
-        secondary: '#b3b3b3',
-        muted: '#808080'
+        secondary: '#d2d2d2',
+        muted: '#808080',
+        accent: '#46d369'
     },
     accent: {
         red: '#e50914',
-        redHover: '#f40612'
+        redHover: '#f40612',
+        green: '#46d369'
+    },
+    shadow: {
+        card: '0 2px 8px rgba(0,0,0,0.3)',
+        cardHover: '0 8px 24px rgba(0,0,0,0.6)',
+        button: '0 2px 4px rgba(0,0,0,0.2)'
     }
 };
 
@@ -94,11 +107,11 @@ export default function SeriesRoute() {
     const [organizedSeries, setOrganizedSeries] = useState<OrganizedSeries>({
         unidentified: [],
         byGenre: [],
-        continueWatching: []
+        continueWatching: [],
+        top10: [],
+        recentlyAdded: []
     });
     const [heroShow, setHeroShow] = useState<TVShow | null>(null);
-    const [selectedShow, setSelectedShow] = useState<string | null>(null);
-    const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
     
     const handleCategoryChange = useCallback((category: FileCategory) => {
         setSelectedCategory(category);
@@ -119,6 +132,8 @@ export default function SeriesRoute() {
 
             try {
                 const token = localStorage.getItem('videomi_token');
+                
+                // Récupérer les fichiers
                 const response = await fetch(
                     `https://videomi.uk/api/upload/user/${user.id}?category=videos`,
                     { headers: { 'Authorization': `Bearer ${token}` } }
@@ -129,8 +144,22 @@ export default function SeriesRoute() {
                 const data = await response.json() as { files: FileItem[] };
                 let files = data.files || [];
 
+                // Récupérer les progressions de lecture
+                let progressions: Array<{ file_id: string; progress_percent: number; current_time: number }> = [];
+                try {
+                    const progressResponse = await fetch(
+                        `https://videomi.uk/api/watch-progress/user/${user.id}`,
+                        { headers: { 'Authorization': `Bearer ${token}` } }
+                    );
+                    if (progressResponse.ok) {
+                        const progressData = await progressResponse.json() as { progressions: Array<{ file_id: string; progress_percent: number; current_time: number }> };
+                        progressions = progressData.progressions || [];
+                                }
+                            } catch (err) {
+                    console.warn('Impossible de récupérer les progressions:', err);
+                }
 
-                organizeSeries(files);
+                organizeSeries(files, progressions);
                 setLoading(false);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -141,7 +170,7 @@ export default function SeriesRoute() {
         fetchFiles();
     }, [user?.id, config]);
 
-    const organizeSeries = useCallback((files: FileItem[]) => {
+    const organizeSeries = useCallback((files: FileItem[], progressions: Array<{ file_id: string; progress_percent: number; current_time: number }> = []) => {
         const unidentified: FileItem[] = [];
         const tvShowsMap = new Map<string, TVShow>();
 
@@ -192,7 +221,8 @@ export default function SeriesRoute() {
                     tvShowsMap.set(showKey, {
                         showId: showKey,
                         showName: showName,
-                        showThumbnail: file.thumbnail_url,
+                        showThumbnail: file.thumbnail_url, // Pour miniatures (backdrop/still)
+                        showBackdrop: file.backdrop_url, // Pour bannière (poster original)
                         year: file.year,
                         description: file.description,
                         genres: genres,
@@ -265,10 +295,78 @@ export default function SeriesRoute() {
             setHeroShow(showsWithThumbnail[randomIndex]);
         }
 
+        // Top 10 : les séries les plus récentes avec métadonnées complètes
+        const top10 = [...tvShows]
+            .filter(s => s.showThumbnail && s.genres.length > 0)
+            .sort((a, b) => {
+                // Prioriser celles avec description et plus d'épisodes
+                const aScore = (a.description ? 10 : 0) + (a.totalEpisodes > 10 ? 5 : 0);
+                const bScore = (b.description ? 10 : 0) + (b.totalEpisodes > 10 ? 5 : 0);
+                if (bScore !== aScore) return bScore - aScore;
+                return b.totalEpisodes - a.totalEpisodes;
+            })
+            .slice(0, 10);
+
+        // Ajoutés récemment : séries triées par date d'upload
+        const allEpisodes = Array.from(tvShowsMap.values()).flatMap(show => 
+            show.seasons.flatMap(season => season.episodes.map(ep => ep.file))
+        );
+        const recentlyAddedShows = new Set<string>();
+        const recentlyAdded = [...allEpisodes]
+            .sort((a, b) => b.uploaded_at - a.uploaded_at)
+            .filter(ep => {
+                const showKey = ep.source_id || '';
+                if (!recentlyAddedShows.has(showKey)) {
+                    recentlyAddedShows.add(showKey);
+                    return true;
+                }
+                return false;
+            })
+            .slice(0, 20)
+            .map(ep => tvShowsMap.get(ep.source_id || '')!)
+            .filter(Boolean)
+            .slice(0, 20);
+
+        // Continuer de regarder : séries avec progression
+        const progressMap = new Map(progressions.map(p => [p.file_id, p]));
+        const continueWatchingMap = new Map<string, { show: TVShow; lastEpisode: FileItem; progress_percent: number }>();
+        
+        for (const show of tvShows) {
+            // Trouver le dernier épisode regardé de cette série
+            let lastWatchedEpisode: FileItem | null = null;
+            let maxProgress = 0;
+            
+            for (const season of show.seasons) {
+                for (const episode of season.episodes) {
+                    const progress = progressMap.get(episode.file.file_id);
+                    if (progress && progress.progress_percent > 5 && progress.progress_percent < 95) {
+                        if (progress.progress_percent > maxProgress) {
+                            maxProgress = progress.progress_percent;
+                            lastWatchedEpisode = episode.file;
+                        }
+                    }
+                }
+            }
+            
+            if (lastWatchedEpisode) {
+                continueWatchingMap.set(show.showId, {
+                    show,
+                    lastEpisode: lastWatchedEpisode,
+                    progress_percent: maxProgress
+                });
+            }
+        }
+        
+        const continueWatching = Array.from(continueWatchingMap.values())
+            .sort((a, b) => b.lastEpisode.uploaded_at - a.lastEpisode.uploaded_at)
+            .slice(0, 20);
+
         setOrganizedSeries({
             unidentified: unidentified.sort((a, b) => b.uploaded_at - a.uploaded_at),
             byGenre,
-            continueWatching: [] // À implémenter avec le watch history
+            continueWatching,
+            top10,
+            recentlyAdded
         });
     }, [t]);
 
@@ -281,7 +379,20 @@ export default function SeriesRoute() {
     }, []);
 
     const handleVideoClick = useCallback((fileId: string, category: string) => {
+        navigate(`/info/${category}/${fileId}`);
+    }, [navigate]);
+
+    const handlePlayEpisode = useCallback((fileId: string, category: string) => {
+        // Lancer directement la lecture, pas vers /info
         navigate(`/reader/${category}/${fileId}`);
+    }, [navigate]);
+
+    const handleShowClick = useCallback((show: TVShow) => {
+        // Rediriger vers la page info du premier épisode de la première saison
+        if (show.seasons.length > 0 && show.seasons[0].episodes.length > 0) {
+            const firstEpisode = show.seasons[0].episodes[0];
+            navigate(`/info/${firstEpisode.file.category}/${firstEpisode.file.file_id}`);
+        }
     }, [navigate]);
 
     const handleUnidentifiedClick = useCallback((fileId: string) => {
@@ -353,38 +464,139 @@ export default function SeriesRoute() {
 
         const renderCardContent = (isZoomed = false) => (
             <div style={{
-                borderRadius: '6px',
+                borderRadius: '8px',
                 overflow: 'hidden',
                 backgroundColor: netflixTheme.bg.card,
-                boxShadow: isZoomed ? '0 10px 40px rgba(0,0,0,0.8)' : 'none',
-                transition: 'box-shadow 0.3s ease',
-                width: '185px'
+                boxShadow: isZoomed ? netflixTheme.shadow.cardHover : netflixTheme.shadow.card,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                width: '185px',
+                border: isZoomed ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                position: 'relative'
             }}>
-                {/* Image */}
+                {/* Conteneur image - TOUT est superposé ici */}
                 <div style={{
                     width: '100%',
                     aspectRatio: '2/3',
                     backgroundColor: '#2a2a2a',
                     position: 'relative'
                 }}>
+                    {/* Image - couche 1 */}
                     {show.showThumbnail ? (
                         <img
                             src={show.showThumbnail}
                             alt={show.showName}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover',
+                                display: 'block'
+                            }}
                         />
                     ) : (
                         <div style={{
+                            width: '100%',
+                            height: '100%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            width: '100%',
-                            height: '100%',
                             color: netflixTheme.text.muted,
-                            fontSize: '48px'
+                            fontSize: '48px',
+                            background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)'
                         }}>
                             📺
                         </div>
+                    )}
+                    
+                    {/* Overlay + Boutons - couche 2 (superposés sur l'image) */}
+                    {isZoomed && (
+                        <>
+                            {/* Overlay sombre */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'rgba(0,0,0,0.5)',
+                                pointerEvents: 'none'
+                            }} />
+                            
+                            {/* Boutons centrés sur l'image */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '12px',
+                                pointerEvents: 'auto'
+                            }}>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onClick();
+                                    }}
+                                    style={{
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#fff',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '18px',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
+                                        paddingLeft: '2px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.15)';
+                                        e.currentTarget.style.backgroundColor = '#f0f0f0';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.backgroundColor = '#fff';
+                                    }}
+                                >
+                                    ▶
+                                </button>
+                                <button 
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(42, 42, 42, 0.85)',
+                                        border: '2px solid rgba(255,255,255,0.8)',
+                                        cursor: 'pointer',
+                                        color: '#fff',
+                                        fontSize: '24px',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backdropFilter: 'blur(10px)',
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.7)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,1)';
+                                        e.currentTarget.style.transform = 'scale(1.15)';
+                                        e.currentTarget.style.backgroundColor = 'rgba(42, 42, 42, 0.95)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.8)';
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.backgroundColor = 'rgba(42, 42, 42, 0.85)';
+                                    }}
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </>
                     )}
                     
                     {/* Badge épisodes */}
@@ -392,93 +604,83 @@ export default function SeriesRoute() {
                         position: 'absolute',
                         bottom: '8px',
                         right: '8px',
-                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        backgroundColor: 'rgba(0,0,0,0.85)',
                         color: '#fff',
                         padding: '4px 8px',
-                        borderRadius: '3px',
+                        borderRadius: '4px',
                         fontSize: '11px',
-                        fontWeight: '600'
+                        fontWeight: '600',
+                        backdropFilter: 'blur(4px)',
+                        border: '1px solid rgba(255,255,255,0.1)'
                     }}>
                         {show.totalEpisodes} ép.
                     </div>
                 </div>
                 
-                {/* Infos au hover */}
+                {/* Infos au hover avec animation */}
                 {isZoomed && (
                     <div style={{
-                        padding: '12px',
-                        backgroundColor: netflixTheme.bg.card
+                        padding: '14px',
+                        backgroundColor: netflixTheme.bg.card,
+                        animation: 'fadeIn 0.2s ease-out'
                     }}>
-                        {/* Boutons */}
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                            <button style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
-                                backgroundColor: '#fff',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '18px'
-                            }}>
-                                ▶
-                            </button>
-                            <button style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
-                                backgroundColor: 'transparent',
-                                border: '2px solid rgba(255,255,255,0.5)',
-                                cursor: 'pointer',
-                                color: '#fff',
-                                fontSize: '16px'
-                            }}>
-                                +
-                            </button>
-                        </div>
                         
-                        {/* Titre */}
+                        {/* Titre avec meilleure typographie */}
                         <div style={{
-                            fontWeight: '600',
-                            color: netflixTheme.text.primary,
-                            fontSize: '13px',
-                            marginBottom: '4px',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {show.showName}
-                        </div>
-                        
-                        {/* Info saisons */}
-                        <div style={{
-                            color: '#46d369',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            marginBottom: '4px'
-                        }}>
-                            {show.seasons.length} {t('videos.season')}{show.seasons.length > 1 ? 's' : ''}
-                        </div>
-                        
-                        {/* Genres */}
-                        {show.genres.length > 0 && (
-                            <div style={{
-                                color: netflixTheme.text.secondary,
-                                fontSize: '11px',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '4px'
+                            fontWeight: '700',
+                                color: netflixTheme.text.primary,
+                            fontSize: '14px',
+                            marginBottom: '6px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            letterSpacing: '-0.01em'
                             }}>
-                                {show.genres.slice(0, 3).map((g, i) => (
-                                    <span key={i}>{g}{i < Math.min(show.genres.length, 3) - 1 && ' •'}</span>
-                                ))}
+                                {show.showName}
                             </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                            
+                        {/* Info saisons avec icône */}
+                            <div style={{
+                            color: netflixTheme.accent.green,
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            marginBottom: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}>
+                            <span style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: netflixTheme.accent.green
+                            }} />
+                                {show.seasons.length} {t('videos.season')}{show.seasons.length > 1 ? 's' : ''}
+                            </div>
+                            
+                        {/* Genres avec meilleur style */}
+                            {show.genres.length > 0 && (
+                                <div style={{
+                                    color: netflixTheme.text.secondary,
+                                fontSize: '12px',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                gap: '6px',
+                                lineHeight: '1.4'
+                                }}>
+                                    {show.genres.slice(0, 3).map((g, i) => (
+                                    <span key={i} style={{
+                                        padding: '2px 0',
+                                        borderBottom: i < Math.min(show.genres.length, 3) - 1 ? 'none' : 'none'
+                                    }}>
+                                        {g}{i < Math.min(show.genres.length, 3) - 1 && <span style={{ margin: '0 4px', opacity: 0.5 }}>•</span>}
+                                    </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
         );
 
         return (
@@ -498,7 +700,7 @@ export default function SeriesRoute() {
                     }}
                 >
                     {renderCardContent(false)}
-                </div>
+            </div>
                 
                 {isOpen && customPosition && (
                     <FloatingPortal>
@@ -688,286 +890,6 @@ export default function SeriesRoute() {
         </div>
     );
 
-    // Modal détail série
-    const SeriesDetailModal = ({ show, onClose }: { show: TVShow; onClose: () => void }) => {
-        const [activeSeason, setActiveSeason] = useState(show.seasons[0]?.seasonNumber || 1);
-        const currentSeason = show.seasons.find(s => s.seasonNumber === activeSeason);
-
-        return (
-            <div
-                onClick={onClose}
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'flex-start',
-                    paddingTop: '50px',
-                    overflowY: 'auto'
-                }}
-            >
-                <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                        width: '95%',
-                        maxWidth: '900px',
-                        backgroundColor: netflixTheme.bg.primary,
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        marginBottom: '50px'
-                    }}
-                >
-                    {/* Header avec image */}
-                    <div style={{
-                        position: 'relative',
-                        height: '400px',
-                        backgroundImage: `url(${show.showThumbnail?.replace('/w500/', '/original/') || show.showThumbnail})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center top'
-                    }}>
-                        <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'linear-gradient(to top, #141414 0%, transparent 50%)'
-                        }} />
-                        
-                        {/* Bouton fermer */}
-                        <button
-                            onClick={onClose}
-                            style={{
-                                position: 'absolute',
-                                top: '16px',
-                                right: '16px',
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '50%',
-                                backgroundColor: netflixTheme.bg.primary,
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: '#fff',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            ✕
-                        </button>
-                        
-                        {/* Titre */}
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '30px',
-                            left: '40px',
-                            right: '40px'
-                        }}>
-                            <h1 style={{
-                                fontSize: '42px',
-                                fontWeight: '800',
-                                color: '#fff',
-                                marginBottom: '16px'
-                            }}>
-                                {show.showName}
-                            </h1>
-                            
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                                {show.year && (
-                                    <span style={{ color: '#46d369', fontWeight: '600' }}>{show.year}</span>
-                                )}
-                                <span style={{ color: netflixTheme.text.secondary }}>
-                                    {show.seasons.length} {t('videos.season')}{show.seasons.length > 1 ? 's' : ''}
-                                </span>
-                                <span style={{ color: netflixTheme.text.secondary }}>
-                                    {show.totalEpisodes} {t('videos.episode')}{show.totalEpisodes > 1 ? 's' : ''}
-                                </span>
-                            </div>
-                            
-                            {/* Bouton lecture */}
-                            {currentSeason && currentSeason.episodes.length > 0 && (
-                                <button
-                                    onClick={() => handleVideoClick(currentSeason.episodes[0].file.file_id, currentSeason.episodes[0].file.category)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '12px 28px',
-                                        backgroundColor: '#fff',
-                                        color: '#000',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        fontSize: '18px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ▶ Lecture
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {/* Contenu */}
-                    <div style={{ padding: '20px 40px 40px' }}>
-                        {/* Description */}
-                        {show.description && (
-                            <p style={{
-                                color: netflixTheme.text.primary,
-                                fontSize: '15px',
-                                lineHeight: '1.6',
-                                marginBottom: '30px'
-                            }}>
-                                {show.description}
-                            </p>
-                        )}
-                        
-                        {/* Genres */}
-                        {show.genres.length > 0 && (
-                            <div style={{
-                                color: netflixTheme.text.secondary,
-                                fontSize: '14px',
-                                marginBottom: '30px'
-                            }}>
-                                <strong style={{ color: netflixTheme.text.muted }}>Genres: </strong>
-                                {show.genres.join(', ')}
-                            </div>
-                        )}
-                        
-                        {/* Sélecteur de saison */}
-                        <div style={{ marginBottom: '20px' }}>
-                            <select
-                                value={activeSeason}
-                                onChange={(e) => setActiveSeason(parseInt(e.target.value))}
-                                style={{
-                                    backgroundColor: netflixTheme.bg.secondary,
-                                    color: netflixTheme.text.primary,
-                                    border: '1px solid rgba(255,255,255,0.3)',
-                                    borderRadius: '4px',
-                                    padding: '12px 20px',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                {show.seasons.map(season => (
-                                    <option key={season.seasonNumber} value={season.seasonNumber}>
-                                        {t('videos.season')} {season.seasonNumber}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        
-                        {/* Liste des épisodes */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {currentSeason?.episodes.map((episode) => (
-                                <div
-                                    key={episode.file.file_id}
-                                    onClick={() => handleVideoClick(episode.file.file_id, episode.file.category)}
-                                    style={{
-                                        display: 'flex',
-                                        gap: '16px',
-                                        padding: '16px',
-                                        backgroundColor: netflixTheme.bg.secondary,
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        transition: 'background-color 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = netflixTheme.bg.hover}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = netflixTheme.bg.secondary}
-                                >
-                                    {/* Numéro */}
-                                    <div style={{
-                                        fontSize: '24px',
-                                        fontWeight: '600',
-                                        color: netflixTheme.text.muted,
-                                        width: '40px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        {episode.episodeNumber}
-                                    </div>
-                                    
-                                    {/* Thumbnail */}
-                                    <div style={{
-                                        width: '140px',
-                                        aspectRatio: '16/9',
-                                        backgroundColor: '#2a2a2a',
-                                        borderRadius: '4px',
-                                        overflow: 'hidden',
-                                        flexShrink: 0,
-                                        position: 'relative'
-                                    }}>
-                                        {getThumbnailUrl(episode.file) ? (
-                                            <img
-                                                src={getThumbnailUrl(episode.file)!}
-                                                alt={episode.title}
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                            />
-                                        ) : (
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: '100%',
-                                                height: '100%',
-                                                fontSize: '24px'
-                                            }}>
-                                                📺
-                                            </div>
-                                        )}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '50%',
-                                            left: '50%',
-                                            transform: 'translate(-50%, -50%)',
-                                            width: '35px',
-                                            height: '35px',
-                                            borderRadius: '50%',
-                                            backgroundColor: 'rgba(0,0,0,0.7)',
-                                            border: '2px solid #fff',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <span style={{ color: '#fff', fontSize: '14px', marginLeft: '2px' }}>▶</span>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Info */}
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                        <div style={{
-                                            fontSize: '16px',
-                                            fontWeight: '600',
-                                            color: netflixTheme.text.primary,
-                                            marginBottom: '4px'
-                                        }}>
-                                            {t('videos.episode')} {episode.episodeNumber}
-                                        </div>
-                                        {episode.file.duration && (
-                                            <div style={{
-                                                fontSize: '13px',
-                                                color: netflixTheme.text.secondary
-                                            }}>
-                                                {formatDuration(episode.file.duration)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     if (error) {
         return (
@@ -999,124 +921,303 @@ export default function SeriesRoute() {
                         <VideoSubCategoryBar selectedSubCategory="series" onSubCategoryChange={handleSubCategoryChange} />
                     </div>
                     
-                    {/* Hero Banner */}
+                    {/* Hero Banner moderne */}
                     {heroShow && (
                         <div style={{
                             position: 'relative',
-                            height: '500px',
-                            marginBottom: '40px',
+                            height: '80vh',
+                            minHeight: '600px',
+                            maxHeight: '900px',
+                            marginBottom: '60px',
                             overflow: 'hidden'
                         }}>
+                            {/* Image de fond avec parallaxe effect */}
                             <div style={{
                                 position: 'absolute',
-                                top: 0,
+                                top: '-10%',
                                 left: 0,
                                 right: 0,
-                                bottom: 0,
-                                backgroundImage: `url(${heroShow.showThumbnail?.replace('/w500/', '/original/') || heroShow.showThumbnail})`,
+                                bottom: '-10%',
+                                backgroundImage: `url(${heroShow.showBackdrop?.replace('/w500/', '/original/') || heroShow.showBackdrop || heroShow.showThumbnail})`,
                                 backgroundSize: 'cover',
-                                backgroundPosition: 'center top',
-                                filter: 'brightness(0.6)'
+                                backgroundPosition: 'center center',
+                                filter: 'brightness(0.4)',
+                                transform: 'scale(1.1)',
+                                transition: 'transform 0.3s ease'
                             }} />
                             
+                            {/* Gradient overlay moderne */}
                             <div style={{
                                 position: 'absolute',
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                height: '200px',
-                                background: 'linear-gradient(to top, #141414, transparent)'
+                                height: '60%',
+                                background: netflixTheme.bg.gradientHero
                             }} />
                             
+                            {/* Gradient latéral amélioré - style Netflix */}
                             <div style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 bottom: 0,
                                 width: '50%',
-                                background: 'linear-gradient(to right, rgba(20,20,20,0.9), transparent)'
+                                background: 'linear-gradient(to right, rgba(20,20,20,1) 0%, rgba(20,20,20,0.9) 30%, rgba(20,20,20,0.5) 60%, transparent 100%)',
+                                zIndex: 1
                             }} />
                             
+                            {/* Contenu avec animation */}
                             <div style={{
                                 position: 'absolute',
-                                bottom: '80px',
-                                left: '60px',
-                                maxWidth: '500px'
+                                bottom: '10%',
+                                left: '4%',
+                                maxWidth: '600px',
+                                zIndex: 3,
+                                animation: 'fadeInUp 0.8s ease-out'
                             }}>
                                 <h1 style={{
-                                    fontSize: '48px',
-                                    fontWeight: '800',
+                                    fontSize: 'clamp(32px, 5vw, 72px)',
+                                    fontWeight: '900',
                                     color: '#fff',
-                                    marginBottom: '16px',
-                                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                                    marginBottom: '20px',
+                                    textShadow: '2px 2px 8px rgba(0,0,0,0.8)',
+                                    lineHeight: '1.1',
+                                    letterSpacing: '-0.02em'
                                 }}>
                                     {heroShow.showName}
                                 </h1>
                                 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '20px', 
+                                    marginBottom: '20px',
+                                    flexWrap: 'wrap'
+                                }}>
                                     {heroShow.year && (
-                                        <span style={{ color: '#46d369', fontWeight: '600', fontSize: '18px' }}>{heroShow.year}</span>
+                                        <div style={{
+                                            fontSize: '18px',
+                                            color: netflixTheme.accent.green,
+                                            fontWeight: '700',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <span style={{
+                                                width: '8px',
+                                                height: '8px',
+                                                borderRadius: '50%',
+                                                backgroundColor: netflixTheme.accent.green
+                                            }} />
+                                            {heroShow.year}
+                                        </div>
                                     )}
-                                    <span style={{ color: netflixTheme.text.secondary, fontSize: '16px' }}>
+                                    <div style={{
+                                        fontSize: '16px',
+                                        color: netflixTheme.text.secondary,
+                                        fontWeight: '500'
+                                    }}>
                                         {heroShow.seasons.length} {t('videos.season')}{heroShow.seasons.length > 1 ? 's' : ''}
-                                    </span>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '16px',
+                                        color: netflixTheme.text.secondary,
+                                        fontWeight: '500'
+                                    }}>
+                                        {heroShow.totalEpisodes} {t('videos.episode')}{heroShow.totalEpisodes > 1 ? 's' : ''}
+                                    </div>
+                                    {heroShow.genres.length > 0 && (
+                                        <div style={{
+                                            fontSize: '16px',
+                                            color: netflixTheme.text.secondary,
+                                            fontWeight: '500'
+                                        }}>
+                                            {heroShow.genres.slice(0, 2).join(' • ')}
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 {heroShow.description && (
                                     <p style={{
-                                        fontSize: '16px',
+                                        fontSize: 'clamp(14px, 1.5vw, 20px)',
                                         color: netflixTheme.text.primary,
-                                        lineHeight: '1.5',
-                                        marginBottom: '24px',
+                                        lineHeight: '1.6',
+                                        marginBottom: '32px',
                                         display: '-webkit-box',
-                                        WebkitLineClamp: 3,
+                                        WebkitLineClamp: 4,
                                         WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden'
+                                        overflow: 'hidden',
+                                        textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                                        maxWidth: '550px'
                                     }}>
                                         {heroShow.description}
                                     </p>
                                 )}
                                 
-                                <div style={{ display: 'flex', gap: '12px' }}>
+                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                                     <button
-                                        onClick={() => setSelectedShow(heroShow.showId)}
+                                        onClick={() => {
+                                            if (heroShow.seasons.length > 0 && heroShow.seasons[0].episodes.length > 0) {
+                                                handlePlayEpisode(heroShow.seasons[0].episodes[0].file.file_id, heroShow.seasons[0].episodes[0].file.category);
+                                            }
+                                        }}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '8px',
-                                            padding: '12px 28px',
+                                            gap: '10px',
+                                            padding: '14px 36px',
                                             backgroundColor: '#fff',
                                             color: '#000',
                                             border: 'none',
-                                            borderRadius: '4px',
+                                            borderRadius: '6px',
                                             fontSize: '18px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer'
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: netflixTheme.shadow.button,
+                                            letterSpacing: '0.5px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#e6e6e6';
+                                            e.currentTarget.style.transform = 'scale(1.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#fff';
+                                            e.currentTarget.style.transform = 'scale(1)';
                                         }}
                                     >
-                                        ▶ Lecture
+                                        <span style={{ fontSize: '20px' }}>▶</span>
+                                        <span>Lecture</span>
                                     </button>
                                     <button
-                                        onClick={() => setSelectedShow(heroShow.showId)}
+                                        onClick={() => handleShowClick(heroShow)}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '8px',
-                                            padding: '12px 28px',
-                                            backgroundColor: 'rgba(109, 109, 110, 0.7)',
+                                            gap: '10px',
+                                            padding: '14px 36px',
+                                            backgroundColor: 'rgba(109, 109, 110, 0.6)',
                                             color: '#fff',
                                             border: 'none',
-                                            borderRadius: '4px',
+                                            borderRadius: '6px',
                                             fontSize: '18px',
                                             fontWeight: '600',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            backdropFilter: 'blur(10px)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'rgba(109, 109, 110, 0.8)';
+                                            e.currentTarget.style.transform = 'scale(1.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'rgba(109, 109, 110, 0.6)';
+                                            e.currentTarget.style.transform = 'scale(1)';
                                         }}
                                     >
-                                        ℹ Plus d'infos
+                                        <span style={{ fontSize: '20px' }}>ℹ</span>
+                                        <span>Plus d'infos</span>
                                     </button>
                                 </div>
                             </div>
+                            
+                            {/* Style pour animation */}
+                            <style>{`
+                                @keyframes fadeInUp {
+                                    from {
+                                        opacity: 0;
+                                        transform: translateY(30px);
+                                    }
+                                    to {
+                                        opacity: 1;
+                                        transform: translateY(0);
+                                    }
+                                }
+                                @keyframes fadeIn {
+                                    from { opacity: 0; }
+                                    to { opacity: 1; }
+                                }
+                            `}</style>
                         </div>
+                    )}
+                    
+                    {/* Continuer de regarder */}
+                    {organizedSeries.continueWatching.length > 0 && (
+                        <NetflixCarousel title="Continuer de regarder">
+                            {organizedSeries.continueWatching.map((item) => (
+                                <div key={item.show.showId} style={{ position: 'relative' }}>
+                                    <SeriesCard
+                                        show={item.show}
+                                        onClick={() => handleShowClick(item.show)}
+                                    />
+                                    {/* Barre de progression */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: '0',
+                                        left: '0',
+                                        right: '0',
+                                        height: '4px',
+                                        backgroundColor: 'rgba(255,255,255,0.3)',
+                                        borderRadius: '0 0 6px 6px'
+                                    }}>
+                                        <div style={{
+                                            width: `${item.progress_percent}%`,
+                                            height: '100%',
+                                            backgroundColor: netflixTheme.accent.red,
+                                            transition: 'width 0.3s ease'
+                                        }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </NetflixCarousel>
+                    )}
+                    
+                    {/* Top 10 */}
+                    {organizedSeries.top10.length > 0 && (
+                        <NetflixCarousel title="Top 10 en France">
+                            {organizedSeries.top10.map((show, index) => (
+                                <div key={show.showId} style={{ position: 'relative' }}>
+                                    <SeriesCard
+                                        show={show}
+                                        onClick={() => handleShowClick(show)}
+                                    />
+                                    {/* Badge numéro */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '-10px',
+                                        left: '-10px',
+                                        width: '40px',
+                                        height: '40px',
+                                        backgroundColor: netflixTheme.accent.red,
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        fontSize: '20px',
+                                        fontWeight: '700',
+                                        zIndex: 10,
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+                                    }}>
+                                        {index + 1}
+                                    </div>
+                                </div>
+                            ))}
+                        </NetflixCarousel>
+                    )}
+                    
+                    {/* Ajoutés récemment */}
+                    {organizedSeries.recentlyAdded.length > 0 && (
+                        <NetflixCarousel title="Ajoutés récemment">
+                            {organizedSeries.recentlyAdded.map((show) => (
+                                <SeriesCard
+                                    key={show.showId}
+                                    show={show}
+                                    onClick={() => handleShowClick(show)}
+                                />
+                            ))}
+                        </NetflixCarousel>
                     )}
                     
                     {/* Fichiers non identifiés */}
@@ -1136,7 +1237,7 @@ export default function SeriesRoute() {
                                     key={`${genreGroup.genre}-${show.showId}`}
                                     show={show}
                                     genre={genreGroup.genre}
-                                    onClick={() => setSelectedShow(show.showId)}
+                                    onClick={() => handleShowClick(show)}
                                 />
                             ))}
                         </NetflixCarousel>
@@ -1185,21 +1286,6 @@ export default function SeriesRoute() {
                     )}
                 </div>
                 
-                {/* Modal détail série */}
-                {selectedShow && (() => {
-                    // Trouver la série dans tous les genres
-                    let foundShow: TVShow | undefined;
-                    for (const genreGroup of organizedSeries.byGenre) {
-                        foundShow = genreGroup.shows.find(s => s.showId === selectedShow);
-                        if (foundShow) break;
-                    }
-                    return foundShow ? (
-                        <SeriesDetailModal
-                            show={foundShow}
-                            onClose={() => setSelectedShow(null)}
-                        />
-                    ) : null;
-                })()}
             </div>
         </AuthGuard>
     );
