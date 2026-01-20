@@ -83,18 +83,6 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
     const activeUploads = useRef<Set<string>>(new Set());
     const abortControllers = useRef<Map<string, AbortController>>(new Map());
     
-    // Statistiques d'enrichissement
-    const enrichmentStatsRef = useRef<{
-        total: number;
-        titlesFound: number;
-        imagesFound: number;
-        byCategory: Record<string, { total: number; titlesFound: number; imagesFound: number }>;
-    }>({
-        total: 0,
-        titlesFound: 0,
-        imagesFound: 0,
-        byCategory: {}
-    });
 
     // Refs pour stocker les fichiers et permettre la reprise
     const fileObjectsRef = useRef<Map<string, File>>(new Map());
@@ -257,7 +245,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                 filename: filename, // DOIT toujours être fourni (nom original du fichier)
                 hash
             }),
-            signal: AbortSignal.timeout(60000)
+            // Init multipart peut être lente si la file R2 est chargée
+            signal: AbortSignal.timeout(300000) // 5 minutes
         });
 
         if (!response.ok) {
@@ -377,7 +366,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                 'Authorization': `Bearer ${token}`
             },
             body: bodyJson,
-            signal: AbortSignal.timeout(30000)
+            // La finalisation multipart (assemblage de dizaines de chunks) peut être lente côté R2
+            signal: AbortSignal.timeout(300000) // 5 minutes
         });
 
         if (!response.ok) {
@@ -388,7 +378,7 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         return await response.json() as { success: boolean; fileId: string; size: number; url: string };
     };
 
-    const storeMetadata = async (fileId: string, metadata: any, maxRetries = 5): Promise<void> => {
+    const storeMetadata = async (fileId: string, metadata: any, maxRetries = 10): Promise<void> => {
         if (!metadata) {
             return;
         }
@@ -402,8 +392,10 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 if (attempt > 0) {
-                    // Attendre un délai progressif avant de réessayer (200ms, 400ms, 800ms, 1600ms, 2000ms max)
-                    const delay = Math.min(200 * Math.pow(2, attempt - 1), 2000);
+                    // Pour les erreurs 404, attendre plus longtemps car le fichier peut prendre du temps à être créé
+                    // Délai progressif : 500ms, 1000ms, 2000ms, 3000ms, etc. jusqu'à 5s max
+                    const baseDelay = 500;
+                    const delay = Math.min(baseDelay * attempt, 5000);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
@@ -420,7 +412,11 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
 
                 if (!response.ok) {
                     const errorText = await response.text().catch(() => 'Unknown error');
-                    console.warn(`⚠️ [METADATA] Erreur stockage métadonnées (${response.status}):`, errorText.substring(0, 200));
+                    const is404 = response.status === 404;
+                    
+                    if (!is404) {
+                        console.warn(`⚠️ [METADATA] Erreur stockage métadonnées (${response.status}):`, errorText.substring(0, 200));
+                    }
                     
                     // Ne pas retry pour les erreurs 4xx (sauf 404, 429, 408)
                     if (response.status >= 400 && response.status < 500 && response.status !== 404 && response.status !== 429 && response.status !== 408) {
@@ -430,9 +426,17 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                     
                     // Retry pour les erreurs 5xx, 404 (fichier pas encore créé), 429 (rate limit) ou 408 (timeout)
                     if (attempt < maxRetries - 1) {
+                        if (is404 && attempt === 0) {
+                            // Première tentative avec 404 : attendre un peu plus avant de retry
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
                         continue;
                     }
-                    console.error(`❌ [METADATA] Échec stockage métadonnées après ${maxRetries} tentatives`);
+                    if (is404) {
+                        console.warn(`⚠️ [METADATA] Fichier ${fileId} toujours non trouvé après ${maxRetries} tentatives (peut être créé plus tard)`);
+                    } else {
+                        console.error(`❌ [METADATA] Échec stockage métadonnées après ${maxRetries} tentatives`);
+                    }
                     return;
                 }
 
@@ -824,20 +828,16 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                 );
 
             // Le serveur lie automatiquement l'utilisateur au fichier dans completeMultipartUpload
+            // L'enrichissement automatique se fait maintenant côté serveur dans completeMultipartUpload
             // Plus besoin d'appel supplémentaire à linkUserToFile
-            // L'auto-matching se fait maintenant uniquement sur les pages files.tsx et musics.tsx
             
-            // Pour les vidéos ou si le matching automatique n'a pas réussi
-            if (category === 'videos' || category === 'musics') {
-            }
-
             updateProgress(fileId, {
                 status: 'completed',
                 progress: 100,
                 uploaded: file.size
             });
 
-                invalidateStatsCache(); // Invalider le cache car D1 a été mis à jour
+            invalidateStatsCache(); // Invalider le cache car D1 a été mis à jour
             onUploadComplete?.(finalFileId);
             // Invalider le cache pour la catégorie du fichier
             if (user?.id) {
@@ -870,14 +870,6 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         activeUploads.current.clear();
 
         const processQueue = async () => {
-            // Réinitialiser les statistiques au début d'un nouvel upload batch
-            enrichmentStatsRef.current = {
-                total: 0,
-                titlesFound: 0,
-                imagesFound: 0,
-                byCategory: {}
-            };
-            
             while (uploadQueue.current.length > 0 || activeUploads.current.size > 0) {
                 while (uploadQueue.current.length > 0 && activeUploads.current.size < maxConcurrentUploads) {
                     const file = uploadQueue.current.shift();
@@ -895,22 +887,6 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
             }
 
             setIsUploading(false);
-            
-            // Afficher le résumé des statistiques d'enrichissement
-            const stats = enrichmentStatsRef.current;
-            if (stats.total > 0) {
-                const titleRate = ((stats.titlesFound / stats.total) * 100).toFixed(1);
-                const imageRate = ((stats.imagesFound / stats.total) * 100).toFixed(1);
-                
-                
-                for (const [category, catStats] of Object.entries(stats.byCategory)) {
-                    if (catStats.total > 0) {
-                        const catTitleRate = ((catStats.titlesFound / catStats.total) * 100).toFixed(1);
-                        const catImageRate = ((catStats.imagesFound / catStats.total) * 100).toFixed(1);
-                    }
-                }
-                
-            }
         };
 
         processQueue();

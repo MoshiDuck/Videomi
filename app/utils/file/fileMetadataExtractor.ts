@@ -159,16 +159,44 @@ export async function extractAudioMetadata(file: File): Promise<BaseAudioMetadat
  */
 export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadata> {
     return new Promise((resolve) => {
+        let resolved = false;
+        let url: string | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        
+        const cleanup = () => {
+            if (url) {
+                try {
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    // Ignorer les erreurs de révocation
+                }
+                url = null;
+            }
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+        };
+        
+        const safeResolve = (metadata: BaseVideoMetadata) => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
+            resolve(metadata);
+        };
+        
         try {
-            
             const video = document.createElement('video');
             video.preload = 'metadata';
+            video.muted = true; // Muter pour éviter les problèmes de lecture automatique
             
-            const url = URL.createObjectURL(file);
+            url = URL.createObjectURL(file);
             
             video.addEventListener('loadedmetadata', () => {
+                if (resolved) return;
+                
                 try {
-                    const duration = video.duration ? Math.floor(video.duration) : null;
+                    const duration = video.duration && isFinite(video.duration) ? Math.floor(video.duration) : null;
                     const width = video.videoWidth || null;
                     const height = video.videoHeight || null;
                     
@@ -177,7 +205,6 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
                     // l'extraction depuis le navigateur est limitée. On laisse le titre null
                     // et l'utilisateur choisira la correspondance via la page de matching.
                     // Le titre sera stocké seulement après le matching manuel avec TMDb/OMDb.
-                    const title: string | null = null;
                     
                     // Essayer d'extraire l'année depuis le nom du fichier (seulement pour l'année, pas le titre)
                     const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
@@ -190,8 +217,7 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
                         }
                     }
                     
-                    URL.revokeObjectURL(url);
-                    resolve({
+                    safeResolve({
                         title: null, // NULL - le titre sera défini via le matching manuel avec TMDb/OMDb
                         year,
                         duration,
@@ -200,8 +226,7 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
                     });
                 } catch (error) {
                     console.warn(`🎬 [VIDEO METADATA] Erreur traitement métadonnées:`, error);
-                    URL.revokeObjectURL(url);
-                    resolve({
+                    safeResolve({
                         title: null,
                         year: null,
                         duration: null,
@@ -212,9 +237,9 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
             });
             
             video.addEventListener('error', (e) => {
+                if (resolved) return;
                 console.warn(`🎬 [VIDEO METADATA] Erreur chargement vidéo:`, e);
-                URL.revokeObjectURL(url);
-                resolve({
+                safeResolve({
                     title: null,
                     year: null,
                     duration: null,
@@ -223,23 +248,23 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
                 });
             });
             
-            // Timeout après 10 secondes
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-                console.warn(`🎬 [VIDEO METADATA] Timeout extraction métadonnées`);
-                resolve({
+            // Timeout après 15 secondes (augmenté de 10 à 15 secondes)
+            timeoutId = setTimeout(() => {
+                if (resolved) return;
+                console.warn(`🎬 [VIDEO METADATA] Timeout extraction métadonnées pour ${file.name}`);
+                safeResolve({
                     title: null,
                     year: null,
                     duration: null,
                     width: null,
                     height: null
                 });
-            }, 10000);
+            }, 15000);
             
             video.src = url;
         } catch (error) {
             console.warn(`🎬 [VIDEO METADATA] Erreur extraction métadonnées:`, error);
-            resolve({
+            safeResolve({
                 title: null,
                 year: null,
                 duration: null,

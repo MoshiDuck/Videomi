@@ -14,7 +14,6 @@ import { CategoryBar } from '~/components/ui/categoryBar';
 import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
-import { searchMusicOnSpotify, downloadAndStoreThumbnail } from '~/utils/media/mediaMetadata';
 
 interface FileItem {
     file_id: string;
@@ -75,9 +74,6 @@ export default function MusicsRoute() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [artists, setArtists] = useState<Artist[]>([]);
-    const [autoMatchingFiles, setAutoMatchingFiles] = useState<Set<string>>(new Set());
-    const autoMatchingRef = useRef(false);
-    const autoMatchingFilesRef = useRef<Set<string>>(new Set());
     
     // Fonction pour nettoyer les chaînes JSON (retirer crochets, guillemets, etc.)
     const cleanString = useCallback((value: string | null | undefined): string => {
@@ -144,26 +140,26 @@ export default function MusicsRoute() {
                     isUnknown?: boolean;
                 }>();
 
-                // Fonction helper pour obtenir toutes les thumbnails d'un fichier
-                const getAllThumbnails = (file: FileItem): string[] => {
-                    const thumbs: string[] = [];
-                    
-                    // Essayer album_thumbnails (JSON array)
-                    if (file.album_thumbnails) {
-                        try {
-                            const parsed = JSON.parse(file.album_thumbnails);
-                            if (Array.isArray(parsed)) {
-                                thumbs.push(...parsed.filter(t => t && typeof t === 'string'));
-                            }
-                        } catch {}
+                // Fonctions helpers pour obtenir les thumbnails séparément
+                // IMPORTANT: thumbnail_url = image de l'artiste, album_thumbnails = images des albums
+                
+                // Retourne l'image de l'artiste (thumbnail_url)
+                const getArtistThumbnail = (file: FileItem): string | null => {
+                    return file.thumbnail_url || null;
+                };
+                
+                // Retourne un tableau des images d'albums (album_thumbnails)
+                const getAlbumThumbnails = (file: FileItem): string[] => {
+                    if (!file.album_thumbnails) {
+                        return [];
                     }
-                    
-                    // Ajouter thumbnail_url si disponible
-                    if (file.thumbnail_url) {
-                        thumbs.push(file.thumbnail_url);
-                    }
-                    
-                    return thumbs;
+                    try {
+                        const parsed = JSON.parse(file.album_thumbnails);
+                        if (Array.isArray(parsed)) {
+                            return parsed.filter(t => t && typeof t === 'string');
+                        }
+                    } catch {}
+                    return [];
                 };
 
                 let identifiedCount = 0;
@@ -171,10 +167,10 @@ export default function MusicsRoute() {
                 
                 for (const file of files) {
                     const title = cleanString(file.title) || cleanString(file.filename)?.replace(/\.[^/.]+$/, '') || 'Sans titre';
-                    const thumbnails = getAllThumbnails(file);
-                    const firstThumb = thumbnails[0] || null;
+                    const artistThumbnail = getArtistThumbnail(file);
+                    const albumThumbnails = getAlbumThumbnails(file);
                     
-                    // Vérifier si fichier non identifié : pas de source_id = pas encore identifié via Spotify/auto-matching
+                    // Vérifier si fichier non identifié : pas de source_id = pas encore identifié
                     // Même s'il a des artists (récupérés depuis YouTube par exemple), il doit être dans "Artiste inconnu"
                     const isUnidentified = !file.source_id;
                     
@@ -185,7 +181,7 @@ export default function MusicsRoute() {
                         if (!artistMap.has(unknownArtist)) {
                             artistMap.set(unknownArtist, {
                                 artistName: unknownArtist,
-                                artistThumbnail: firstThumb, // Utiliser la thumbnail du fichier si disponible
+                                artistThumbnail: artistThumbnail, // Image de l'artiste
                                 albums: new Map(),
                                 trackCount: 0,
                                 isUnknown: true
@@ -195,25 +191,26 @@ export default function MusicsRoute() {
                         const artistData = artistMap.get(unknownArtist)!;
                         artistData.trackCount++;
                         
-                        // Mettre à jour la thumbnail si pas encore définie
-                        if (!artistData.artistThumbnail && firstThumb) {
-                            artistData.artistThumbnail = firstThumb;
+                        // Mettre à jour la thumbnail de l'artiste si pas encore définie
+                        if (!artistData.artistThumbnail && artistThumbnail) {
+                            artistData.artistThumbnail = artistThumbnail;
                         }
                         
                         // Album "À identifier"
                         const albumName = 'À identifier';
+                        const albumThumbnail = albumThumbnails[0] || null; // Première image d'album, ou null
                         if (!artistData.albums.has(albumName)) {
                             artistData.albums.set(albumName, {
                                 albumName,
-                                albumThumbnail: firstThumb,
+                                albumThumbnail: albumThumbnail, // Image de l'album
                                 year: null,
                                 tracks: []
                             });
                         } else {
                             // Mettre à jour la thumbnail de l'album si manquante
                             const album = artistData.albums.get(albumName)!;
-                            if (!album.albumThumbnail && firstThumb) {
-                                album.albumThumbnail = firstThumb;
+                            if (!album.albumThumbnail && albumThumbnail) {
+                                album.albumThumbnail = albumThumbnail;
                             }
                         }
                         artistData.albums.get(albumName)!.tracks.push({ file, title });
@@ -264,7 +261,7 @@ export default function MusicsRoute() {
                             if (!artistMap.has(artistName)) {
                                 artistMap.set(artistName, {
                                     artistName,
-                                    artistThumbnail: firstThumb,
+                                    artistThumbnail: artistThumbnail, // Image de l'artiste
                                     albums: new Map(),
                                     trackCount: 0,
                                     isUnknown: isUnknownArtist
@@ -275,20 +272,21 @@ export default function MusicsRoute() {
                             artistData.trackCount++;
                             
                             // Mettre à jour la thumbnail de l'artiste si pas encore définie
-                            if (!artistData.artistThumbnail && firstThumb) {
-                                artistData.artistThumbnail = firstThumb;
+                            if (!artistData.artistThumbnail && artistThumbnail) {
+                                artistData.artistThumbnail = artistThumbnail;
                             }
 
                             if (albumsArray.length > 0) {
                                 for (let i = 0; i < albumsArray.length; i++) {
                                     const rawAlbumName = albumsArray[i];
                                     const albumName = cleanString(rawAlbumName) || 'Sans nom';
-                                    const albumThumb = thumbnails[i] || firstThumb;
+                                    // Utiliser l'image d'album correspondante à l'index, ou la première disponible, ou null
+                                    const albumThumb = albumThumbnails[i] || albumThumbnails[0] || null;
 
                                     if (!artistData.albums.has(albumName)) {
                                         artistData.albums.set(albumName, {
                                             albumName,
-                                            albumThumbnail: albumThumb,
+                                            albumThumbnail: albumThumb, // Image de l'album
                                             year: file.year,
                                             tracks: []
                                         });
@@ -304,10 +302,11 @@ export default function MusicsRoute() {
                                 }
                             } else {
                                 // Singles
+                                const singlesAlbumThumbnail = albumThumbnails[0] || null; // Première image d'album pour Singles
                                 if (!artistData.albums.has('Singles')) {
                                     artistData.albums.set('Singles', {
                                         albumName: 'Singles',
-                                        albumThumbnail: firstThumb,
+                                        albumThumbnail: singlesAlbumThumbnail, // Image de l'album
                                         year: null,
                                         tracks: []
                                     });
@@ -375,182 +374,6 @@ export default function MusicsRoute() {
         if (user?.id) fetchFiles();
     }, [user?.id, config, cleanString]);
 
-    // Auto-matching pour les fichiers non identifiés
-    useEffect(() => {
-        const performAutoMatching = async () => {
-            // Vérifier si config Spotify est disponible
-            if (!config?.spotifyClientId || !config?.spotifyClientSecret) {
-                return;
-            }
-
-            // Éviter les doublons
-            if (autoMatchingRef.current) {
-                return;
-            }
-            autoMatchingRef.current = true;
-
-            // Trouver tous les fichiers non identifiés dans "Artiste inconnu"
-            const unknownArtist = artists.find(a => a.isUnknown);
-            if (!unknownArtist) {
-                autoMatchingRef.current = false;
-                return;
-            }
-
-            const unidentifiedTracks = unknownArtist.albums
-                .find(a => a.albumName === 'À identifier')?.tracks || [];
-
-            if (unidentifiedTracks.length === 0) {
-                autoMatchingRef.current = false;
-                return;
-            }
-            
-            let matchesFound = 0;
-
-            // Traiter les fichiers un par un avec un délai pour ne pas surcharger l'API
-            for (const track of unidentifiedTracks) {
-                const file = track.file;
-                const fileId = file.file_id;
-
-                // Vérifier si déjà en cours
-                if (autoMatchingFilesRef.current.has(fileId)) {
-                    continue;
-                }
-
-                autoMatchingFilesRef.current.add(fileId);
-                setAutoMatchingFiles(new Set(autoMatchingFilesRef.current));
-
-                try {
-                    // Extraire titre et artiste du filename si disponibles
-                    const title = cleanString(file.title) || cleanString(file.filename)?.replace(/\.[^/.]+$/, '') || '';
-                    let artist: string | undefined;
-                    
-                    // Essayer d'extraire l'artiste depuis artists si disponible
-                    if (file.artists) {
-                        try {
-                            const parsed = typeof file.artists === 'string' ? JSON.parse(file.artists) : file.artists;
-                            let artistsArray: string[] = [];
-                            if (Array.isArray(parsed)) {
-                                artistsArray = parsed.filter((a: any) => typeof a === 'string' && a.trim().length > 0);
-                            } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
-                                artistsArray = [parsed];
-                            }
-                            if (artistsArray.length > 0) {
-                                artist = artistsArray[0];
-                            }
-                        } catch {
-                            // Si le parsing échoue, ignorer
-                        }
-                    }
-
-                    if (!title || title.trim() === '') {
-                        autoMatchingFilesRef.current.delete(fileId);
-                        setAutoMatchingFiles(new Set(autoMatchingFilesRef.current));
-                        continue;
-                    }
-
-                    // Rechercher sur Spotify
-                    const result = await searchMusicOnSpotify(
-                        title,
-                        artist || undefined,
-                        config.spotifyClientId,
-                        config.spotifyClientSecret,
-                        5 // Limiter à 5 résultats pour plus de rapidité
-                    );
-
-                    if (result.matches.length === 0) {
-                        autoMatchingFilesRef.current.delete(fileId);
-                        setAutoMatchingFiles(new Set(autoMatchingFilesRef.current));
-                        // Délai avant le prochain fichier
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        continue;
-                    }
-
-                    // Prendre le premier match (le plus pertinent)
-                    const match = result.matches[0];
-
-                    // Télécharger la thumbnail si disponible
-                    let thumbnailR2Path = null;
-                    if (match.thumbnail_url) {
-                        try {
-                            thumbnailR2Path = await downloadAndStoreThumbnail(
-                                match.thumbnail_url,
-                                fileId,
-                                'musics'
-                            );
-                        } catch (err) {
-                            console.error('🎵 [AUTO-MATCH] Erreur téléchargement thumbnail:', err);
-                        }
-                    }
-
-                    // Sauvegarder les métadonnées
-                    const token = localStorage.getItem('videomi_token');
-                    // Nettoyer les valeurs avant de les sauvegarder
-                    const cleanedArtist = match.artist ? cleanString(match.artist) : null;
-                    const cleanedAlbum = match.album ? cleanString(match.album) : null;
-                    const cleanedTitle = match.title ? cleanString(match.title) : cleanString(title);
-                    
-                    const metadata: any = {
-                        thumbnail_url: match.thumbnail_url || null,
-                        thumbnail_r2_path: thumbnailR2Path,
-                        source_api: 'spotify',
-                        source_id: match.source_id || null,
-                        title: cleanedTitle || title,
-                        year: match.year || null,
-                        artists: cleanedArtist ? JSON.stringify([cleanedArtist]) : null,
-                        albums: cleanedAlbum ? JSON.stringify([cleanedAlbum]) : null,
-                        album_thumbnails: match.thumbnail_url ? JSON.stringify([match.thumbnail_url]) : null
-                    };
-
-                    const response = await fetch(`https://videomi.uk/api/files/${fileId}/metadata`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(metadata)
-                    });
-
-                    if (response.ok) {
-                        matchesFound++;
-                    } else {
-                        console.error('🎵 [AUTO-MATCH] ❌ Erreur sauvegarde métadonnées:', response.status);
-                    }
-
-                    autoMatchingFilesRef.current.delete(fileId);
-                    setAutoMatchingFiles(new Set(autoMatchingFilesRef.current));
-
-                    // Délai entre chaque recherche pour ne pas surcharger l'API Spotify
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                } catch (error) {
-                    console.error('🎵 [AUTO-MATCH] ❌ Erreur pour', file.filename, ':', error);
-                    autoMatchingFilesRef.current.delete(fileId);
-                    setAutoMatchingFiles(new Set(autoMatchingFilesRef.current));
-                    // Délai même en cas d'erreur
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-
-            // Recharger la page si des matches ont été trouvés pour mettre à jour l'affichage
-            if (matchesFound > 0) {
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-            } else {
-                autoMatchingRef.current = false;
-            }
-        };
-
-        // Lancer l'auto-matching seulement après le chargement initial et si config est disponible
-        if (!loading && artists.length > 0 && config?.spotifyClientId && config?.spotifyClientSecret) {
-            // Délai avant de commencer pour laisser l'interface se charger
-            const timer = setTimeout(() => {
-                performAutoMatching();
-            }, 3000); // Attendre 3 secondes après le chargement
-
-            return () => clearTimeout(timer);
-        }
-    }, [loading, artists, config, cleanString]);
 
     // Navigation handlers
     const handleArtistClick = (artist: Artist) => {
