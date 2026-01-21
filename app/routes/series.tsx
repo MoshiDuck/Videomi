@@ -35,6 +35,7 @@ interface FileItem {
     season: number | null;
     episode: number | null;
     genres: string | null;
+    episode_description: string | null;
     collection_id: string | null;
     collection_name: string | null;
     description: string | null;
@@ -218,10 +219,13 @@ export default function SeriesRoute() {
                     } catch (parseError) {
                         console.warn(`⚠️ [SERIES] Erreur parsing genres pour ${file.file_id}:`, parseError, `genres raw:`, file.genres);
                     }
+                    // Pour les items de série : utiliser backdrop_url (poster original) pour les miniatures
+                    // On évite d'utiliser thumbnail_url car il peut contenir le still d'un épisode
+                    // backdrop_url contient toujours le poster de la série (même pour les épisodes)
                     tvShowsMap.set(showKey, {
                         showId: showKey,
                         showName: showName,
-                        showThumbnail: file.thumbnail_url, // Pour miniatures (backdrop/still)
+                        showThumbnail: file.backdrop_url, // Poster original de la série (pas les stills d'épisodes)
                         showBackdrop: file.backdrop_url, // Pour bannière (poster original)
                         year: file.year,
                         description: file.description,
@@ -233,6 +237,13 @@ export default function SeriesRoute() {
                 
                 const show = tvShowsMap.get(showKey)!;
                 show.totalEpisodes++;
+                
+                // Mettre à jour le thumbnail de la série si on trouve un fichier qui n'est pas un épisode
+                // (pour avoir le backdrop de la série plutôt que le still d'un épisode)
+                if (file.episode === null && file.thumbnail_url) {
+                    // C'est la série elle-même, utiliser son thumbnail_url (backdrop de la série)
+                    show.showThumbnail = file.thumbnail_url;
+                }
                 
                 let season = show.seasons.find(s => s.seasonNumber === seasonNum);
                 if (!season) {
@@ -839,6 +850,20 @@ export default function SeriesRoute() {
                             {t('videos.episode')} {episode.episodeNumber}
                         </span>
                     </div>
+                    {(episode.file.episode_description || episode.file.description) && (
+                        <div style={{
+                            fontSize: '12px',
+                            color: netflixTheme.text.secondary,
+                            lineHeight: '1.4',
+                            marginTop: '6px',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                        }}>
+                            {episode.file.episode_description || episode.file.description}
+                        </div>
+                    )}
                 </div>
             </div>
         );

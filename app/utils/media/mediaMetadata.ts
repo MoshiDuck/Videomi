@@ -27,7 +27,8 @@ export interface MediaMetadata {
     // Autres
     title: string | null; // Titre officiel
     year: number | null;
-    description: string | null;
+    description: string | null; // Synopsis de la série/film
+    episode_description: string | null; // Synopsis de l'épisode (pour les épisodes de série uniquement)
 }
 
 // Type pour les correspondances proposées à l'utilisateur
@@ -398,7 +399,8 @@ async function searchTMDbMovieComplete(
                     albums: null,
                     title: detailsData.title || movie.title || null,
                     year: detailsData.release_date ? parseInt(detailsData.release_date.substring(0, 4)) : null,
-                    description: detailsData.overview || null
+                    description: detailsData.overview || null,
+                    episode_description: null
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -432,6 +434,21 @@ async function searchTMDbTVComplete(
     await tmdbLimiter.waitIfNeeded();
 
     try {
+        // Exception spéciale pour Doctor Who : détecter si c'est la série de 2005
+        const isDoctorWho = /doctor\s*who/i.test(title);
+        let requiresDoctorWho2005 = false;
+        if (isDoctorWho) {
+            // Chercher une année >= 2005 dans le titre
+            const yearMatch = title.match(/\b(200[5-9]|20[1-9]\d)\b/);
+            if (yearMatch) {
+                const detectedYear = parseInt(yearMatch[1]);
+                if (detectedYear >= 2005) {
+                    requiresDoctorWho2005 = true;
+                    console.log(`🩺 [METADATA] Doctor Who détecté avec année ${detectedYear} >= 2005 - Sélection de la série reprise (2005)`);
+                }
+            }
+        }
+
         const variants = generateTitleVariants(title);
         
         for (const variant of variants) {
@@ -441,9 +458,23 @@ async function searchTMDbTVComplete(
             const searchResponse = await fetch(searchUrl);
             if (!searchResponse.ok) continue;
             
-            const searchData = await searchResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null }> };
+            const searchData = await searchResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string }> };
             if (searchData.results && searchData.results.length > 0) {
-                const tvShow = searchData.results[0];
+                let tvShow = searchData.results[0];
+                
+                // Exception Doctor Who : si on cherche la série de 2005, filtrer les résultats
+                if (requiresDoctorWho2005) {
+                    const doctorWho2005 = searchData.results.find(serie => {
+                        const firstAirYear = serie.first_air_date ? parseInt(serie.first_air_date.substring(0, 4)) : 0;
+                        return firstAirYear >= 2005;
+                    });
+                    if (doctorWho2005) {
+                        tvShow = doctorWho2005;
+                        console.log(`🩺 [METADATA] Doctor Who 2005 sélectionné: "${tvShow.name}" (ID: ${tvShow.id})`);
+                    } else {
+                        console.warn(`⚠️ [METADATA] Doctor Who 2005 demandé mais non trouvé dans les résultats, utilisation du premier résultat`);
+                    }
+                }
                 const tvId = tvShow.id;
                 
                 // Récupérer les détails complets
@@ -474,20 +505,26 @@ async function searchTMDbTVComplete(
                     episode = parseInt(episodeMatch[1]);
                 }
                 
-                // Pour les épisodes, récupérer le still_path, sinon utiliser backdrop_path (format 16:9)
+                // Pour les épisodes, récupérer le still_path et overview, sinon utiliser backdrop_path (format 16:9)
                 let thumbnailUrl: string | null = null;
+                let episodeOverview: string | null = null;
                 if (season !== null && episode !== null) {
-                    // C'est un épisode, récupérer le still_path
+                    // C'est un épisode, récupérer le still_path et overview
                     try {
                         const seasonDetails = await getSeasonDetailsFromTMDB(tvId, season, apiKey);
                         if (seasonDetails && seasonDetails.episodes) {
                             const episodeData = seasonDetails.episodes.find(e => e.episode_number === episode);
-                            if (episodeData && episodeData.still_path) {
-                                thumbnailUrl = `https://image.tmdb.org/t/p/w1280${episodeData.still_path}`;
+                            if (episodeData) {
+                                if (episodeData.still_path) {
+                                    thumbnailUrl = `https://image.tmdb.org/t/p/w1280${episodeData.still_path}`;
+                                }
+                                if (episodeData.overview) {
+                                    episodeOverview = episodeData.overview;
+                                }
                             }
                         }
                     } catch (error) {
-                        console.warn('Erreur récupération still_path pour épisode:', error);
+                        console.warn('Erreur récupération détails pour épisode:', error);
                     }
                 }
                 
@@ -517,7 +554,8 @@ async function searchTMDbTVComplete(
                     albums: null,
                     title: detailsData.name || tvShow.name || null,
                     year: detailsData.first_air_date ? parseInt(detailsData.first_air_date.substring(0, 4)) : null,
-                    description: detailsData.overview || null
+                    description: detailsData.overview || null,
+                    episode_description: episodeOverview
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -578,7 +616,8 @@ async function searchOMDbMovie(
                     albums: null,
                     title: data.Title || null,
                     year: data.Year ? parseInt(data.Year) : null,
-                    description: data.Plot !== 'N/A' ? data.Plot : null
+                    description: data.Plot !== 'N/A' ? data.Plot : null,
+                    episode_description: null
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -1068,7 +1107,8 @@ async function searchSpotifyComplete(
                     albums: albumsArray.length > 0 ? albumsArray : null,
                     title: track.name || null,
                     year: track.album?.release_date ? parseInt(track.album.release_date.substring(0, 4)) : null,
-                    description: null
+                    description: null,
+                    episode_description: null
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -1237,7 +1277,8 @@ async function searchMusicBrainzComplete(
                     albums: albums.length > 0 ? albums : null, // TOUS les albums
                     title: recording.title || null,
                     year: null,
-                    description: null
+                    description: null,
+                    episode_description: null
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -1431,7 +1472,8 @@ async function searchDiscogsComplete(
                     albums: albumsArray.length > 0 ? albumsArray : null,
                     title: trackTitle || release.title || null,
                     year: release.year || null,
-                    description: null
+                    description: null,
+                    episode_description: null
                 };
                 
                 apiCache.set(cacheKey, { result: metadata, timestamp: Date.now() });
@@ -1932,7 +1974,8 @@ export async function enrichWithCompleteMetadata(
                                     albums: null,
                                     title: recording.title || title,
                                     year: null,
-                                    description: null
+                                    description: null,
+                                    episode_description: null
                                 };
                             }
                         }
@@ -2110,7 +2153,8 @@ export async function enrichWithCompleteMetadata(
                     albums: null,
                     title: title || null,
                     year: null,
-                    description: null
+                    description: null,
+                    episode_description: null
                 };
                 
                 if (id3ImageR2Path) {

@@ -723,6 +723,7 @@ app.post('/api/upload/complete', async (c) => {
                         title TEXT,
                         year INTEGER,
                         description TEXT,
+                        episode_description TEXT,
                         created_at INTEGER,
                         updated_at INTEGER,
                         FOREIGN KEY (file_id) REFERENCES files(file_id)
@@ -734,7 +735,8 @@ app.post('/api/upload/complete', async (c) => {
                     { name: 'created_at', type: 'INTEGER' },
                     { name: 'updated_at', type: 'INTEGER' },
                     { name: 'album_thumbnails', type: 'TEXT' },
-                    { name: 'backdrop_url', type: 'TEXT' }
+                    { name: 'backdrop_url', type: 'TEXT' },
+                    { name: 'episode_description', type: 'TEXT' }
                 ];
                 
                 for (const column of fileMetadataColumnsToAdd) {
@@ -1040,6 +1042,19 @@ app.post('/api/upload/complete', async (c) => {
                         console.log(`🎬 [ENRICHMENT] Titre de base: "${baseTitle}"`);
                         console.log(`🎬 [ENRICHMENT] Variantes de titre générées (${titleVariants.length}):`, titleVariants);
 
+                        // Exception spéciale pour Doctor Who : détecter si c'est la série de 2005
+                        const isDoctorWho = /doctor\s*who/i.test(baseTitle) || /doctor\s*who/i.test(cleanedTitle);
+                        let requiresDoctorWho2005 = false;
+                        if (isDoctorWho) {
+                            // Chercher une année >= 2005 dans le titre ou le filename ou dans basicMetadata.year
+                            const yearMatch = (cleanedTitle + ' ' + filenameForPattern).match(/\b(200[5-9]|20[1-9]\d)\b/);
+                            const detectedYear = yearMatch ? parseInt(yearMatch[1]) : (basicMetadata?.year && basicMetadata.year >= 2005 ? basicMetadata.year : null);
+                            if (detectedYear && detectedYear >= 2005) {
+                                requiresDoctorWho2005 = true;
+                                console.log(`🩺 [ENRICHMENT] Doctor Who détecté avec année ${detectedYear} >= 2005 - Sélection de la série reprise (2005)`);
+                            }
+                        }
+
                         if (!tmdbApiKey && !omdbApiKey) {
                             console.warn(`⚠️ [ENRICHMENT] Aucune clé API vidéo configurée (TMDb/OMDb)`);
                         } else {
@@ -1073,37 +1088,40 @@ app.post('/api/upload/complete', async (c) => {
                             };
 
                             // Fonction helper pour récupérer le still_path d'un épisode
-                            const fetchEpisodeStill = async (
+                            const fetchEpisodeDetails = async (
                                 tvId: number,
                                 seasonNumber: number,
                                 episodeNumber: number
-                            ): Promise<string | null> => {
+                            ): Promise<{ still_path: string | null; overview: string | null }> => {
                                 try {
-                                    console.log(`[ENRICHMENT] Récupération still_path pour épisode S${seasonNumber}E${episodeNumber} de série ID ${tvId}...`);
+                                    console.log(`[ENRICHMENT] Récupération détails pour épisode S${seasonNumber}E${episodeNumber} de série ID ${tvId}...`);
                                     const seasonUrl = `https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${tmdbApiKey}&language=fr-FR`;
                                     const seasonResp = await fetch(seasonUrl);
                                     if (!seasonResp.ok) {
                                         console.warn(`⚠️ [ENRICHMENT] Impossible de récupérer la saison ${seasonNumber} pour série ID ${tvId}: ${seasonResp.status}`);
-                                        return null;
+                                        return { still_path: null, overview: null };
                                     }
                                     const seasonData = await seasonResp.json() as { 
                                         episodes?: Array<{ 
                                             episode_number: number; 
-                                            still_path?: string | null 
+                                            still_path?: string | null;
+                                            overview?: string | null;
                                         }> 
                                     };
                                     if (seasonData.episodes && Array.isArray(seasonData.episodes)) {
                                         const episode = seasonData.episodes.find(e => e.episode_number === episodeNumber);
-                                        if (episode && episode.still_path) {
-                                            console.log(`✅ [ENRICHMENT] Still_path trouvé pour épisode S${seasonNumber}E${episodeNumber}`);
-                                            return episode.still_path;
+                                        if (episode) {
+                                            const stillPath = episode.still_path || null;
+                                            const overview = episode.overview || null;
+                                            console.log(`✅ [ENRICHMENT] Détails trouvés pour épisode S${seasonNumber}E${episodeNumber} - still_path: ${stillPath ? 'oui' : 'non'}, overview: ${overview ? 'oui' : 'non'}`);
+                                            return { still_path: stillPath, overview };
                                         }
                                     }
-                                    console.warn(`⚠️ [ENRICHMENT] Aucun still_path trouvé pour épisode S${seasonNumber}E${episodeNumber}`);
+                                    console.warn(`⚠️ [ENRICHMENT] Aucun épisode trouvé pour S${seasonNumber}E${episodeNumber}`);
                                 } catch (stillError) {
-                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération still_path pour épisode S${seasonNumber}E${episodeNumber}:`, stillError);
+                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération détails pour épisode S${seasonNumber}E${episodeNumber}:`, stillError);
                                 }
-                                return null;
+                                return { still_path: null, overview: null };
                             };
 
                             // Si pattern série détecté, chercher d'abord sur TMDb TV
@@ -1117,7 +1135,66 @@ app.post('/api/upload/complete', async (c) => {
                                     if (tvResponse.ok) {
                                         const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null }> };
                                         if (tvData.results && tvData.results.length > 0) {
-                                            const tv = tvData.results[0];
+                                            let tv = tvData.results[0];
+                                            
+                                            // Exception Doctor Who : si on cherche la série de 2005, filtrer les résultats
+                                            if (requiresDoctorWho2005) {
+                                                // Chercher d'abord une série avec first_air_date >= 2005
+                                                let doctorWho2005: { id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null } | null = tvData.results.find(serie => {
+                                                    const firstAirYear = serie.first_air_date ? parseInt(serie.first_air_date.substring(0, 4)) : 0;
+                                                    return firstAirYear >= 2005;
+                                                }) || null;
+                                                
+                                                // Si toujours pas trouvé, essayer une recherche spécifique pour "Doctor Who" 2005
+                                                if (!doctorWho2005) {
+                                                    console.log(`🩺 [ENRICHMENT] Tentative recherche spécifique Doctor Who 2005...`);
+                                                    try {
+                                                        // Faire une recherche spécifique pour "Doctor Who" et filtrer par année >= 2005
+                                                        const doctorWho2005Url = `https://api.themoviedb.org/3/search/tv?api_key=${tmdbApiKey}&query=${encodeURIComponent('Doctor Who')}&language=fr-FR`;
+                                                        const doctorWho2005Response = await fetch(doctorWho2005Url);
+                                                        if (doctorWho2005Response.ok) {
+                                                            const doctorWho2005Data = await doctorWho2005Response.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null }> };
+                                                            if (doctorWho2005Data.results && doctorWho2005Data.results.length > 0) {
+                                                                // Chercher une série qui s'appelle "Doctor Who" (ou similaire) avec first_air_date >= 2005
+                                                                doctorWho2005 = doctorWho2005Data.results.find(serie => {
+                                                                    const serieName = (serie.name || '').toLowerCase();
+                                                                    const isDoctorWho = serieName.includes('doctor who') || serieName === 'doctor who';
+                                                                    const firstAirYear = serie.first_air_date ? parseInt(serie.first_air_date.substring(0, 4)) : 0;
+                                                                    return isDoctorWho && firstAirYear >= 2005;
+                                                                }) || null;
+                                                                
+                                                                if (!doctorWho2005) {
+                                                                    // Fallback : prendre la première série avec année >= 2005
+                                                                    doctorWho2005 = doctorWho2005Data.results.find(serie => {
+                                                                        const firstAirYear = serie.first_air_date ? parseInt(serie.first_air_date.substring(0, 4)) : 0;
+                                                                        return firstAirYear >= 2005;
+                                                                    }) || null;
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (error) {
+                                                        console.warn(`⚠️ [ENRICHMENT] Erreur recherche spécifique Doctor Who 2005:`, error);
+                                                    }
+                                                }
+                                                
+                                                // Vérifier que la série trouvée est bien "Doctor Who" avant de l'utiliser
+                                                if (doctorWho2005) {
+                                                    const serieName = (doctorWho2005.name || '').toLowerCase();
+                                                    const isDoctorWho = serieName.includes('doctor who');
+                                                    if (!isDoctorWho) {
+                                                        console.warn(`⚠️ [ENRICHMENT] Série trouvée "${doctorWho2005.name}" ne correspond pas à "Doctor Who", recherche alternative...`);
+                                                        doctorWho2005 = null;
+                                                    }
+                                                }
+                                                
+                                                if (doctorWho2005) {
+                                                    tv = doctorWho2005;
+                                                    console.log(`🩺 [ENRICHMENT] Doctor Who 2005 sélectionné: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'})`);
+                                                } else {
+                                                    console.warn(`⚠️ [ENRICHMENT] Doctor Who 2005 demandé mais non trouvé dans les résultats, utilisation du premier résultat`);
+                                                }
+                                            }
+                                            
                                             console.log(`✅ [ENRICHMENT] Série trouvée sur TMDb: "${tv.name}" (ID: ${tv.id}, Année: ${tv.first_air_date ? tv.first_air_date.substring(0, 4) : 'N/A'}) avec variante "${variant}"`);
                                             const genres = await fetchTmdbGenres('tv', tv.id);
                                             console.log(`[GENRES] [ENRICHMENT] Genres récupérés pour série "${tv.name}":`, genres);
@@ -1126,10 +1203,12 @@ app.post('/api/upload/complete', async (c) => {
                                             const backdropUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w1280${tv.poster_path}` : null;
                                             let thumbnailUrl: string | null = null;
                                             
+                                            let episodeDescription: string | null = null;
                                             if (detectedSeason !== null && detectedEpisode !== null) {
-                                                // C'est un épisode, utiliser still_path pour la miniature (16:9)
-                                                const stillPath = await fetchEpisodeStill(tv.id, detectedSeason, detectedEpisode);
-                                                thumbnailUrl = stillPath ? `https://image.tmdb.org/t/p/w1280${stillPath}` : null;
+                                                // C'est un épisode, récupérer still_path et overview
+                                                const episodeDetails = await fetchEpisodeDetails(tv.id, detectedSeason, detectedEpisode);
+                                                thumbnailUrl = episodeDetails.still_path ? `https://image.tmdb.org/t/p/w1280${episodeDetails.still_path}` : null;
+                                                episodeDescription = episodeDetails.overview; // Synopsis de l'épisode
                                             } else {
                                                 // C'est une série, utiliser backdrop_path pour la miniature (16:9)
                                                 thumbnailUrl = tv.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tv.backdrop_path}` : null;
@@ -1142,7 +1221,8 @@ app.post('/api/upload/complete', async (c) => {
                                                 year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null,
                                                 thumbnail_url: thumbnailUrl,
                                                 backdrop_url: backdropUrl,
-                                                description: tv.overview || null,
+                                                description: tv.overview || null, // Synopsis de la série
+                                                episode_description: episodeDescription, // Synopsis de l'épisode (si c'est un épisode)
                                                 genres: genres || undefined,
                                                 season: detectedSeason,
                                                 episode: detectedEpisode
@@ -1633,6 +1713,7 @@ app.post('/api/upload/complete', async (c) => {
                             // Nettoyer les métadonnées
                             const cleanedTitle = enrichedMetadata.title ? cleanString(enrichedMetadata.title) : null;
                             const cleanedDescription = enrichedMetadata.description ? cleanString(enrichedMetadata.description) : null;
+                            const cleanedEpisodeDescription = enrichedMetadata.episode_description ? cleanString(enrichedMetadata.episode_description) : null;
                             
                             let cleanedArtists: string[] | null = null;
                             if (enrichedMetadata.artists) {
@@ -1678,8 +1759,8 @@ app.post('/api/upload/complete', async (c) => {
                                     result = await c.env.DATABASE.prepare(`
                                         INSERT OR REPLACE INTO file_metadata (
                                             file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
-                                            genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description
-                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description, episode_description
+                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                     `).bind(
                                         uploadInfo.file_id,
                                         enrichedMetadata.thumbnail_url || null,
@@ -1696,7 +1777,8 @@ app.post('/api/upload/complete', async (c) => {
                                         enrichedMetadata.album_thumbnails ? JSON.stringify(enrichedMetadata.album_thumbnails) : null,
                                         cleanedTitle,
                                         enrichedMetadata.year || null,
-                                        cleanedDescription
+                                        cleanedDescription,
+                                        cleanedEpisodeDescription
                                     ).run();
                                 } catch (insertError) {
                                     // Si la colonne album_thumbnails n'existe pas, essayer sans
@@ -1705,8 +1787,8 @@ app.post('/api/upload/complete', async (c) => {
                                         result = await c.env.DATABASE.prepare(`
                                             INSERT OR REPLACE INTO file_metadata (
                                                 file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
-                                                genres, subgenres, season, episode, artists, albums, title, year, description
-                                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                                genres, subgenres, season, episode, artists, albums, title, year, description, episode_description
+                                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                         `).bind(
                                             uploadInfo.file_id,
                                             enrichedMetadata.thumbnail_url || null,
@@ -1722,7 +1804,8 @@ app.post('/api/upload/complete', async (c) => {
                                             cleanedAlbums ? JSON.stringify(cleanedAlbums) : null,
                                             cleanedTitle,
                                             enrichedMetadata.year || null,
-                                            cleanedDescription
+                                            cleanedDescription,
+                                            cleanedEpisodeDescription
                                         ).run();
                                     } else {
                                         throw insertError;
@@ -1847,7 +1930,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                     fm.thumbnail_r2_path, fm.thumbnail_url, fm.backdrop_url,
                     fm.source_id, fm.source_api,
                     fm.title, fm.artists, fm.albums, fm.album_thumbnails,
-                    fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
+                    fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description, fm.episode_description
              FROM files f
                       JOIN user_files uf ON f.file_id = uf.file_id
                       LEFT JOIN file_metadata fm ON f.file_id = fm.file_id
@@ -1873,7 +1956,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                         fm.thumbnail_r2_path, fm.thumbnail_url, fm.backdrop_url,
                         fm.source_id, fm.source_api,
                         fm.title, fm.artists, fm.albums, NULL as album_thumbnails,
-                        fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description
+                        fm.year, fm.genres, fm.subgenres, fm.season, fm.episode, fm.description, fm.episode_description
                  FROM files f
                           JOIN user_files uf ON f.file_id = uf.file_id
                           LEFT JOIN file_metadata fm ON f.file_id = fm.file_id
@@ -2428,6 +2511,7 @@ app.post('/api/files/:fileId/metadata', async (c) => {
         // Nettoyer toutes les valeurs textuelles avant sauvegarde
         const cleanedTitle = metadata.title ? cleanString(metadata.title) : null;
         const cleanedDescription = metadata.description ? cleanString(metadata.description) : null;
+        const cleanedEpisodeDescription = metadata.episode_description ? cleanString(metadata.episode_description) : null;
         
         // Nettoyer les tableaux d'artistes et d'albums
         let cleanedArtists: string[] | null = null;
@@ -2469,8 +2553,8 @@ app.post('/api/files/:fileId/metadata', async (c) => {
             result = await c.env.DATABASE.prepare(`
                 INSERT OR REPLACE INTO file_metadata (
                     file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
-                    genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    genres, subgenres, season, episode, artists, albums, album_thumbnails, title, year, description, episode_description
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(
                 fileId,
                 metadata.thumbnail_url || null,
@@ -2487,7 +2571,8 @@ app.post('/api/files/:fileId/metadata', async (c) => {
                 metadata.album_thumbnails ? JSON.stringify(metadata.album_thumbnails) : null,
                 cleanedTitle,
                 metadata.year || null,
-                cleanedDescription
+                cleanedDescription,
+                cleanedEpisodeDescription
             ).run();
         } catch (insertError) {
             // Si la colonne album_thumbnails n'existe pas, essayer sans
@@ -2497,8 +2582,8 @@ app.post('/api/files/:fileId/metadata', async (c) => {
                 result = await c.env.DATABASE.prepare(`
                     INSERT OR REPLACE INTO file_metadata (
                         file_id, thumbnail_url, backdrop_url, thumbnail_r2_path, source_api, source_id,
-                        genres, subgenres, season, episode, artists, albums, title, year, description
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        genres, subgenres, season, episode, artists, albums, title, year, description, episode_description
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).bind(
                     fileId,
                     metadata.thumbnail_url || null,
@@ -2514,7 +2599,8 @@ app.post('/api/files/:fileId/metadata', async (c) => {
                     cleanedAlbums ? JSON.stringify(cleanedAlbums) : null,
                     cleanedTitle,
                     metadata.year || null,
-                    cleanedDescription
+                    cleanedDescription,
+                    cleanedEpisodeDescription
                 ).run();
             } else {
                 throw insertError;

@@ -32,6 +32,7 @@ interface FileItem {
     episode: number | null;
     genres: string | null;
     collection_id: string | null;
+    episode_description: string | null;
     collection_name: string | null;
     description: string | null;
 }
@@ -704,7 +705,7 @@ export default function InfoRoute() {
                                                     {episode.title}
                                                 </div>
                                                 
-                                                {episode.file.description && (
+                                                {(episode.file.episode_description || episode.file.description) && (
                                                     <div style={{
                                                         fontSize: '14px',
                                                         color: netflixTheme.text.secondary,
@@ -714,7 +715,7 @@ export default function InfoRoute() {
                                                         WebkitBoxOrient: 'vertical',
                                                         overflow: 'hidden'
                                                     }}>
-                                                        {episode.file.description}
+                                                        {episode.file.episode_description || episode.file.description}
                                                     </div>
                                                 )}
                                                 
