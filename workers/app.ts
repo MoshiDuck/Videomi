@@ -1473,6 +1473,320 @@ app.post('/api/watch-progress/:fileId', async (c) => {
     }
 });
 
+// Sauvegarder une note (rating) pour un fichier
+app.post('/api/ratings/:fileId', async (c) => {
+    const fileId = c.req.param('fileId');
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return c.json({ error: 'Non autorisé' }, 401);
+    }
+    
+    try {
+        const body = await c.req.json() as {
+            rating: number;
+            user_id?: string;
+        };
+        
+        const { rating, user_id } = body;
+        
+        if (!user_id) {
+            return c.json({ error: 'user_id requis' }, 400);
+        }
+        
+        if (!rating || rating < 1 || rating > 5) {
+            return c.json({ error: 'Rating doit être entre 1 et 5' }, 400);
+        }
+        
+        // Créer la table ratings si elle n'existe pas
+        try {
+            await c.env.DATABASE.prepare(`
+                CREATE TABLE IF NOT EXISTS ratings (
+                    user_id TEXT NOT NULL,
+                    file_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    PRIMARY KEY (user_id, file_id)
+                )
+            `).run();
+        } catch (createError) {
+            // Si la table existe déjà ou autre erreur, continuer
+            console.log('Table ratings:', createError);
+        }
+        
+        const now = Date.now();
+        
+        // Insérer ou mettre à jour la note personnelle
+        await c.env.DATABASE.prepare(`
+            INSERT OR REPLACE INTO ratings 
+            (user_id, file_id, rating, created_at, updated_at)
+            VALUES (?, ?, ?, COALESCE((SELECT created_at FROM ratings WHERE user_id = ? AND file_id = ?), ?), ?)
+        `).bind(user_id, fileId, rating, user_id, fileId, now, now).run();
+        
+        // Calculer la moyenne globale de toutes les notes pour ce fichier
+        const allRatings = await c.env.DATABASE.prepare(`
+            SELECT rating FROM ratings WHERE file_id = ?
+        `).bind(fileId).all() as { results: Array<{ rating: number }> };
+        
+        let averageRating: number | null = null;
+        if (allRatings.results && allRatings.results.length > 0) {
+            const sum = allRatings.results.reduce((acc, r) => acc + r.rating, 0);
+            averageRating = sum / allRatings.results.length;
+        }
+        
+        return c.json({ 
+            success: true, 
+            userRating: rating,
+            averageRating: averageRating
+        });
+    } catch (error) {
+        console.error('❌ Erreur sauvegarde note:', error);
+        return c.json({ error: 'Erreur serveur' }, 500);
+    }
+});
+
+// Récupérer le top 10 des fichiers avec les meilleures notes moyennes
+// IMPORTANT: Cette route doit être définie AVANT /api/ratings/:fileId pour éviter les conflits
+app.get('/api/ratings/top10', async (c) => {
+    try {
+        const authHeader = c.req.header('Authorization');
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return c.json({ error: 'Non autorisé' }, 401);
+        }
+        
+        const category = c.req.query('category'); // 'videos' pour films
+        const groupBySeries = c.req.query('groupBySeries') === 'true'; // Pour grouper les séries par source_id
+        
+        console.log('🔍 Top 10 request - category:', category, 'groupBySeries:', groupBySeries);
+        
+        // Créer la table ratings si elle n'existe pas
+        try {
+            await c.env.DATABASE.prepare(`
+                CREATE TABLE IF NOT EXISTS ratings (
+                    user_id TEXT NOT NULL,
+                    file_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    PRIMARY KEY (user_id, file_id)
+                )
+            `).run();
+        } catch (createError) {
+            // Si la table existe déjà ou autre erreur, continuer
+            console.log('Table ratings:', createError);
+        }
+        
+        if (groupBySeries) {
+            // Pour les séries : grouper par source_id et calculer la moyenne de tous les épisodes
+            try {
+                console.log('🔍 Début requête top 10 séries, category:', category);
+                
+                // Vérifier d'abord si la table file_metadata existe
+                try {
+                    const checkTable = await c.env.DATABASE.prepare(`
+                        SELECT name FROM sqlite_master WHERE type='table' AND name='file_metadata'
+                    `).first();
+                    console.log('📋 Table file_metadata existe:', !!checkTable);
+                } catch (checkError) {
+                    console.error('❌ Erreur vérification table file_metadata:', checkError);
+                }
+                
+                // Vérifier s'il y a des notes
+                const checkRatings = await c.env.DATABASE.prepare(`
+                    SELECT COUNT(*) as count FROM ratings
+                `).first() as { count: number } | null;
+                console.log('📊 Nombre de notes:', checkRatings?.count || 0);
+                
+                if (!checkRatings || checkRatings.count === 0) {
+                    console.log('ℹ️ Aucune note, retour tableau vide');
+                    return c.json({ top10: [] });
+                }
+                
+                // Vérifier d'abord si file_metadata existe et a des données
+                const checkMetadata = await c.env.DATABASE.prepare(`
+                    SELECT COUNT(*) as count 
+                    FROM file_metadata 
+                    WHERE source_api = 'tmdb_tv' AND source_id IS NOT NULL
+                `).first() as { count: number } | null;
+                console.log('📊 Fichiers avec métadonnées séries:', checkMetadata?.count || 0);
+                
+                if (!checkMetadata || checkMetadata.count === 0) {
+                    console.log('ℹ️ Aucune métadonnée de série trouvée');
+                    return c.json({ top10: [] });
+                }
+                
+                // Utiliser INNER JOIN - on sait maintenant qu'il y a des métadonnées
+                const top10SeriesQuery = `
+                    SELECT 
+                        fm.source_id,
+                        AVG(r.rating) as average_rating,
+                        COUNT(DISTINCT r.file_id) as episode_count,
+                        COUNT(r.rating) as rating_count
+                    FROM ratings r
+                    INNER JOIN files f ON r.file_id = f.file_id
+                    INNER JOIN file_metadata fm ON r.file_id = fm.file_id
+                    WHERE f.category = ? AND fm.source_id IS NOT NULL AND fm.source_api = 'tmdb_tv'
+                    GROUP BY fm.source_id
+                    HAVING COUNT(r.rating) >= 1
+                    ORDER BY average_rating DESC, rating_count DESC
+                    LIMIT 10
+                `;
+                
+                console.log('🔍 Exécution requête SQL pour séries');
+                let top10SeriesResults;
+                try {
+                    const stmt = c.env.DATABASE.prepare(top10SeriesQuery);
+                    const boundStmt = stmt.bind(category || 'videos');
+                    console.log('🔍 Requête préparée et liée');
+                    
+                    top10SeriesResults = await boundStmt.all() as { 
+                        results?: Array<{ source_id: string; average_rating: number; episode_count: number; rating_count: number }>;
+                        success?: boolean;
+                        error?: string;
+                    };
+                    
+                    console.log('✅ Résultats reçus');
+                    console.log('✅ Success:', top10SeriesResults.success);
+                    console.log('✅ Nombre de résultats:', top10SeriesResults.results?.length || 0);
+                    
+                    if (top10SeriesResults.success === false) {
+                        console.error('❌ Requête échouée:', top10SeriesResults.error);
+                        return c.json({ top10: [] });
+                    }
+                } catch (sqlError: any) {
+                    console.error('❌ Erreur SQL lors de l\'exécution:', sqlError);
+                    console.error('❌ Message SQL:', sqlError?.message || String(sqlError));
+                    throw sqlError; // Re-lancer pour être capturé par le catch externe
+                }
+                
+                if (!top10SeriesResults.results || top10SeriesResults.results.length === 0) {
+                    console.log('ℹ️ Aucun résultat, retour tableau vide');
+                    return c.json({ top10: [] });
+                }
+                
+                return c.json({ 
+                    top10: top10SeriesResults.results.map(r => ({
+                        source_id: r.source_id,
+                        averageRating: r.average_rating,
+                        ratingCount: r.rating_count,
+                        episodeCount: r.episode_count
+                    }))
+                });
+            } catch (queryError: any) {
+                console.error('❌ Erreur requête top 10 séries:', queryError);
+                console.error('❌ Type:', typeof queryError);
+                console.error('❌ Message:', queryError?.message || String(queryError));
+                console.error('❌ Stack:', queryError?.stack || 'N/A');
+                // Retourner un tableau vide plutôt qu'une erreur
+                return c.json({ top10: [] });
+            }
+        } else {
+            // Pour les films : top 10 des fichiers individuels
+            try {
+                const top10Query = `
+                    SELECT 
+                        r.file_id,
+                        AVG(r.rating) as average_rating,
+                        COUNT(r.rating) as rating_count
+                    FROM ratings r
+                    INNER JOIN files f ON r.file_id = f.file_id
+                    INNER JOIN file_metadata fm ON r.file_id = fm.file_id
+                    WHERE f.category = ? AND (fm.source_api = 'tmdb' OR fm.source_api = 'omdb')
+                    GROUP BY r.file_id
+                    HAVING COUNT(r.rating) >= 1
+                    ORDER BY average_rating DESC, rating_count DESC
+                    LIMIT 10
+                `;
+                
+                const top10Results = await c.env.DATABASE.prepare(top10Query)
+                    .bind(category || 'videos')
+                    .all() as { results: Array<{ file_id: string; average_rating: number; rating_count: number }> };
+                
+                return c.json({ 
+                    top10: top10Results.results.map(r => ({
+                        file_id: r.file_id,
+                        averageRating: r.average_rating,
+                        ratingCount: r.rating_count
+                    }))
+                });
+            } catch (queryError) {
+                console.error('❌ Erreur requête top 10 films:', queryError);
+                // Retourner un tableau vide plutôt qu'une erreur
+                return c.json({ top10: [] });
+            }
+        }
+    } catch (error: any) {
+        console.error('❌ Erreur globale récupération top 10:', error);
+        console.error('❌ Type:', typeof error);
+        console.error('❌ Message:', error?.message || String(error));
+        console.error('❌ Stack:', error?.stack || 'N/A');
+        // Retourner un tableau vide plutôt qu'une erreur 500
+        return c.json({ top10: [] });
+    }
+});
+
+// Récupérer la note d'un utilisateur pour un fichier
+app.get('/api/ratings/:fileId', async (c) => {
+    const fileId = c.req.param('fileId');
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return c.json({ error: 'Non autorisé' }, 401);
+    }
+    
+    try {
+        const userId = c.req.query('user_id');
+        if (!userId) {
+            return c.json({ error: 'user_id requis' }, 400);
+        }
+        
+        // Créer la table ratings si elle n'existe pas
+        try {
+            await c.env.DATABASE.prepare(`
+                CREATE TABLE IF NOT EXISTS ratings (
+                    user_id TEXT NOT NULL,
+                    file_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    PRIMARY KEY (user_id, file_id)
+                )
+            `).run();
+        } catch (createError) {
+            // Si la table existe déjà ou autre erreur, continuer
+            console.log('Table ratings:', createError);
+        }
+        
+        // Récupérer la note personnelle de l'utilisateur
+        const userRating = await c.env.DATABASE.prepare(`
+            SELECT rating FROM ratings WHERE user_id = ? AND file_id = ?
+        `).bind(userId, fileId).first() as { rating: number } | null;
+        
+        // Calculer la moyenne globale de toutes les notes pour ce fichier
+        const allRatings = await c.env.DATABASE.prepare(`
+            SELECT rating FROM ratings WHERE file_id = ?
+        `).bind(fileId).all() as { results: Array<{ rating: number }> };
+        
+        let averageRating: number | null = null;
+        if (allRatings.results && allRatings.results.length > 0) {
+            const sum = allRatings.results.reduce((acc, r) => acc + r.rating, 0);
+            averageRating = sum / allRatings.results.length;
+        }
+        
+        return c.json({ 
+            userRating: userRating?.rating || null,
+            averageRating: averageRating
+        });
+    } catch (error) {
+        console.error('❌ Erreur récupération note:', error);
+        return c.json({ error: 'Erreur serveur' }, 500);
+    }
+});
+
+// NOTE: La route /api/ratings/top10 est définie plus haut (avant /api/ratings/:fileId) pour éviter les conflits de routage
+
 app.get('/api/watch-progress/user/:userId', async (c) => {
     const userId = c.req.param('userId');
     const authHeader = c.req.header('Authorization');

@@ -44,7 +44,7 @@ interface OrganizedMovies {
     unidentified: FileItem[];
     byGenre: Array<{ genre: string; movies: FileItem[] }>;
     recentlyAdded: FileItem[];
-    top10: FileItem[];
+    top10: Array<FileItem & { averageRating?: number; ratingCount?: number }>;
     continueWatching: Array<FileItem & { progress_percent: number; current_time: number }>;
 }
 
@@ -215,17 +215,8 @@ export default function FilmsRoute() {
         // Trier par date d'ajout pour les récents
         const recentlyAdded = [...allMovies].sort((a, b) => b.uploaded_at - a.uploaded_at).slice(0, 20);
         
-        // Top 10 : les plus récents avec métadonnées complètes
-        const top10 = [...allMovies]
-            .filter(m => m.title && m.thumbnail_url)
-            .sort((a, b) => {
-                // Prioriser ceux avec année et genres
-                const aScore = (a.year ? 10 : 0) + (a.genres ? 5 : 0) + (a.description ? 3 : 0);
-                const bScore = (b.year ? 10 : 0) + (b.genres ? 5 : 0) + (b.description ? 3 : 0);
-                if (bScore !== aScore) return bScore - aScore;
-                return b.uploaded_at - a.uploaded_at;
-            })
-            .slice(0, 10);
+        // Top 10 : sera chargé depuis l'API des notes
+        const top10: FileItem[] = [];
         
         // Continuer de regarder : fichiers avec progression entre 5% et 95%
         const progressMap = new Map(progressions.map(p => [p.file_id, p]));
@@ -260,6 +251,74 @@ export default function FilmsRoute() {
             continueWatching
         });
     }, []);
+    
+    // Fonction pour charger le top 10 basé sur les notes
+    const loadTop10 = useCallback(async (allFiles: FileItem[]) => {
+        if (!user?.id) return;
+        
+        try {
+            const token = localStorage.getItem('videomi_token');
+            const response = await fetch(`https://videomi.uk/api/ratings/top10?category=videos`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json() as { top10: Array<{ file_id: string; averageRating: number; ratingCount: number }> };
+                
+                console.log('Top 10 reçu:', data.top10);
+                
+                // Mapper les file_id aux fichiers complets
+                const top10Files = data.top10
+                    .map(item => {
+                        const file = allFiles.find(f => f.file_id === item.file_id);
+                        return file ? { ...file, averageRating: item.averageRating, ratingCount: item.ratingCount } : null;
+                    })
+                    .filter((f): f is FileItem & { averageRating: number; ratingCount: number } => f !== null)
+                    .filter(f => f.title && f.thumbnail_url); // Filtrer ceux avec métadonnées complètes
+                
+                console.log('Top 10 fichiers mappés:', top10Files);
+                
+                setOrganizedMovies(prev => ({
+                    ...prev,
+                    top10: top10Files
+                }));
+            } else {
+                console.error('Erreur API top 10:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('Erreur chargement top 10:', error);
+            // En cas d'erreur, utiliser un top 10 basé sur les métadonnées comme fallback
+            const fallbackTop10 = [...allFiles]
+                .filter(m => m.title && m.thumbnail_url)
+                .sort((a, b) => {
+                    const aScore = (a.year ? 10 : 0) + (a.genres ? 5 : 0) + (a.description ? 3 : 0);
+                    const bScore = (b.year ? 10 : 0) + (b.genres ? 5 : 0) + (b.description ? 3 : 0);
+                    if (bScore !== aScore) return bScore - aScore;
+                    return b.uploaded_at - a.uploaded_at;
+                })
+                .slice(0, 10);
+            
+            setOrganizedMovies(prev => ({
+                ...prev,
+                top10: fallbackTop10
+            }));
+        }
+    }, [user?.id]);
+    
+    // Charger le top 10 après que les fichiers soient organisés
+    useEffect(() => {
+        if (organizedMovies.byGenre.length > 0 && user?.id) {
+            // Récupérer tous les fichiers depuis organizedMovies
+            const allFiles = [
+                ...organizedMovies.byGenre.flatMap(g => g.movies),
+                ...organizedMovies.recentlyAdded,
+                ...organizedMovies.unidentified
+            ];
+            loadTop10(allFiles);
+        }
+    }, [organizedMovies.byGenre.length, user?.id, loadTop10]);
 
     const getThumbnailUrl = useCallback((file: FileItem): string | null => {
         if (file.thumbnail_r2_path) {
@@ -942,7 +1001,7 @@ export default function FilmsRoute() {
                     
                     {/* Top 10 */}
                     {organizedMovies.top10.length > 0 && (
-                        <NetflixCarousel title="Top 10 en France">
+                        <NetflixCarousel title="Top 10 - Les mieux notés">
                             {organizedMovies.top10.map((file, index) => (
                                 <div key={file.file_id} style={{ position: 'relative' }}>
                                     <MovieCard
@@ -969,6 +1028,37 @@ export default function FilmsRoute() {
                                     }}>
                                         {index + 1}
                                     </div>
+                                    {/* Note moyenne */}
+                                    {'averageRating' in file && file.averageRating !== undefined && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '8px',
+                                            right: '8px',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            zIndex: 10
+                                        }}>
+                                            <span style={{
+                                                color: '#FFD700',
+                                                fontSize: '14px',
+                                                fontWeight: '600'
+                                            }}>
+                                                ★ {file.averageRating.toFixed(1)}
+                                            </span>
+                                            {file.ratingCount !== undefined && (
+                                                <span style={{
+                                                    color: netflixTheme.text.secondary,
+                                                    fontSize: '11px'
+                                                }}>
+                                                    ({file.ratingCount})
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </NetflixCarousel>

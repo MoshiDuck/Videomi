@@ -58,6 +58,10 @@ export default function ReaderRoute() {
     // État pour le temps à restaurer (déclaré tôt pour être utilisé dans les effets)
     const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
     
+    // État pour la progression de lecture
+    const [currentProgress, setCurrentProgress] = useState<{ current_time: number; duration: number; progress_percent: number } | null>(null);
+    const lastSavedProgress = useRef<number>(0);
+    
     const category = categoryParam as FileCategory | null;
     const fileId = fileIdParam || '';
     
@@ -235,6 +239,7 @@ export default function ReaderRoute() {
             }
         };
     }, [category, fileId]);
+    
 
     const isVideo = (cat: FileCategory | null): boolean => cat === 'videos';
     const isAudio = (cat: FileCategory | null): boolean => cat === 'musics';
@@ -366,7 +371,26 @@ export default function ReaderRoute() {
     };
     
     const handleBack = () => {
-        // Simple retour sans mini player
+        // Sauvegarder la progression finale avant de quitter
+        if (category === 'videos' && currentProgress && user?.id) {
+            const token = localStorage.getItem('auth_token');
+            fetch(`https://videomi.uk/api/watch-progress/${fileId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    current_time: currentProgress.current_time,
+                    duration: currentProgress.duration,
+                    user_id: user.id
+                })
+            }).catch(error => {
+                console.error('Erreur sauvegarde progression finale:', error);
+            });
+        }
+        
+        // Naviguer vers la page précédente
         navigateBack();
     };
 
@@ -576,6 +600,56 @@ export default function ReaderRoute() {
                         justifyContent: 'center'
                     }}>
                         <video
+                            ref={(el) => {
+                                if (el && category === 'videos') {
+                                    // Sauvegarder la progression périodiquement
+                                    const handleTimeUpdate = async () => {
+                                        if (!user?.id || !el.duration) return;
+                                        
+                                        const current_time = el.currentTime;
+                                        const duration = el.duration;
+                                        const progress_percent = (current_time / duration) * 100;
+                                        
+                                        setCurrentProgress({ current_time, duration, progress_percent });
+                                        
+                                        // Sauvegarder toutes les 5 secondes ou si la progression change significativement
+                                        if (Math.abs(progress_percent - lastSavedProgress.current) >= 5 || 
+                                            Math.abs(current_time - lastSavedProgress.current * duration / 100) >= 5) {
+                                            try {
+                                                const token = localStorage.getItem('auth_token');
+                                                await fetch(`https://videomi.uk/api/watch-progress/${fileId}`, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${token}`
+                                                    },
+                                                    body: JSON.stringify({
+                                                        current_time,
+                                                        duration,
+                                                        user_id: user.id
+                                                    })
+                                                });
+                                                lastSavedProgress.current = progress_percent;
+                                            } catch (error) {
+                                                console.error('Erreur sauvegarde progression:', error);
+                                            }
+                                        }
+                                    };
+                                    
+                                    // Détecter la fin de vidéo (100%)
+                                    const handleEnded = () => {
+                                        // La vidéo est terminée, rien à faire de spécial
+                                    };
+                                    
+                                    el.addEventListener('timeupdate', handleTimeUpdate);
+                                    el.addEventListener('ended', handleEnded);
+                                    
+                                    return () => {
+                                        el.removeEventListener('timeupdate', handleTimeUpdate);
+                                        el.removeEventListener('ended', handleEnded);
+                                    };
+                                }
+                            }}
                             controls
                             autoPlay
                             style={{

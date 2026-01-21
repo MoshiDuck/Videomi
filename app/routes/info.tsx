@@ -11,6 +11,7 @@ import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { StarRating } from '~/components/ui/StarRating';
 
 interface FileItem {
     file_id: string;
@@ -93,6 +94,8 @@ export default function InfoRoute() {
     const [isTVShow, setIsTVShow] = useState(false);
     const [seasons, setSeasons] = useState<Season[]>([]);
     const [selectedSeason, setSelectedSeason] = useState<number>(1);
+    const [userRating, setUserRating] = useState<number | null>(null);
+    const [averageRating, setAverageRating] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchFileInfo = async () => {
@@ -238,7 +241,61 @@ export default function InfoRoute() {
         };
 
         fetchFileInfo();
+    }, [user?.id, fileId, location]);
+    
+    // Charger les notes (personnelle et moyenne globale)
+    useEffect(() => {
+        const fetchRatings = async () => {
+            if (!user?.id || !fileId) return;
+            
+            try {
+                const token = localStorage.getItem('videomi_token');
+                const response = await fetch(`https://videomi.uk/api/ratings/${fileId}?user_id=${user.id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json() as { userRating: number | null; averageRating: number | null };
+                    setUserRating(data.userRating);
+                    setAverageRating(data.averageRating);
+                }
+            } catch (error) {
+                console.error('Erreur chargement notes:', error);
+            }
+        };
+        
+        fetchRatings();
     }, [user?.id, fileId]);
+    
+    // Fonction pour sauvegarder une note
+    const handleRate = async (rating: number) => {
+        if (!user?.id || !fileId) return;
+        
+        try {
+            const token = localStorage.getItem('videomi_token');
+            const response = await fetch(`https://videomi.uk/api/ratings/${fileId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    rating,
+                    user_id: user.id
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json() as { userRating: number; averageRating: number | null };
+                setUserRating(data.userRating);
+                setAverageRating(data.averageRating);
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde note:', error);
+        }
+    };
 
     const getThumbnailUrl = (file: FileItem): string | null => {
         if (file.thumbnail_r2_path) {
@@ -445,12 +502,23 @@ export default function InfoRoute() {
                                 fontSize: '20px',
                                 lineHeight: '1.5',
                                 maxWidth: '600px',
-                                marginBottom: '32px',
+                                marginBottom: '24px',
                                 textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                             }}>
                                 {file.description}
                             </p>
                         )}
+                        
+                        {/* Système de notation */}
+                        <div style={{
+                            marginBottom: '24px'
+                        }}>
+                            <StarRating
+                                userRating={userRating}
+                                averageRating={averageRating}
+                                onRate={handleRate}
+                            />
+                        </div>
 
                         {/* Progress bar si progression existante */}
                         {watchProgress && watchProgress.progress_percent > 5 && (

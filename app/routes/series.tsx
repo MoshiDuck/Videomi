@@ -50,6 +50,8 @@ interface TVShow {
     description: string | null;
     genres: string[];
     totalEpisodes: number;
+    averageRating?: number;
+    ratingCount?: number;
     seasons: Array<{
         seasonNumber: number;
         seasonName: string;
@@ -306,17 +308,8 @@ export default function SeriesRoute() {
             setHeroShow(showsWithThumbnail[randomIndex]);
         }
 
-        // Top 10 : les séries les plus récentes avec métadonnées complètes
-        const top10 = [...tvShows]
-            .filter(s => s.showThumbnail && s.genres.length > 0)
-            .sort((a, b) => {
-                // Prioriser celles avec description et plus d'épisodes
-                const aScore = (a.description ? 10 : 0) + (a.totalEpisodes > 10 ? 5 : 0);
-                const bScore = (b.description ? 10 : 0) + (b.totalEpisodes > 10 ? 5 : 0);
-                if (bScore !== aScore) return bScore - aScore;
-                return b.totalEpisodes - a.totalEpisodes;
-            })
-            .slice(0, 10);
+        // Top 10 : sera chargé depuis l'API des notes
+        const top10: TVShow[] = [];
 
         // Ajoutés récemment : séries triées par date d'upload
         const allEpisodes = Array.from(tvShowsMap.values()).flatMap(show => 
@@ -380,6 +373,87 @@ export default function SeriesRoute() {
             recentlyAdded
         });
     }, [t]);
+    
+    // Fonction pour charger le top 10 basé sur les notes
+    const loadTop10 = useCallback(async (allShows: TVShow[], showsMap: Map<string, TVShow>) => {
+        if (!user?.id) return;
+        
+        try {
+            const token = localStorage.getItem('videomi_token');
+            const response = await fetch(`https://videomi.uk/api/ratings/top10?category=videos&groupBySeries=true`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json() as { top10: Array<{ source_id: string; averageRating: number; ratingCount: number; episodeCount: number }> };
+                
+                console.log('Top 10 séries reçu:', data.top10);
+                
+                // Mapper les source_id aux séries complètes avec leurs notes
+                const top10Series = data.top10
+                    .map(item => {
+                        const show = showsMap.get(item.source_id);
+                        if (show && show.showThumbnail && show.genres.length > 0) {
+                            return {
+                                ...show,
+                                averageRating: item.averageRating,
+                                ratingCount: item.ratingCount
+                            };
+                        }
+                        return null;
+                    })
+                    .filter((s): s is TVShow => s !== null)
+                    .slice(0, 10);
+                
+                console.log('Top 10 séries mappées:', top10Series);
+                
+                setOrganizedSeries(prev => ({
+                    ...prev,
+                    top10: top10Series
+                }));
+            } else {
+                console.error('Erreur API top 10 séries:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('Erreur chargement top 10 séries:', error);
+            // En cas d'erreur, utiliser un top 10 basé sur les métadonnées comme fallback
+            const fallbackTop10 = [...allShows]
+                .filter(s => s.showThumbnail && s.genres.length > 0)
+                .sort((a, b) => {
+                    const aScore = (a.description ? 10 : 0) + (a.totalEpisodes > 10 ? 5 : 0);
+                    const bScore = (b.description ? 10 : 0) + (b.totalEpisodes > 10 ? 5 : 0);
+                    if (bScore !== aScore) return bScore - aScore;
+                    return b.totalEpisodes - a.totalEpisodes;
+                })
+                .slice(0, 10);
+            
+            setOrganizedSeries(prev => ({
+                ...prev,
+                top10: fallbackTop10
+            }));
+        }
+    }, [user?.id]);
+    
+    // Charger le top 10 après que les séries soient organisées
+    useEffect(() => {
+        if (organizedSeries.byGenre.length > 0 && user?.id) {
+            // Reconstruire la map des séries depuis organizedSeries
+            const showsMap = new Map<string, TVShow>();
+            organizedSeries.byGenre.forEach(g => {
+                g.shows.forEach(show => {
+                    showsMap.set(show.showId, show);
+                });
+            });
+            organizedSeries.recentlyAdded.forEach(show => {
+                showsMap.set(show.showId, show);
+            });
+            
+            const allShows = Array.from(showsMap.values());
+            loadTop10(allShows, showsMap);
+        }
+    }, [organizedSeries.byGenre.length, user?.id, loadTop10]);
 
     const getThumbnailUrl = useCallback((file: FileItem): string | null => {
         if (file.thumbnail_r2_path) {
@@ -1200,7 +1274,7 @@ export default function SeriesRoute() {
                     
                     {/* Top 10 */}
                     {organizedSeries.top10.length > 0 && (
-                        <NetflixCarousel title="Top 10 en France">
+                        <NetflixCarousel title="Top 10 - Les mieux notés">
                             {organizedSeries.top10.map((show, index) => (
                                 <div key={show.showId} style={{ position: 'relative' }}>
                                     <SeriesCard
@@ -1227,6 +1301,37 @@ export default function SeriesRoute() {
                                     }}>
                                         {index + 1}
                                     </div>
+                                    {/* Note moyenne */}
+                                    {show.averageRating !== undefined && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '8px',
+                                            right: '8px',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            zIndex: 10
+                                        }}>
+                                            <span style={{
+                                                color: '#FFD700',
+                                                fontSize: '14px',
+                                                fontWeight: '600'
+                                            }}>
+                                                ★ {show.averageRating.toFixed(1)}
+                                            </span>
+                                            {show.ratingCount !== undefined && (
+                                                <span style={{
+                                                    color: netflixTheme.text.secondary,
+                                                    fontSize: '11px'
+                                                }}>
+                                                    ({show.ratingCount})
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </NetflixCarousel>
