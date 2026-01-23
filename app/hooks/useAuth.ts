@@ -3,6 +3,9 @@ import { useState, useEffect, useCallback } from 'react';
 import type { CredentialResponse } from '@react-oauth/google';
 import type { ApiAuthResponse, AuthConfig } from '~/types/auth';
 import { useNavigate } from 'react-router';
+import { clearLocalCache } from '~/utils/cache/localCache';
+import { clearServiceWorkerCache } from '~/utils/cache/serviceWorker';
+import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 // Type guard pour ApiAuthResponse
 function isApiAuthResponse(obj: unknown): obj is ApiAuthResponse {
@@ -81,13 +84,48 @@ export function useAuth() {
         }
     }, [navigate]);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        const userId = user?.id;
+        
+        // Nettoyer le cache local (IndexedDB)
+        if (userId) {
+            try {
+                await clearLocalCache(userId);
+                // Invalider via le système d'invalidation pour notifier les composants
+                await handleCacheInvalidation({
+                    type: 'user:logout',
+                    userId: userId,
+                });
+            } catch (error) {
+                console.error('❌ Erreur nettoyage cache local:', error);
+            }
+        }
+        
+        // Nettoyer le cache Service Worker
+        try {
+            await clearServiceWorkerCache(userId);
+        } catch (error) {
+            console.error('❌ Erreur nettoyage cache Service Worker:', error);
+        }
+        
+        // Nettoyer localStorage
         localStorage.removeItem('videomi_token');
         localStorage.removeItem('videomi_user');
+        
+        // Nettoyer sessionStorage (stats cache)
+        if (typeof window !== 'undefined') {
+            const keys = Object.keys(sessionStorage);
+            keys.forEach(key => {
+                if (key.startsWith('videomi_')) {
+                    sessionStorage.removeItem(key);
+                }
+            });
+        }
+        
         setUser(null);
         setError(null);
         navigate('/login');
-    }, [navigate]);
+    }, [navigate, user?.id]);
 
     const isAuthenticated = !!user;
 

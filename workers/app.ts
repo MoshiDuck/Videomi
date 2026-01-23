@@ -5,6 +5,7 @@ import type { Bindings } from './types.js';
 import { registerAuthRoutes } from './auth.js';
 import { generateGoogleAuthUrl, corsHeaders, noCacheHeaders } from './utils.js';
 import uploadRoutes from './upload.js';
+import { generateCacheKey, invalidateCache } from './cache.js';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -1409,11 +1410,17 @@ app.get('/api/watch-progress/:fileId', async (c) => {
             SELECT * FROM watch_progress WHERE file_id = ? ORDER BY last_watched DESC LIMIT 1
         `).bind(fileId).first();
         
+        // Headers no-cache pour données temps réel (selon documentation)
+        const headers = {
+            ...noCacheHeaders(),
+            'Pragma': 'no-cache',
+        };
+        
         if (progress) {
-            return c.json(progress);
+            return c.json(progress, 200, headers);
         }
         
-        return c.json(null);
+        return c.json(null, 200, headers);
     } catch (error) {
         console.error('❌ Erreur récupération progression:', error);
         return c.json({ error: 'Erreur serveur' }, 500);
@@ -1466,7 +1473,13 @@ app.post('/api/watch-progress/:fileId', async (c) => {
             VALUES (?, ?, ?, ?, ?, ?)
         `).bind(user_id, fileId, current_time, duration, progress_percent, last_watched).run();
         
-        return c.json({ success: true });
+        // Headers no-cache pour données temps réel (selon documentation)
+        const headers = {
+            ...noCacheHeaders(),
+            'Pragma': 'no-cache',
+        };
+        
+        return c.json({ success: true }, 200, headers);
     } catch (error) {
         console.error('❌ Erreur sauvegarde progression:', error);
         return c.json({ error: 'Erreur serveur' }, 500);
@@ -1535,6 +1548,21 @@ app.post('/api/ratings/:fileId', async (c) => {
             averageRating = sum / allRatings.results.length;
         }
         
+        // Invalider le cache Edge après nouveau rating
+        const cache = caches.default;
+        const patternsToInvalidate = [
+            generateCacheKey(user_id, 'ratings', { fileId }),
+            generateCacheKey(null, 'ratings:top10'),
+        ];
+        
+        for (const pattern of patternsToInvalidate) {
+            try {
+                await invalidateCache(cache, pattern);
+            } catch (error) {
+                console.warn(`⚠️ Erreur invalidation cache Edge pour ${pattern}:`, error);
+            }
+        }
+
         return c.json({ 
             success: true, 
             userRating: rating,
@@ -1821,7 +1849,13 @@ app.get('/api/watch-progress/user/:userId', async (c) => {
             LIMIT 20
         `).bind(userId).all();
         
-        return c.json({ progressions: progressions.results || [] });
+        // Headers no-cache pour données temps réel (selon documentation)
+        const headers = {
+            ...noCacheHeaders(),
+            'Pragma': 'no-cache',
+        };
+        
+        return c.json({ progressions: progressions.results || [] }, 200, headers);
     } catch (error) {
         console.error('❌ Erreur récupération progressions:', error);
         return c.json({ error: 'Erreur serveur' }, 500);

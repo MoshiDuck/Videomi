@@ -7,6 +7,7 @@ import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { darkTheme } from '~/utils/ui/theme';
 import { extractBaseMetadata, type BaseAudioMetadata, type BaseVideoMetadata } from '~/utils/file/fileMetadataExtractor';
 import { invalidateFileCache, invalidateUserFileCache } from '~/hooks/useFiles';
+import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 import { formatFileSize } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 // Imports pour WebCodecs transcoder (pas encore utilisé directement ici)
@@ -777,9 +778,19 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                 // Fichier existant - l'utilisateur peut toujours choisir/recibérer une correspondance via la page de sélection
                 
                 updateProgress(fileId, { status: 'completed', progress: 100 });
-                invalidateStatsCache(); // Invalider le cache car D1 a été mis à jour
-                onUploadComplete?.(existingFileId);
-                return;
+            invalidateStatsCache(); // Invalider le cache car D1 a été mis à jour
+            
+            // Invalider le cache via le système d'invalidation complet
+            if (user?.id) {
+                await handleCacheInvalidation({
+                    type: 'file:upload',
+                    userId: user.id,
+                    category: category,
+                });
+            }
+            
+            onUploadComplete?.(existingFileId);
+            return;
             }
 
             // Le fichier n'existe pas, générer un nouveau fileId basé sur le hash
@@ -838,11 +849,17 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
             });
 
             invalidateStatsCache(); // Invalider le cache car D1 a été mis à jour
-            onUploadComplete?.(finalFileId);
-            // Invalider le cache pour la catégorie du fichier
+            
+            // Invalider le cache via le système d'invalidation complet (local + Edge)
             if (user?.id) {
-                invalidateFileCache(user.id, category);
+                await handleCacheInvalidation({
+                    type: 'file:upload',
+                    userId: user.id,
+                    category: category,
+                });
             }
+            
+            onUploadComplete?.(finalFileId);
             } catch (uploadError: unknown) {
                 const errorMsg = uploadError instanceof Error ? uploadError.message : String(uploadError);
                 throw new Error(`Échec upload: ${errorMsg}`);

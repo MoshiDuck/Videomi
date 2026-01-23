@@ -37,9 +37,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 /**
- * Vide le cache du Service Worker
+ * Vide le cache du Service Worker.
+ * Au logout : clearAll=true pour vider tous les caches (fetch utilise public, isolation).
  */
-export async function clearServiceWorkerCache(): Promise<void> {
+export async function clearServiceWorkerCache(userId?: string | null, clearAll = true): Promise<void> {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
         return;
     }
@@ -50,6 +51,8 @@ export async function clearServiceWorkerCache(): Promise<void> {
         if (registration.active) {
             registration.active.postMessage({
                 type: 'CLEAR_CACHE',
+                userId: userId ?? null,
+                clearAll: clearAll,
             });
         }
     } catch (error) {
@@ -60,7 +63,7 @@ export async function clearServiceWorkerCache(): Promise<void> {
 /**
  * Invalide le cache pour un pattern donné
  */
-export async function invalidateServiceWorkerCache(pattern: string): Promise<void> {
+export async function invalidateServiceWorkerCache(pattern: string, userId?: string | null): Promise<void> {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
         return;
     }
@@ -72,6 +75,7 @@ export async function invalidateServiceWorkerCache(pattern: string): Promise<voi
             registration.active.postMessage({
                 type: 'INVALIDATE_PATTERN',
                 pattern,
+                userId: userId || null,
             });
         }
     } catch (error) {

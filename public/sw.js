@@ -1,9 +1,17 @@
 // INFO : public/sw.js
 // Service Worker pour le cache des images et miniatures
 
-const CACHE_NAME = 'videomi-images-v1';
+// CACHE_NAME sera généré dynamiquement avec userId pour isolation
 const IMAGE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 jours
 const THUMBNAIL_PREFIX = '/api/files/';
+
+/**
+ * Génère un nom de cache isolé par utilisateur
+ * Note: Le userId sera passé via les messages du client
+ */
+function getCacheName(userId) {
+    return userId ? `videomi-images-${userId}-v1` : 'videomi-images-public-v1';
+}
 
 /**
  * Nettoie les caches expirés
@@ -13,7 +21,7 @@ async function cleanupExpiredCaches() {
     const currentTime = Date.now();
 
     for (const cacheName of cacheNames) {
-        if (cacheName.startsWith('videomi-')) {
+        if (cacheName.startsWith('videomi-images-')) {
             const cache = await caches.open(cacheName);
             const requests = await cache.keys();
 
@@ -65,20 +73,28 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Ne jamais cacher les watch-progress (données temps réel)
+    if (url.pathname.includes('/api/watch-progress/')) {
+        return; // Pas de cache pour watch-progress
+    }
+    
     // Cache les thumbnails et images
     if (
         url.pathname.includes('/api/files/') && 
         (url.pathname.includes('/thumbnail') || url.pathname.match(/\.(jpg|jpeg|png|webp|gif)$/i))
     ) {
-        event.respondWith(handleImageRequest(event.request));
+        // Extraire userId depuis l'URL ou les headers si possible
+        // Pour l'instant, on utilise un cache par défaut, mais idéalement on devrait passer userId via message
+        event.respondWith(handleImageRequest(event.request, null));
     }
 });
 
 /**
  * Gère les requêtes d'images avec stratégie cache-first
  */
-async function handleImageRequest(request) {
-    const cache = await caches.open(CACHE_NAME);
+async function handleImageRequest(request, userId = null) {
+    const cacheName = getCacheName(userId);
+    const cache = await caches.open(cacheName);
     
     // Essayer de récupérer depuis le cache
     const cachedResponse = await cache.match(request);
@@ -159,21 +175,41 @@ async function revalidateInBackground(request, cache) {
 }
 
 /**
+ * Vide tous les caches videomi (logout complet, isolation)
+ * On utilise toujours getCacheName(null) au fetch → public.
+ * Au logout on doit vider TOUS les caches pour éviter fuite cross-user.
+ */
+async function clearAllVideomiCaches() {
+    const names = await caches.keys();
+    await Promise.all(
+        names.filter((n) => n.startsWith('videomi-images-')).map((n) => caches.delete(n))
+    );
+    console.log('[SW] Tous les caches videomi vidés');
+}
+
+/**
  * Écoute les messages pour invalider le cache
  */
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'CLEAR_CACHE') {
+        if (event.data.clearAll) {
+            event.waitUntil(clearAllVideomiCaches());
+            return;
+        }
+        const userId = event.data.userId || null;
+        const cacheName = getCacheName(userId);
         event.waitUntil(
-            caches.delete(CACHE_NAME).then(() => {
-                console.log('[SW] Cache vidé');
+            caches.delete(cacheName).then(() => {
+                console.log(`[SW] Cache vidé pour utilisateur: ${userId || 'public'}`);
             })
         );
     }
     
     if (event.data && event.data.type === 'INVALIDATE_PATTERN') {
         const pattern = event.data.pattern;
+        const userId = event.data.userId || null;
         event.waitUntil(
-            invalidateCachePattern(pattern)
+            invalidateCachePattern(pattern, userId)
         );
     }
 });
@@ -181,8 +217,9 @@ self.addEventListener('message', (event) => {
 /**
  * Invalide le cache pour un pattern donné
  */
-async function invalidateCachePattern(pattern) {
-    const cache = await caches.open(CACHE_NAME);
+async function invalidateCachePattern(pattern, userId = null) {
+    const cacheName = getCacheName(userId);
+    const cache = await caches.open(cacheName);
     const requests = await cache.keys();
     
     for (const request of requests) {

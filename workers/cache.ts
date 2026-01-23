@@ -112,12 +112,24 @@ export async function putInCache(
         // Créer les headers de cache
         const headers = new Headers(responseToCache.headers);
         
-        // Cache-Control avec stale-while-revalidate
-        const staleWhileRevalidate = Math.min(ttl * 2, 3600); // Max 1h
-        headers.set(
-            'Cache-Control',
-            `public, max-age=${ttl}, s-maxage=${ttl}, stale-while-revalidate=${staleWhileRevalidate}`
-        );
+        // Cache-Control avec stale-while-revalidate selon la documentation
+        // Pour métadonnées: max-age=300, s-maxage=600, stale-while-revalidate=3600
+        // Pour thumbnails: max-age=604800, s-maxage=2592000, immutable
+        // Pour fichiers média: max-age=31536000, immutable
+        let cacheControl: string;
+        if (ttl >= 31536000) {
+            // Fichiers média (1 an) - immutable
+            cacheControl = `public, max-age=${ttl}, immutable`;
+        } else if (ttl >= 604800) {
+            // Thumbnails (7 jours) - immutable avec s-maxage
+            cacheControl = `public, max-age=${ttl}, s-maxage=${Math.max(ttl * 4, 2592000)}, immutable`;
+        } else {
+            // Métadonnées - stale-while-revalidate
+            const staleWhileRevalidate = Math.min(ttl * 12, 3600); // Max 1h selon doc
+            const sMaxAge = Math.max(ttl * 2, ttl); // s-maxage = 2x max-age pour métadonnées
+            cacheControl = `public, max-age=${ttl}, s-maxage=${sMaxAge}, stale-while-revalidate=${staleWhileRevalidate}`;
+        }
+        headers.set('Cache-Control', cacheControl);
         
         // ETag si fourni
         if (options?.etag) {
@@ -175,16 +187,15 @@ export async function invalidateCache(
         
         console.log(`[CACHE] Invalidation demandée pour: ${patterns.join(', ')}`);
         
-        // Si on a une clé exacte, on peut la supprimer
+        // Suppression par clé exacte (Cache API ne supporte pas les wildcards)
+        // Toutes nos clés contiennent ':' (ex. user:abc:files:category:videos)
         for (const key of patterns) {
-            if (!key.includes('*') && !key.includes(':')) {
-                // Clé exacte, on peut la supprimer
-                try {
-                    await cache.delete(key);
-                    console.log(`[CACHE] Clé invalidée: ${key}`);
-                } catch (error) {
-                    console.error(`[CACHE] Erreur invalidation ${key}:`, error);
-                }
+            if (key.includes('*')) continue; // wildcard non supporté, skip
+            try {
+                await cache.delete(key);
+                console.log(`[CACHE] Clé invalidée: ${key}`);
+            } catch (error) {
+                console.error(`[CACHE] Erreur invalidation ${key}:`, error);
             }
         }
     } catch (error) {
@@ -212,6 +223,12 @@ export function canCache(
     
     // Pas de cache pour les watch progress (données temps réel)
     if (request.url.includes('/api/watch-progress/')) {
+        return false;
+    }
+    
+    // Pas de cache pour /api/stats : contient billableGB (facturation)
+    // Doc : "Informations de facturation" jamais en cache Edge
+    if (request.url.includes('/api/stats')) {
         return false;
     }
     

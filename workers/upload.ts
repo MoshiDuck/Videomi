@@ -8,7 +8,8 @@ import {
     putInCache, 
     generateETag, 
     CACHE_TTL,
-    canCache 
+    canCache,
+    invalidateCache
 } from './cache.js';
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -1855,6 +1856,21 @@ app.post('/api/upload/complete', async (c) => {
             console.log(`ℹ️ [ENRICHMENT] Catégorie ${uploadInfo.category} ne nécessite pas d'enrichissement automatique`);
         }
 
+        // Invalider le cache Edge après upload réussi
+        const cache = caches.default;
+        const patternsToInvalidate = [
+            generateCacheKey(uploadInfo.user_id, 'files', { category: uploadInfo.category }),
+            generateCacheKey(uploadInfo.user_id, 'stats'),
+        ];
+        
+        for (const pattern of patternsToInvalidate) {
+            try {
+                await invalidateCache(cache, pattern);
+            } catch (error) {
+                console.warn(`⚠️ Erreur invalidation cache Edge pour ${pattern}:`, error);
+            }
+        }
+
         return c.json({
             success: true,
             fileId: uploadInfo.file_id,
@@ -2552,6 +2568,23 @@ app.delete('/api/files/:category/:fileId', async (c) => {
             ).bind(fileId).run();
         }
 
+        // Invalider le cache Edge après suppression
+        const cache = caches.default;
+        const patternsToInvalidate = [
+            generateCacheKey(userId, 'files', { category }),
+            generateCacheKey(userId, 'stats'),
+            generateCacheKey(null, 'file:info', { fileId, category }),
+            generateCacheKey(null, 'thumbnail', { fileId, category }),
+        ];
+        
+        for (const pattern of patternsToInvalidate) {
+            try {
+                await invalidateCache(cache, pattern);
+            } catch (error) {
+                console.warn(`⚠️ Erreur invalidation cache Edge pour ${pattern}:`, error);
+            }
+        }
+
         return c.json({ success: true, deleted: !hasOtherUsers });
     } catch (error) {
         console.error('Delete file error:', error);
@@ -2828,6 +2861,26 @@ app.post('/api/files/:fileId/metadata', async (c) => {
         } else {
             console.error(`❌ [METADATA] Échec insertion métadonnées pour ${fileId}:`, result);
             return c.json({ error: 'Failed to save metadata', details: result }, 500);
+        }
+
+        // Invalider le cache Edge après mise à jour métadonnées
+        const cache = caches.default;
+        // Récupérer la catégorie du fichier pour invalidation
+        const fileInfo = await c.env.DATABASE.prepare(
+            `SELECT category FROM files WHERE file_id = ?`
+        ).bind(fileId).first() as { category: string } | null;
+        
+        const category = fileInfo?.category || null;
+        const patternsToInvalidate = [
+            generateCacheKey(null, 'file:info', { fileId, category }),
+        ];
+        
+        for (const pattern of patternsToInvalidate) {
+            try {
+                await invalidateCache(cache, pattern);
+            } catch (error) {
+                console.warn(`⚠️ Erreur invalidation cache Edge pour ${pattern}:`, error);
+            }
         }
 
         return c.json({ success: true });

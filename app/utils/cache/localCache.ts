@@ -15,6 +15,7 @@ export const LOCAL_CACHE_TTL = {
 } as const;
 
 interface CachedItem<T> {
+    key: string;
     data: T;
     timestamp: number;
     ttl: number;
@@ -113,6 +114,37 @@ export async function getFromLocalCache<T>(
 }
 
 /**
+ * Récupère un élément depuis le cache local même si expiré (stale).
+ * Utilisé en fallback offline : doc "servir depuis le cache local même si stale".
+ */
+export async function getStaleFromLocalCache<T>(
+    userId: string,
+    key: string
+): Promise<T | null> {
+    try {
+        const db = await initDB(userId);
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(key);
+
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => {
+                const result = request.result as CachedItem<T> | undefined;
+                if (!result) {
+                    resolve(null);
+                    return;
+                }
+                resolve(result.data);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('[LOCAL_CACHE] Erreur lecture stale:', error);
+        return null;
+    }
+}
+
+/**
  * Met un élément en cache local
  */
 export async function putInLocalCache<T>(
@@ -127,6 +159,7 @@ export async function putInLocalCache<T>(
         const store = transaction.objectStore(STORE_NAME);
         
         const item: CachedItem<T> = {
+            key,
             data,
             timestamp: Date.now(),
             ttl,
@@ -295,9 +328,25 @@ export async function fetchWithLocalCache<T>(
     }
 
     // Faire la requête réseau
-    const response = await fetch(url, fetchOptions);
-    
+    let response: Response;
+    try {
+        response = await fetch(url, fetchOptions);
+    } catch (networkError) {
+        // Doc : "En cas d'erreur réseau, servir depuis le cache local même si stale"
+        const stale = await getStaleFromLocalCache<T>(userId, key);
+        if (stale !== null) {
+            console.log(`[LOCAL_CACHE] Offline fallback (stale): ${key}`);
+            return stale;
+        }
+        throw networkError;
+    }
+
     if (!response.ok) {
+        const stale = await getStaleFromLocalCache<T>(userId, key);
+        if (stale !== null) {
+            console.log(`[LOCAL_CACHE] Erreur HTTP, fallback stale: ${key}`);
+            return stale;
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
