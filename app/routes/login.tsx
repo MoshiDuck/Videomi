@@ -1,5 +1,6 @@
 // INFO : app/routes/login.tsx
 import React from 'react';
+import { Navigate } from 'react-router';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import type { CredentialResponse } from '@react-oauth/google';
 
@@ -15,7 +16,7 @@ import { useLanguage } from '~/contexts/LanguageContext';
 export default function LoginRoute() {
     const { config, loading: configLoading, error: configError } = useConfig();
     const { credential, error: electronError, openAuthInBrowser } = useElectronAuth();
-    const { handleAuthWithToken, setError, loading: authLoading, error: authError } = useAuth();
+    const { user, handleAuthWithToken, setError, loading: authInitialLoading, error: authError } = useAuth();
     const { t } = useLanguage();
     const isElectron = typeof window !== 'undefined' && (window.electronAPI?.isElectron || false);
 
@@ -46,7 +47,12 @@ export default function LoginRoute() {
         }
     };
 
-    if (configLoading) {
+    // Si l'utilisateur est déjà connecté, rediriger vers la page d'accueil
+    if (user && !authInitialLoading) {
+        return <Navigate to="/home" replace />;
+    }
+
+    if (configLoading || authInitialLoading) {
         return (
             <div style={{
                 display: 'flex',
@@ -180,7 +186,7 @@ export default function LoginRoute() {
                             <GoogleAuthButton
                                 isElectron={isElectron}
                                 googleClientId={config.googleClientId}
-                                loading={authLoading}
+                                loading={authInitialLoading}
                                 onElectronAuth={handleElectronAuth}
                                 onWebAuth={handleWebAuth}
                                 onError={() => setError('Erreur lors de l\'authentification Google')}
