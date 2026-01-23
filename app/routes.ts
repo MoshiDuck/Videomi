@@ -4,7 +4,8 @@
 import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
 export default [
-    index("routes/index.tsx"),  // Redirige vers /login
+    index("routes/index.tsx"),  // Redirige vers /splash
+    route("splash", "routes/splash.tsx"),  // Écran de démarrage
     route("login", "routes/login.tsx"),  // Page de connexion
     route("home", "routes/home.tsx"),  // Page d'accueil
     
