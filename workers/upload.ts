@@ -2,6 +2,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Bindings } from './types';
+import { 
+    generateCacheKey, 
+    getFromCache, 
+    putInCache, 
+    generateETag, 
+    CACHE_TTL,
+    canCache 
+} from './cache.js';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -1922,7 +1930,37 @@ app.post('/api/upload/link', async (c) => {
 app.get('/api/upload/user/:userId', async (c) => {
     try {
         const userId = c.req.param('userId');
-        const category = c.req.query('category');
+        const category = c.req.query('category') || null;
+        
+        // Vérifier si on peut utiliser le cache
+        const cache = caches.default;
+        const cacheKey = generateCacheKey(userId, 'files', { category });
+        
+        // Vérifier l'ETag de la requête
+        const ifNoneMatch = c.req.header('If-None-Match');
+        
+        // Essayer de récupérer depuis le cache Edge
+        if (canCache(c.req.raw, userId)) {
+            const cachedResponse = await getFromCache(cache, cacheKey);
+            
+            if (cachedResponse) {
+                const etag = cachedResponse.headers.get('ETag');
+                
+                // Si l'ETag correspond, retourner 304 Not Modified
+                if (ifNoneMatch && etag && ifNoneMatch === etag) {
+                    return c.body(null, 304);
+                }
+                
+                // Servir depuis le cache
+                console.log(`[CACHE] Hit: ${cacheKey}`);
+                const cachedData = await cachedResponse.json();
+                return c.json(cachedData, 200, {
+                    'ETag': etag || '',
+                    'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
+                    'Vary': 'Authorization',
+                });
+            }
+        }
 
         // Essayer d'abord avec album_thumbnails (nouvelle colonne)
         // Si la colonne n'existe pas, fallback sur une requête sans cette colonne
@@ -1973,12 +2011,33 @@ app.get('/api/upload/user/:userId', async (c) => {
             }
         }
 
-        // Log pour debug : vérifier si album_thumbnails est présent dans les résultats
-        if (files.results && files.results.length > 0) {
-            // Les fichiers musicaux sont filtrés et retournés dans la réponse
+        const responseData = { files: files.results };
+        const response = c.json(responseData);
+        
+        // Mettre en cache la réponse
+        if (canCache(c.req.raw, userId)) {
+            const responseText = JSON.stringify(responseData);
+            const etag = generateETag(responseText);
+            
+            // Ajouter l'ETag à la réponse
+            response.headers.set('ETag', etag);
+            response.headers.set('Vary', 'Authorization');
+            
+            // Mettre en cache avec TTL approprié
+            await putInCache(
+                cache,
+                cacheKey,
+                response.clone(),
+                CACHE_TTL.USER_FILES,
+                {
+                    etag,
+                    cacheTags: [`user:${userId}`, category ? `category:${category}` : 'category:all'].filter(Boolean),
+                    vary: ['Authorization'],
+                }
+            );
         }
-
-        return c.json({ files: files.results });
+        
+        return response;
     } catch (error) {
         console.error('❌ Get user files error:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -2012,6 +2071,31 @@ app.get('/api/stats', async (c) => {
             return c.json({ error: 'Missing userId' }, 400);
         }
 
+        // Vérifier le cache Edge
+        const cache = caches.default;
+        const cacheKey = generateCacheKey(userId, 'stats');
+        const ifNoneMatch = c.req.header('If-None-Match');
+        
+        if (canCache(c.req.raw, userId)) {
+            const cachedResponse = await getFromCache(cache, cacheKey);
+            
+            if (cachedResponse) {
+                const etag = cachedResponse.headers.get('ETag');
+                
+                if (ifNoneMatch && etag && ifNoneMatch === etag) {
+                    return c.body(null, 304);
+                }
+                
+                console.log(`[CACHE] Hit: ${cacheKey}`);
+                const cachedData = await cachedResponse.json();
+                return c.json(cachedData, 200, {
+                    'ETag': etag || '',
+                    'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
+                    'Vary': 'Authorization',
+                });
+            }
+        }
+
         // Compter le nombre de fichiers
         const countResult = await c.env.DATABASE.prepare(
             `SELECT COUNT(*) as count
@@ -2034,12 +2118,37 @@ app.get('/api/stats', async (c) => {
         // Arrondir à la hausse au Go supérieur (facturation)
         const billableGB = Math.ceil(totalSizeGB);
 
-        return c.json({
+        const responseData = {
             fileCount,
             totalSizeBytes: totalSize,
             totalSizeGB: totalSizeGB,
             billableGB: billableGB
-        });
+        };
+        
+        const response = c.json(responseData);
+        
+        // Mettre en cache
+        if (canCache(c.req.raw, userId)) {
+            const responseText = JSON.stringify(responseData);
+            const etag = generateETag(responseText);
+            
+            response.headers.set('ETag', etag);
+            response.headers.set('Vary', 'Authorization');
+            
+            await putInCache(
+                cache,
+                cacheKey,
+                response.clone(),
+                CACHE_TTL.USER_STATS,
+                {
+                    etag,
+                    cacheTags: [`user:${userId}`],
+                    vary: ['Authorization'],
+                }
+            );
+        }
+        
+        return response;
     } catch (error) {
         console.error('Stats error:', error);
         return c.json({ error: 'Internal server error' }, 500);
@@ -2051,6 +2160,30 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
     try {
         const category = c.req.param('category');
         const fileId = c.req.param('fileId');
+        
+        // Vérifier le cache Edge
+        const cache = caches.default;
+        const cacheKey = generateCacheKey(null, 'file:info', { fileId, category });
+        const ifNoneMatch = c.req.header('If-None-Match');
+        
+        if (canCache(c.req.raw, null)) {
+            const cachedResponse = await getFromCache(cache, cacheKey);
+            
+            if (cachedResponse) {
+                const etag = cachedResponse.headers.get('ETag');
+                
+                if (ifNoneMatch && etag && ifNoneMatch === etag) {
+                    return c.body(null, 304);
+                }
+                
+                console.log(`[CACHE] Hit: ${cacheKey}`);
+                const cachedData = await cachedResponse.json();
+                return c.json(cachedData, 200, {
+                    'ETag': etag || '',
+                    'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
+                });
+            }
+        }
 
         // Récupérer les informations du fichier depuis D1
         const file = await c.env.DATABASE.prepare(
@@ -2064,7 +2197,29 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
             return c.json({ error: 'File not found' }, 404);
         }
 
-        return c.json({ file });
+        const responseData = { file };
+        const response = c.json(responseData);
+        
+        // Mettre en cache
+        if (canCache(c.req.raw, null)) {
+            const responseText = JSON.stringify(responseData);
+            const etag = generateETag(responseText);
+            
+            response.headers.set('ETag', etag);
+            
+            await putInCache(
+                cache,
+                cacheKey,
+                response.clone(),
+                CACHE_TTL.FILE_INFO,
+                {
+                    etag,
+                    cacheTags: [`file:${fileId}`, `category:${category}`],
+                }
+            );
+        }
+        
+        return response;
     } catch (error) {
         console.error('Get file details error:', error);
         return c.json({ error: 'Internal server error' }, 500);
@@ -2102,76 +2257,138 @@ app.get('/api/files/:category/:fileId/:filename', async (c) => {
 // Route pour les fichiers principaux
 // Servir les miniatures stockées dans R2
 app.get('/api/files/:category/:fileId/thumbnail', async (c) => {
-    // Log immédiat pour vérifier que l'endpoint est appelé
-    
     try {
         const category = c.req.param('category');
         const fileId = c.req.param('fileId');
         
+        // Vérifier le cache Edge
+        const cache = caches.default;
+        const cacheKey = generateCacheKey(null, 'thumbnail', { fileId, category });
+        const ifNoneMatch = c.req.header('If-None-Match');
+        
+        if (canCache(c.req.raw, null)) {
+            const cachedResponse = await getFromCache(cache, cacheKey);
+            
+            if (cachedResponse) {
+                const etag = cachedResponse.headers.get('ETag');
+                
+                if (ifNoneMatch && etag && ifNoneMatch === etag) {
+                    return c.body(null, 304);
+                }
+                
+                console.log(`[CACHE] Hit: ${cacheKey}`);
+                return new Response(cachedResponse.body, {
+                    status: cachedResponse.status,
+                    headers: Object.fromEntries(cachedResponse.headers.entries()),
+                });
+            }
+        }
         
         // Récupérer les métadonnées de la miniature depuis la base de données
         const metadata = await c.env.DATABASE.prepare(
             `SELECT thumbnail_r2_path, thumbnail_url FROM file_metadata WHERE file_id = ?`
         ).bind(fileId).first() as { thumbnail_r2_path: string | null; thumbnail_url: string | null } | null;
         
+        let imageResponse: Response | null = null;
+        let contentType = 'image/jpeg';
+        
         // 1. Essayer d'abord de récupérer depuis R2 si le chemin est stocké
         if (metadata?.thumbnail_r2_path) {
             const object = await c.env.STORAGE.get(metadata.thumbnail_r2_path);
             if (object) {
-                const headers = new Headers();
-                headers.set('Content-Type', object.httpMetadata?.contentType || 'image/jpeg');
-                headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-                headers.set('Access-Control-Allow-Origin', '*');
-                return new Response(object.body, { headers });
-            } else {
+                contentType = object.httpMetadata?.contentType || 'image/jpeg';
+                const imageBuffer = await object.arrayBuffer();
+                imageResponse = new Response(imageBuffer, {
+                    headers: {
+                        'Content-Type': contentType,
+                        'Access-Control-Allow-Origin': '*',
+                    }
+                });
             }
         }
         
         // 2. Fallback : essayer différentes extensions de miniatures dans R2
-        const extensions = ['jpeg', 'jpg', 'png', 'webp']; // jpeg en premier car c'est ce qui est stocké parfois
-        for (const ext of extensions) {
-            const testPath = `${category}/${fileId}/thumbnail.${ext}`;
-            const testObject = await c.env.STORAGE.get(testPath);
-            if (testObject) {
-                const headers = new Headers();
-                headers.set('Content-Type', testObject.httpMetadata?.contentType || 'image/jpeg');
-                headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-                headers.set('Access-Control-Allow-Origin', '*');
-                return new Response(testObject.body, { headers });
+        if (!imageResponse) {
+            const extensions = ['jpeg', 'jpg', 'png', 'webp'];
+            for (const ext of extensions) {
+                const testPath = `${category}/${fileId}/thumbnail.${ext}`;
+                const testObject = await c.env.STORAGE.get(testPath);
+                if (testObject) {
+                    contentType = testObject.httpMetadata?.contentType || 'image/jpeg';
+                    const imageBuffer = await testObject.arrayBuffer();
+                    imageResponse = new Response(imageBuffer, {
+                        headers: {
+                            'Content-Type': contentType,
+                            'Access-Control-Allow-Origin': '*',
+                        }
+                    });
+                    break;
+                }
             }
         }
         
         // 3. Fallback final : utiliser thumbnail_url directement (proxy via le serveur pour éviter CORS)
-        if (metadata?.thumbnail_url) {
+        if (!imageResponse && metadata?.thumbnail_url) {
             try {
-                const imageResponse = await fetch(metadata.thumbnail_url);
-                if (imageResponse.ok) {
-                    const imageBuffer = await imageResponse.arrayBuffer();
-                    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-                    
-                    const headers = new Headers();
-                    headers.set('Content-Type', contentType);
-                    headers.set('Cache-Control', 'public, max-age=86400'); // 1 jour pour les URLs externes
-                    headers.set('Access-Control-Allow-Origin', '*');
-                    
-                    return new Response(imageBuffer, { headers });
-                } else {
+                const externalResponse = await fetch(metadata.thumbnail_url);
+                if (externalResponse.ok) {
+                    const imageBuffer = await externalResponse.arrayBuffer();
+                    contentType = externalResponse.headers.get('content-type') || 'image/jpeg';
+                    imageResponse = new Response(imageBuffer, {
+                        headers: {
+                            'Content-Type': contentType,
+                            'Access-Control-Allow-Origin': '*',
+                        }
+                    });
                 }
             } catch (fetchError) {
                 console.warn('❌ Erreur lors du proxy de thumbnail_url:', fetchError);
             }
         }
         
-        return c.json({ 
-            error: 'Thumbnail not found',
-            debug: {
-                fileId,
-                category,
-                hasMetadata: !!metadata,
-                thumbnail_r2_path: metadata?.thumbnail_r2_path || null,
-                thumbnail_url: metadata?.thumbnail_url || null
-            }
-        }, 404);
+        if (!imageResponse) {
+            return c.json({ 
+                error: 'Thumbnail not found',
+                debug: {
+                    fileId,
+                    category,
+                    hasMetadata: !!metadata,
+                    thumbnail_r2_path: metadata?.thumbnail_r2_path || null,
+                    thumbnail_url: metadata?.thumbnail_url || null
+                }
+            }, 404);
+        }
+        
+        // Générer ETag basé sur le contenu
+        const imageBuffer = await imageResponse.clone().arrayBuffer();
+        const etag = generateETag(new Uint8Array(imageBuffer));
+        
+        // Créer la réponse finale avec headers de cache
+        const headers = new Headers(imageResponse.headers);
+        headers.set('Cache-Control', 'public, max-age=604800, s-maxage=2592000, immutable');
+        headers.set('ETag', etag);
+        headers.set('Access-Control-Allow-Origin', '*');
+        
+        const finalResponse = new Response(imageBuffer, {
+            status: 200,
+            headers: headers,
+        });
+        
+        // Mettre en cache
+        if (canCache(c.req.raw, null)) {
+            await putInCache(
+                cache,
+                cacheKey,
+                finalResponse.clone(),
+                CACHE_TTL.THUMBNAIL,
+                {
+                    etag,
+                    cacheTags: [`file:${fileId}`, `category:${category}`],
+                }
+            );
+        }
+        
+        return finalResponse;
     } catch (error) {
         console.error('[THUMBNAIL] ❌ Get thumbnail error:', error);
         return c.json({ error: 'Internal server error' }, 500);

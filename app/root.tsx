@@ -21,6 +21,13 @@ if (typeof window !== 'undefined') {
         // Ignorer silencieusement si le polyfill ne peut pas être chargé
     });
     
+    // Enregistrer le Service Worker pour le cache des images
+    import('./utils/cache/serviceWorker').then(({ initServiceWorker }) => {
+        initServiceWorker();
+    }).catch(() => {
+        // Ignorer si le Service Worker ne peut pas être chargé
+    });
+    
     // Au chargement de l'app, vérifier si c'est le premier chargement
     // et invalider les caches si nécessaire
     const firstLoadKey = 'videomi_first_load_done';
