@@ -97,7 +97,110 @@ https://github.com/MoshiDuck/Videomi
 
 Corriger :
 
--
+- Image grid
+- Document grid
+- Upload metadata image et document pour date
+- Grid avec date 
+- Mettre option garder local dans upload
+- Differencier fichier local de fichier upload
+- Streaming via lien youtube ou autre
+- Telechargement via Streaming
+- Ameliorer language
+
+### 🎯 Améliorations suggérées :
+
+#### 🔍 Recherche & Navigation
+- Barre de recherche globale (recherche dans tous les fichiers, pas seulement par catégorie)
+- Filtres avancés (par date, taille, type, tags personnalisés)
+- Tri personnalisable (nom, date, taille, popularité)
+- Tags/labels personnalisés pour organiser les fichiers
+- Collections/playlists personnalisées
+- Historique de lecture (reprendre où on s'est arrêté)
+- Favoris/bookmarks
+
+#### 📱 Expérience Utilisateur
+- Mode sombre/clair (si pas déjà fait)
+- Raccourcis clavier pour navigation et lecture
+- Drag & drop pour réorganiser les fichiers
+- Vue liste vs vue grille (toggle)
+- Prévisualisation rapide au survol (hover preview)
+- Notifications pour uploads terminés
+- Indicateur de progression pour uploads en cours dans la barre de navigation
+- Mode hors ligne amélioré (synchronisation différée)
+
+#### 🎬 Lecteur & Streaming
+- Sous-titres (support .srt, .vtt)
+- Vitesse de lecture variable (0.5x à 2x)
+- Qualité vidéo adaptative (si plusieurs qualités disponibles)
+- Picture-in-Picture (PiP) pour vidéos
+- Contrôle de volume global
+- Égaliseur audio pour musiques
+- Mode lecture aléatoire (shuffle)
+- Mode répétition (repeat one/all)
+- Synchronisation de lecture entre appareils (si multi-device)
+
+#### 📊 Statistiques & Analytics
+- Dashboard avec statistiques détaillées (temps de visionnage, fichiers les plus regardés)
+- Graphiques d'utilisation (par catégorie, par mois)
+- Estimation de stockage restant
+- Historique d'activité
+- Export de données utilisateur
+
+#### 🔐 Sécurité & Partage
+- Partage de fichiers/collections avec liens temporaires
+- Permissions granulaires (lecture seule, téléchargement, etc.)
+- Authentification à deux facteurs (2FA)
+- Chiffrement des fichiers sensibles
+- Versioning de fichiers (garder plusieurs versions)
+
+#### 🤖 Intelligence & Automatisation
+- Détection automatique de doublons
+- Suggestions de contenu similaire
+- Auto-tagging intelligent (basé sur contenu/métadonnées)
+- Organisation automatique par dossiers intelligents
+- Rappels pour contenu non regardé depuis X temps
+- Compression automatique des fichiers volumineux (optionnel)
+
+#### 🌐 Intégrations
+- Import depuis Google Drive / Dropbox / OneDrive
+- Export vers services externes
+- Webhook pour intégrations tierces
+- API publique pour développeurs
+- Extension navigateur pour upload rapide
+- Intégration Plex/Jellyfin (si compatible)
+
+#### ⚡ Performance & Optimisation
+- Lazy loading amélioré pour grandes collections
+- Pagination infinie (infinite scroll)
+- Compression d'images automatique à l'upload
+- Génération de miniatures en arrière-plan
+- Préchargement intelligent (précharger le prochain épisode)
+- Optimisation du cache (stratégies plus agressives)
+
+#### 🎨 Interface & Design
+- Thèmes personnalisables
+- Personnalisation de la mise en page
+- Animations et transitions fluides
+- Mode compact pour grandes listes
+- Accessibilité améliorée (ARIA, navigation clavier complète)
+- Responsive design mobile amélioré
+
+#### 📝 Métadonnées & Organisation
+- Édition en masse de métadonnées
+- Import/export de métadonnées (JSON, CSV)
+- Détection automatique de saisons/épisodes pour séries
+- Groupement automatique par série/album
+- Notes et commentaires sur les fichiers
+- Système de notation amélioré (avec reviews)
+
+#### 🔧 Fonctionnalités Techniques
+- Support de formats supplémentaires (MKV, FLAC, etc.)
+- Conversion de formats à la volée
+- Extraction audio depuis vidéos
+- Découpage/édition vidéo basique
+- Support multi-langues amélioré (traductions complètes)
+- Logs détaillés pour debugging
+- Mode développeur avec outils de diagnostic
 
 Objectif:
 
