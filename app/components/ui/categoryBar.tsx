@@ -58,6 +58,7 @@ export function CategoryBar({ selectedCategory, onCategoryChange }: CategoryBarP
                                 preloadCategory(category);
                             }
                         }}
+                        aria-current={selectedCategory === category ? 'page' : undefined}
                         style={{
                             display: 'flex',
                             alignItems: 'center',

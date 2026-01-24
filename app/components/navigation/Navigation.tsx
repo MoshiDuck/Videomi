@@ -58,6 +58,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
                     <div style={{ display: 'flex', gap: '20px' }}>
                         <Link
                             to="/home"
+                            aria-current={isActive('/home') ? 'page' : undefined}
                             style={{
                                 color: isActive('/home') ? darkTheme.accent.blue : darkTheme.text.secondary,
                                 textDecoration: 'none',
@@ -86,6 +87,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/upload"
+                            aria-current={isActive('/upload') ? 'page' : undefined}
                             style={{
                                 color: isActive('/upload') ? darkTheme.accent.blue : darkTheme.text.secondary,
                                 textDecoration: 'none',
@@ -114,6 +116,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/films"
+                            aria-current={isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? 'page' : undefined}
                             style={{
                                 color: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.accent.blue : darkTheme.text.secondary,
                                 textDecoration: 'none',
@@ -142,6 +145,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/profile"
+                            aria-current={isActive('/profile') ? 'page' : undefined}
                             style={{
                                 color: isActive('/profile') ? darkTheme.accent.blue : darkTheme.text.secondary,
                                 textDecoration: 'none',

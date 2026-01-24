@@ -1,7 +1,8 @@
 // INFO : app/components/ui/ConfirmDialog.tsx
 // Composant de dialogue de confirmation réutilisable
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { darkTheme } from '~/utils/ui/theme';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -10,7 +11,7 @@ interface ConfirmDialogProps {
     confirmText?: string;
     cancelText?: string;
     confirmColor?: string;
-    onConfirm: () => void;
+    onConfirm: () => void | Promise<void>;
     onCancel: () => void;
 }
 
@@ -24,7 +25,46 @@ export function ConfirmDialog({
     onConfirm,
     onCancel
 }: ConfirmDialogProps) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+    // Gérer la fermeture avec Escape
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !isSubmitting) {
+                onCancel();
+            }
+        };
+        
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [isOpen, isSubmitting, onCancel]);
+
+    // Focus sur le bouton annuler à l'ouverture
+    useEffect(() => {
+        if (isOpen && cancelButtonRef.current) {
+            cancelButtonRef.current.focus();
+        }
+    }, [isOpen]);
+
     if (!isOpen) return null;
+
+    const handleConfirm = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await onConfirm();
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const dialogId = 'confirm-dialog';
+    const titleId = `${dialogId}-title`;
+    const descId = `${dialogId}-desc`;
 
     return (
         <div
@@ -42,8 +82,14 @@ export function ConfirmDialog({
                 animation: 'fadeIn 0.2s ease-out'
             }}
             onClick={onCancel}
+            aria-hidden="true"
         >
             <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                aria-describedby={descId}
                 style={{
                     backgroundColor: darkTheme.background.secondary,
                     borderRadius: '12px',
@@ -56,6 +102,7 @@ export function ConfirmDialog({
                 onClick={(e) => e.stopPropagation()}
             >
                 <h3
+                    id={titleId}
                     style={{
                         fontSize: '20px',
                         fontWeight: '600',
@@ -66,6 +113,7 @@ export function ConfirmDialog({
                     {title}
                 </h3>
                 <p
+                    id={descId}
                     style={{
                         fontSize: '14px',
                         color: darkTheme.text.secondary,
@@ -83,6 +131,7 @@ export function ConfirmDialog({
                     }}
                 >
                     <button
+                        ref={cancelButtonRef}
                         onClick={onCancel}
                         style={{
                             padding: '10px 20px',
@@ -106,26 +155,33 @@ export function ConfirmDialog({
                         {cancelText}
                     </button>
                     <button
-                        onClick={onConfirm}
+                        onClick={handleConfirm}
+                        disabled={isSubmitting}
                         style={{
                             padding: '10px 20px',
                             backgroundColor: confirmColor,
                             color: darkTheme.text.primary,
                             border: 'none',
                             borderRadius: '8px',
-                            cursor: 'pointer',
+                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
                             fontSize: '14px',
                             fontWeight: '500',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            opacity: isSubmitting ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            minWidth: '100px',
+                            justifyContent: 'center'
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '0.8';
+                            if (!isSubmitting) e.currentTarget.style.opacity = '0.8';
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
+                            if (!isSubmitting) e.currentTarget.style.opacity = '1';
                         }}
                     >
-                        {confirmText}
+                        {isSubmitting ? <LoadingSpinner size="small" /> : confirmText}
                     </button>
                 </div>
             </div>

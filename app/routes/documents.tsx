@@ -15,6 +15,8 @@ import { useLanguage } from '~/contexts/LanguageContext';
 import { DraggableItem } from '~/components/ui/DraggableItem';
 import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 
 interface FileItem {
     file_id: string;
@@ -72,59 +74,76 @@ export default function DocumentsRoute() {
         onSuccess: (message) => showToast(message, 'success'),
     });
 
-    useEffect(() => {
-        const fetchFiles = async () => {
-            if (!user?.id) return;
+    const fetchFiles = useCallback(async () => {
+        if (!user?.id) return;
 
-            setLoading(true);
-            setError(null);
+        setLoading(true);
+        setError(null);
 
-            try {
-                const token = localStorage.getItem('videomi_token');
-                const response = await fetch(
-                    `https://videomi.uk/api/upload/user/${user.id}?category=documents`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
+        try {
+            const token = localStorage.getItem('videomi_token');
+            const response = await fetch(
+                `https://videomi.uk/api/upload/user/${user.id}?category=documents`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
                     }
-                );
-
-                if (!response.ok) {
-                    throw new Error('Erreur lors de la récupération des fichiers');
                 }
+            );
 
-                const data = await response.json() as { files: FileItem[] };
-                const files = data.files || [];
-
-                // Trier par date d'upload (plus récent en premier)
-                setDocuments(files.sort((a, b) => b.uploaded_at - a.uploaded_at));
-            } catch (err) {
-                console.error('Erreur fetch fichiers:', err);
-                setError(err instanceof Error ? err.message : 'Erreur inconnue');
-            } finally {
-                setLoading(false);
+            if (!response.ok) {
+                throw new Error(t('errors.fetchFailed'));
             }
-        };
 
+            const data = await response.json() as { files: FileItem[] };
+            const files = data.files || [];
+
+            // Trier par date d'upload (plus récent en premier)
+            setDocuments(files.sort((a, b) => b.uploaded_at - a.uploaded_at));
+        } catch (err) {
+            console.error('Erreur fetch fichiers:', err);
+            setError(err instanceof Error ? err.message : t('errors.unknown'));
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id, t]);
+
+    useEffect(() => {
         fetchFiles();
-    }, [user?.id]);
+    }, [fetchFiles]);
 
 
     const getFileUrl = (file: FileItem): string => {
         return `https://videomi.uk/api/files/${file.category}/${file.file_id}`;
     };
 
-    // Plus de bloc de chargement - affichage fluide avec données du cache
+    // Afficher le spinner uniquement au chargement initial (pas de données)
+    if (loading && documents.length === 0) {
+        return (
+            <AuthGuard>
+                <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
+                    <Navigation user={user!} onLogout={logout} />
+                    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                            <LoadingSpinner size="large" message={t('common.loading')} />
+                        </div>
+                    </div>
+                </div>
+            </AuthGuard>
+        );
+    }
 
     if (error) {
         return (
             <AuthGuard>
                 <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
                     <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '40px', textAlign: 'center', color: darkTheme.accent.red }}>
-                        Erreur : {error}
-                    </div>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <ErrorDisplay 
+                        error={error} 
+                        onRetry={fetchFiles}
+                    />
                 </div>
             </AuthGuard>
         );
@@ -164,6 +183,15 @@ export default function DocumentsRoute() {
                                 >
                                     <div
                                         onClick={() => window.open(getFileUrl(document), '_blank')}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                window.open(getFileUrl(document), '_blank');
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Ouvrir ${document.filename || 'ce document'}`}
                                         style={{
                                             backgroundColor: darkTheme.background.secondary,
                                             borderRadius: '12px',
@@ -262,7 +290,7 @@ export default function DocumentsRoute() {
                                 </DraggableItem>
                             ))}
                         </div>
-                    ) : (
+                    ) : !loading ? (
                         <div style={{
                             textAlign: 'center',
                             padding: '80px 20px',
@@ -310,7 +338,7 @@ export default function DocumentsRoute() {
                                 {t('emptyStates.uploadFirstDocument')}
                             </button>
                         </div>
-                    )}
+                    ) : null}
                 </div>
                 <ToastContainer />
             </div>

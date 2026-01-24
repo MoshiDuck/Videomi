@@ -32,7 +32,8 @@ interface UseFilesOptions {
 
 interface UseFilesReturn {
     files: FileItem[];
-    loading: boolean;
+    loading: boolean;           // true uniquement au chargement initial (pas de données en cache)
+    isRefreshing: boolean;      // true pendant un refresh en arrière-plan (données déjà affichées)
     error: string | null;
     refetch: () => Promise<void>;
 }
@@ -138,9 +139,11 @@ function invalidatePersistentCache(): void {
 
 export function useFiles({ category, userId, enabled = true, refetchInterval }: UseFilesOptions): UseFilesReturn {
     const [files, setFiles] = useState<FileItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true);           // Chargement initial (écran vide)
+    const [isRefreshing, setIsRefreshing] = useState(false); // Refresh en arrière-plan (données visibles)
     const [error, setError] = useState<string | null>(null);
     const intervalRef = useRef<number | null>(null);
+    const hasDataRef = useRef(false); // Track si on a déjà des données affichées
 
     const cacheKey = userId && category ? `files_${userId}_${category}` : null;
 
@@ -162,8 +165,9 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
         if (!skipCache && cacheKey) {
             const cached = fileCache.get(cacheKey);
             if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-                // Serveur immédiatement depuis le cache mémoire (instantané)
+                // Servir immédiatement depuis le cache mémoire (instantané)
                 setFiles(cached.data);
+                hasDataRef.current = true;
                 setLoading(false);
                 setError(null);
                 // Note: Le rafraîchissement en arrière-plan sera géré par le système de refetch automatique si configuré
@@ -175,8 +179,9 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
         if (!skipCache && userId) {
             const persistentCache = loadFromPersistentCache(userId, category);
             if (persistentCache) {
-                // Serveur immédiatement depuis le cache persistant (instantané)
+                // Servir immédiatement depuis le cache persistant (instantané)
                 setFiles(persistentCache);
+                hasDataRef.current = true;
                 // Mettre à jour le cache mémoire pour les prochaines fois
                 if (cacheKey) {
                     fileCache.set(cacheKey, {
@@ -209,7 +214,12 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
         // Créer une nouvelle requête
         const fetchPromise = (async (): Promise<FileItem[]> => {
             try {
-                setLoading(true);
+                // Si on a déjà des données affichées, utiliser isRefreshing au lieu de loading
+                if (hasDataRef.current) {
+                    setIsRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
                 setError(null);
 
                 const token = localStorage.getItem('videomi_token');
@@ -258,12 +268,15 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
         try {
             const data = await fetchPromise;
             setFiles(data);
+            hasDataRef.current = true;
             setError(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erreur inconnue');
-            setFiles([]);
+            // NE PAS vider les fichiers si on a déjà des données affichées
+            // Cela permet de garder l'état précédent en cas d'erreur réseau
         } finally {
             setLoading(false);
+            setIsRefreshing(false);
         }
     }, [userId, category, enabled, cacheKey]);
 
@@ -302,6 +315,7 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
     return {
         files,
         loading,
+        isRefreshing,
         error,
         refetch: () => fetchFiles(true, false) // Force un refetch en bypassant le cache
     };

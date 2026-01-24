@@ -1,5 +1,5 @@
 // INFO : app/routes/home.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '~/hooks/useAuth';
 import { Navigation } from '~/components/navigation/Navigation';
 import { AuthGuard } from '~/components/auth/AuthGuard';
@@ -7,12 +7,18 @@ import { darkTheme } from '~/utils/ui/theme';
 import { useFilesPreloader } from '~/hooks/useFilesPreloader';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { replacePlaceholders } from '~/utils/i18n';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { useNavigate } from 'react-router';
+import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 
 export default function HomeRoute() {
     const { user, logout } = useAuth();
     const { t } = useLanguage();
+    const navigate = useNavigate();
     const [stats, setStats] = useState({ fileCount: 0, totalSizeGB: 0, billableGB: 0 });
     const [loadingStats, setLoadingStats] = useState(true);
+    const [statsError, setStatsError] = useState<string | null>(null);
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // Pour savoir si on a déjà chargé les stats
     
     // Précharger toutes les catégories de fichiers en arrière-plan
     useFilesPreloader({ 
@@ -21,56 +27,64 @@ export default function HomeRoute() {
         preloadOnHover: true 
     });
 
-    useEffect(() => {
-        const fetchStats = async (skipCache = false) => {
-            if (!user?.id) return;
+    const fetchStats = useCallback(async (skipCache = false) => {
+        if (!user?.id) return;
+        
+        setStatsError(null);
+        
+        // Vérifier le cache sessionStorage d'abord (sauf si skipCache = true)
+        if (typeof window === 'undefined') return;
+        const cacheKey = `videomi_stats_${user.id}`;
+        if (!skipCache) {
+            const cachedStats = sessionStorage.getItem(cacheKey);
             
-            // Vérifier le cache sessionStorage d'abord (sauf si skipCache = true)
-            if (typeof window === 'undefined') return;
-            const cacheKey = `videomi_stats_${user.id}`;
-            if (!skipCache) {
-                const cachedStats = sessionStorage.getItem(cacheKey);
-                
-                if (cachedStats) {
-                    try {
-                        const parsedStats = JSON.parse(cachedStats) as { fileCount: number; totalSizeGB: number; billableGB: number };
-                        setStats(parsedStats);
-                        setLoadingStats(false);
-                        return; // Utiliser le cache, pas besoin d'appeler l'API
-                    } catch (e) {
-                        // Si le cache est corrompu, le supprimer et continuer
-                        sessionStorage.removeItem(cacheKey);
-                    }
+            if (cachedStats) {
+                try {
+                    const parsedStats = JSON.parse(cachedStats) as { fileCount: number; totalSizeGB: number; billableGB: number };
+                    setStats(parsedStats);
+                    setLoadingStats(false);
+                    setHasLoadedOnce(true);
+                    return; // Utiliser le cache, pas besoin d'appeler l'API
+                } catch (e) {
+                    // Si le cache est corrompu, le supprimer et continuer
+                    sessionStorage.removeItem(cacheKey);
                 }
             }
-            
-            try {
-                const token = localStorage.getItem('videomi_token');
-                const response = await fetch(`/api/stats?userId=${user.id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json() as { fileCount: number; totalSizeGB: number; billableGB: number };
-                    const statsData = {
-                        fileCount: data.fileCount || 0,
-                        totalSizeGB: data.totalSizeGB || 0,
-                        billableGB: data.billableGB || 0
-                    };
-                    setStats(statsData);
-                    
-                    // Mettre en cache dans sessionStorage
-                    sessionStorage.setItem(cacheKey, JSON.stringify(statsData));
+        }
+        
+        try {
+            const token = localStorage.getItem('videomi_token');
+            const response = await fetch(`/api/stats?userId=${user.id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
                 }
-            } catch (error) {
-                console.error('Erreur récupération stats:', error);
-            } finally {
-                setLoadingStats(false);
+            });
+            
+            if (response.ok) {
+                const data = await response.json() as { fileCount: number; totalSizeGB: number; billableGB: number };
+                const statsData = {
+                    fileCount: data.fileCount || 0,
+                    totalSizeGB: data.totalSizeGB || 0,
+                    billableGB: data.billableGB || 0
+                };
+                setStats(statsData);
+                setStatsError(null);
+                
+                // Mettre en cache dans sessionStorage
+                sessionStorage.setItem(cacheKey, JSON.stringify(statsData));
+            } else {
+                setStatsError(t('errors.statsLoadFailed') || 'Impossible de charger les statistiques');
             }
-        };
+        } catch (error) {
+            console.error('Erreur récupération stats:', error);
+            setStatsError(t('errors.networkError') || 'Erreur de connexion');
+        } finally {
+            setLoadingStats(false);
+            setHasLoadedOnce(true);
+        }
+    }, [user?.id, t]);
 
+    useEffect(() => {
         fetchStats();
 
         // Écouter l'événement de invalidation du cache pour recharger les stats
@@ -86,7 +100,7 @@ export default function HomeRoute() {
         return () => {
             window.removeEventListener('videomi:stats-invalidated', handleStatsInvalidated);
         };
-    }, [user?.id]);
+    }, [user?.id, fetchStats]);
 
     return (
         <AuthGuard>
@@ -167,6 +181,13 @@ export default function HomeRoute() {
                                 </div>
                             </div>
 
+                            {statsError ? (
+                                <ErrorDisplay 
+                                    error={statsError} 
+                                    onRetry={() => fetchStats(true)} 
+                                />
+                            ) : (
+                            <>
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 1fr',
@@ -176,9 +197,13 @@ export default function HomeRoute() {
                                     <div style={{
                                         fontSize: '28px',
                                         fontWeight: 'bold',
-                                        color: darkTheme.accent.blue
+                                        color: darkTheme.accent.blue,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        minHeight: '34px'
                                     }}>
-                                        {loadingStats ? '...' : stats.fileCount}
+                                        {loadingStats ? <LoadingSpinner size="small" /> : stats.fileCount}
                                     </div>
                                     <div style={{
                                         fontSize: '14px',
@@ -192,9 +217,13 @@ export default function HomeRoute() {
                                     <div style={{
                                         fontSize: '28px',
                                         fontWeight: 'bold',
-                                        color: darkTheme.accent.green
+                                        color: darkTheme.accent.green,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        minHeight: '34px'
                                     }}>
-                                        {loadingStats ? '...' : stats.totalSizeGB.toFixed(2)}
+                                        {loadingStats ? <LoadingSpinner size="small" /> : stats.totalSizeGB.toFixed(2)}
                                     </div>
                                     <div style={{
                                         fontSize: '14px',
@@ -224,6 +253,8 @@ export default function HomeRoute() {
                                     {t('home.billing')}: <strong>{loadingStats ? '...' : stats.billableGB} Go</strong>
                                 </div>
                             </div>
+                            </>
+                            )}
                         </div>
 
                         {/* Montant à payer par mois */}
@@ -302,6 +333,95 @@ export default function HomeRoute() {
                             </div>
                         </div>
                     </div>
+
+                    {/* État vide - Aucun fichier uploadé */}
+                    {!loadingStats && hasLoadedOnce && stats.fileCount === 0 && (
+                        <div style={{
+                            backgroundColor: darkTheme.background.secondary,
+                            borderRadius: '12px',
+                            padding: '60px 40px',
+                            textAlign: 'center',
+                            boxShadow: darkTheme.shadow.medium,
+                            border: `2px dashed ${darkTheme.border.primary}`
+                        }}>
+                            <div style={{ fontSize: '64px', marginBottom: '24px' }}>
+                                🚀
+                            </div>
+                            <h2 style={{
+                                fontSize: '24px',
+                                fontWeight: '700',
+                                color: darkTheme.text.primary,
+                                marginBottom: '12px'
+                            }}>
+                                {t('home.emptyTitle') || 'Bienvenue sur Videomi !'}
+                            </h2>
+                            <p style={{
+                                fontSize: '16px',
+                                color: darkTheme.text.secondary,
+                                marginBottom: '32px',
+                                maxWidth: '500px',
+                                margin: '0 auto 32px',
+                                lineHeight: '1.6'
+                            }}>
+                                {t('home.emptyDescription') || 'Commencez par uploader vos fichiers pour profiter de votre espace personnel de stockage et de streaming.'}
+                            </p>
+                            <button
+                                onClick={() => navigate('/upload')}
+                                style={{
+                                    padding: '16px 32px',
+                                    backgroundColor: darkTheme.accent.blue,
+                                    color: darkTheme.text.primary,
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.2s',
+                                    boxShadow: darkTheme.shadow.small,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                    e.currentTarget.style.boxShadow = darkTheme.shadow.medium;
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = darkTheme.shadow.small;
+                                }}
+                            >
+                                <span>📤</span>
+                                <span>{t('home.uploadFirst') || 'Uploader mes premiers fichiers'}</span>
+                            </button>
+                            
+                            <div style={{
+                                marginTop: '40px',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                gap: '20px',
+                                maxWidth: '600px',
+                                margin: '40px auto 0'
+                            }}>
+                                {[
+                                    { icon: '🎬', label: t('categories.videos') || 'Vidéos' },
+                                    { icon: '🎵', label: t('categories.musics') || 'Musiques' },
+                                    { icon: '🖼️', label: t('categories.images') || 'Images' },
+                                    { icon: '📄', label: t('categories.documents') || 'Documents' }
+                                ].map((item, i) => (
+                                    <div key={i} style={{
+                                        padding: '16px',
+                                        backgroundColor: darkTheme.background.tertiary,
+                                        borderRadius: '8px',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '28px', marginBottom: '8px' }}>{item.icon}</div>
+                                        <div style={{ fontSize: '13px', color: darkTheme.text.secondary }}>{item.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                 </main>
 

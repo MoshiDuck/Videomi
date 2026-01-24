@@ -1,6 +1,83 @@
 // INFO : app/contexts/PlayerContext.tsx
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 
+// Clé pour le stockage de session
+const PLAYER_STATE_KEY = 'videomi_player_state';
+
+// Structure de l'état persisté
+interface PersistedPlayerState {
+    fileId: string | null;
+    category: string | null;
+    fileUrl: string | null;
+    title: string | null;
+    artist: string | null;
+    thumbnail: string | null;
+    type: 'audio' | 'video' | null;
+    playlist: PlaylistTrack[];
+    currentTrackIndex: number;
+    playlistContext: { type: 'artist' | 'album'; name: string } | null;
+    currentTime: number;
+    volume: number;
+    isMiniPlayer: boolean;
+    savedAt: number;
+}
+
+// Sauvegarder l'état dans sessionStorage
+function savePlayerState(state: Partial<PersistedPlayerState>): void {
+    if (typeof window === 'undefined') return;
+    try {
+        const current = loadPlayerState();
+        const toSave: PersistedPlayerState = {
+            fileId: state.fileId ?? current?.fileId ?? null,
+            category: state.category ?? current?.category ?? null,
+            fileUrl: state.fileUrl ?? current?.fileUrl ?? null,
+            title: state.title ?? current?.title ?? null,
+            artist: state.artist ?? current?.artist ?? null,
+            thumbnail: state.thumbnail ?? current?.thumbnail ?? null,
+            type: state.type ?? current?.type ?? null,
+            playlist: state.playlist ?? current?.playlist ?? [],
+            currentTrackIndex: state.currentTrackIndex ?? current?.currentTrackIndex ?? 0,
+            playlistContext: state.playlistContext ?? current?.playlistContext ?? null,
+            currentTime: state.currentTime ?? current?.currentTime ?? 0,
+            volume: state.volume ?? current?.volume ?? 1,
+            isMiniPlayer: state.isMiniPlayer ?? current?.isMiniPlayer ?? false,
+            savedAt: Date.now()
+        };
+        sessionStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(toSave));
+    } catch (error) {
+        console.warn('⚠️ [PlayerContext] Erreur sauvegarde état:', error);
+    }
+}
+
+// Charger l'état depuis sessionStorage
+function loadPlayerState(): PersistedPlayerState | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = sessionStorage.getItem(PLAYER_STATE_KEY);
+        if (!saved) return null;
+        const parsed = JSON.parse(saved) as PersistedPlayerState;
+        // Ignorer si sauvegardé il y a plus de 24h
+        if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
+            sessionStorage.removeItem(PLAYER_STATE_KEY);
+            return null;
+        }
+        return parsed;
+    } catch (error) {
+        console.warn('⚠️ [PlayerContext] Erreur lecture état:', error);
+        return null;
+    }
+}
+
+// Effacer l'état persisté
+function clearPlayerState(): void {
+    if (typeof window === 'undefined') return;
+    try {
+        sessionStorage.removeItem(PLAYER_STATE_KEY);
+    } catch (error) {
+        console.warn('⚠️ [PlayerContext] Erreur suppression état:', error);
+    }
+}
+
 interface PlaylistTrack {
     file_id: string;
     title: string;
@@ -34,6 +111,11 @@ interface PlayerState {
 
 interface PlayerContextType {
     state: PlayerState;
+    // État de restauration disponible
+    canRestore: boolean;
+    restoredState: PersistedPlayerState | null;
+    restorePlayback: () => void; // Reprendre la lecture depuis l'état sauvegardé
+    dismissRestore: () => void;  // Ignorer la restauration
     play: (params: {
         fileId: string;
         category: string;
@@ -64,11 +146,14 @@ interface PlayerContextType {
 const PlayerContext = createContext<PlayerContextType | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
+    // Charger le volume depuis l'état sauvegardé (seul élément restauré automatiquement)
+    const savedState = typeof window !== 'undefined' ? loadPlayerState() : null;
+    
     const [state, setState] = useState<PlayerState>({
         isPlaying: false,
         currentTime: 0,
         duration: 0,
-        volume: 1,
+        volume: savedState?.volume ?? 1, // Restaurer le volume automatiquement
         fileId: null,
         category: null,
         fileUrl: null,
@@ -82,8 +167,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isMiniPlayer: false,
     });
 
+    // État de restauration disponible (lecture interrompue)
+    const [restoredState, setRestoredState] = useState<PersistedPlayerState | null>(null);
+    const [canRestore, setCanRestore] = useState(false);
+
     const audioRef = useRef<HTMLAudioElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const saveTimeoutRef = useRef<number | null>(null);
 
     const getActiveMedia = useCallback(() => {
         if (state.type === 'audio') return audioRef.current;
@@ -92,6 +182,130 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }, [state.type]);
 
     const [pendingSeek, setPendingSeek] = useState<number | null>(null);
+
+    // Vérifier s'il y a un état à restaurer au montage
+    useEffect(() => {
+        const saved = loadPlayerState();
+        if (saved && saved.fileId && saved.fileUrl && saved.currentTime > 10) {
+            // Il y a une lecture interrompue avec au moins 10 secondes de progression
+            setRestoredState(saved);
+            setCanRestore(true);
+        }
+    }, []);
+
+    // Restaurer la lecture depuis l'état sauvegardé
+    const restorePlayback = useCallback(() => {
+        if (!restoredState || !restoredState.fileId || !restoredState.fileUrl || !restoredState.type) {
+            setCanRestore(false);
+            setRestoredState(null);
+            return;
+        }
+
+        // Restaurer l'état complet
+        setPendingSeek(restoredState.currentTime);
+        setState(prev => ({
+            ...prev,
+            isPlaying: true,
+            currentTime: restoredState.currentTime,
+            fileId: restoredState.fileId,
+            category: restoredState.category,
+            fileUrl: restoredState.fileUrl,
+            title: restoredState.title,
+            artist: restoredState.artist,
+            thumbnail: restoredState.thumbnail,
+            type: restoredState.type,
+            playlist: restoredState.playlist || [],
+            playlistContext: restoredState.playlistContext,
+            currentTrackIndex: restoredState.currentTrackIndex || 0,
+            isMiniPlayer: true, // Reprendre en mini player
+        }));
+
+        setCanRestore(false);
+        setRestoredState(null);
+    }, [restoredState]);
+
+    // Ignorer la restauration
+    const dismissRestore = useCallback(() => {
+        setCanRestore(false);
+        setRestoredState(null);
+        clearPlayerState();
+    }, []);
+
+    // Sauvegarder l'état périodiquement (throttled)
+    const saveCurrentState = useCallback(() => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = window.setTimeout(() => {
+            // Ne sauvegarder que si on a un fichier en cours
+            if (state.fileId && state.fileUrl) {
+                savePlayerState({
+                    fileId: state.fileId,
+                    category: state.category,
+                    fileUrl: state.fileUrl,
+                    title: state.title,
+                    artist: state.artist,
+                    thumbnail: state.thumbnail,
+                    type: state.type,
+                    playlist: state.playlist,
+                    currentTrackIndex: state.currentTrackIndex,
+                    playlistContext: state.playlistContext,
+                    currentTime: state.currentTime,
+                    volume: state.volume,
+                    isMiniPlayer: state.isMiniPlayer,
+                });
+            }
+        }, 2000); // Throttle à 2 secondes
+    }, [state]);
+
+    // Sauvegarder quand l'état change significativement
+    useEffect(() => {
+        if (state.fileId) {
+            saveCurrentState();
+        }
+    }, [state.fileId, state.currentTrackIndex, state.volume, state.isMiniPlayer, saveCurrentState]);
+
+    // Sauvegarder le temps de lecture toutes les 10 secondes
+    useEffect(() => {
+        if (!state.isPlaying || !state.fileId) return;
+        
+        const interval = setInterval(() => {
+            saveCurrentState();
+        }, 10000);
+        
+        return () => clearInterval(interval);
+    }, [state.isPlaying, state.fileId, saveCurrentState]);
+
+    // Sauvegarder avant fermeture/refresh de la page
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (state.fileId && state.fileUrl) {
+                // Sauvegarde synchrone
+                try {
+                    const toSave: PersistedPlayerState = {
+                        fileId: state.fileId,
+                        category: state.category,
+                        fileUrl: state.fileUrl,
+                        title: state.title,
+                        artist: state.artist,
+                        thumbnail: state.thumbnail,
+                        type: state.type,
+                        playlist: state.playlist,
+                        currentTrackIndex: state.currentTrackIndex,
+                        playlistContext: state.playlistContext,
+                        currentTime: state.currentTime,
+                        volume: state.volume,
+                        isMiniPlayer: state.isMiniPlayer,
+                        savedAt: Date.now()
+                    };
+                    sessionStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(toSave));
+                } catch {}
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [state]);
     
     const play = useCallback((params: {
         fileId: string;
@@ -153,6 +367,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             media.pause();
             media.currentTime = 0;
         }
+        // Effacer l'état persisté quand on arrête volontairement
+        clearPlayerState();
         setState(prev => ({
             ...prev,
             isPlaying: false,
@@ -183,6 +399,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             media.volume = volume;
         }
         setState(prev => ({ ...prev, volume }));
+        // Sauvegarder le volume immédiatement (préférence utilisateur)
+        savePlayerState({ volume });
     }, [getActiveMedia]);
 
     const playTrackAtIndex = useCallback((index: number) => {
@@ -321,6 +539,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     return (
         <PlayerContext.Provider value={{
             state,
+            canRestore,
+            restoredState,
+            restorePlayback,
+            dismissRestore,
             play,
             pause,
             resume,

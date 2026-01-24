@@ -80,8 +80,18 @@ function ToastComponent({ toast, onClose }: ToastProps) {
         }
     };
 
+    const handleClose = () => {
+        setIsExiting(true);
+        setTimeout(() => onClose(toast.id), 300);
+    };
+
     return (
         <div
+            role="alert"
+            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+            aria-atomic="true"
+            tabIndex={0}
+            aria-label="Cliquer ou appuyer sur Entrée pour fermer"
             style={{
                 backgroundColor: darkTheme.background.secondary,
                 borderLeft: `4px solid ${getColor()}`,
@@ -100,10 +110,8 @@ function ToastComponent({ toast, onClose }: ToastProps) {
                 cursor: 'pointer',
                 position: 'relative'
             }}
-            onClick={() => {
-                setIsExiting(true);
-                setTimeout(() => onClose(toast.id), 300);
-            }}
+            onClick={handleClose}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleClose()}
         >
             <div
                 style={{
@@ -138,6 +146,7 @@ function ToastComponent({ toast, onClose }: ToastProps) {
                     setIsExiting(true);
                     setTimeout(() => onClose(toast.id), 300);
                 }}
+                aria-label="Fermer la notification"
                 style={{
                     background: 'none',
                     border: 'none',

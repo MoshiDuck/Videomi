@@ -65,6 +65,7 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                 {showLeftArrow && (
                     <button
                         onClick={() => scroll('left')}
+                        aria-label="Défiler vers la gauche"
                         style={{
                             position: 'absolute',
                             left: 0,
@@ -125,6 +126,7 @@ export const NetflixCarousel = ({ title, icon, children }: NetflixCarouselProps)
                 {showRightArrow && (
                     <button
                         onClick={() => scroll('right')}
+                        aria-label="Défiler vers la droite"
                         style={{
                             position: 'absolute',
                             right: 0,

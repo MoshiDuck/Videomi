@@ -1,5 +1,5 @@
 // INFO : app/routes/profile.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '~/hooks/useAuth';
 import { Navigation } from '~/components/navigation/Navigation';
 import { AuthGuard } from '~/components/auth/AuthGuard';
@@ -11,6 +11,17 @@ import { replacePlaceholders } from '~/utils/i18n';
 export default function ProfileRoute() {
     const { user, logout } = useAuth();
     const { t } = useLanguage();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleLogout = async () => {
+        if (isLoggingOut) return;
+        setIsLoggingOut(true);
+        try {
+            await logout();
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
 
     if (!user) {
         return null; // AuthGuard gère la redirection
@@ -378,23 +389,25 @@ export default function ProfileRoute() {
                                     gap: '16px'
                                 }}>
                                     <button
-                                        onClick={logout}
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
                                         style={{
-                                            backgroundColor: '#f44336',
+                                            backgroundColor: isLoggingOut ? '#888' : '#f44336',
                                             color: 'white',
                                             border: 'none',
                                             padding: '12px 20px',
                                             borderRadius: '6px',
-                                            cursor: 'pointer',
+                                            cursor: isLoggingOut ? 'not-allowed' : 'pointer',
                                             fontSize: '16px',
                                             fontWeight: '500',
                                             transition: 'background-color 0.2s',
-                                            textAlign: 'left'
+                                            textAlign: 'left',
+                                            opacity: isLoggingOut ? 0.7 : 1
                                         }}
-                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
-                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f44336'}
+                                        onMouseOver={(e) => !isLoggingOut && (e.currentTarget.style.backgroundColor = '#d32f2f')}
+                                        onMouseOut={(e) => !isLoggingOut && (e.currentTarget.style.backgroundColor = '#f44336')}
                                     >
-                                        Se déconnecter
+                                        {isLoggingOut ? t('common.loading') : 'Se déconnecter'}
                                     </button>
 
                                     <button

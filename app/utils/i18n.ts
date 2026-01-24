@@ -141,6 +141,19 @@ export interface Translations {
         logoutTitle: string;
         logoutMessage: string;
     };
+    // Errors
+    errors: {
+        fetchFailed: string;
+        unknown: string;
+        networkError: string;
+        statsLoadFailed: string;
+        authFailed: string;
+        saveFailed: string;
+        deleteFailed: string;
+        loadFailed: string;
+        title: string;
+        retry: string;
+    };
 }
 
 const translations: Record<Language, Translations> = {
@@ -273,6 +286,18 @@ const translations: Record<Language, Translations> = {
         dialogs: {
             logoutTitle: 'Déconnexion',
             logoutMessage: 'Êtes-vous sûr de vouloir vous déconnecter ?'
+        },
+        errors: {
+            fetchFailed: 'Impossible de récupérer les données',
+            unknown: 'Une erreur inattendue est survenue',
+            networkError: 'Erreur de connexion au serveur',
+            statsLoadFailed: 'Impossible de charger les statistiques',
+            authFailed: 'Échec de l\'authentification',
+            saveFailed: 'Impossible de sauvegarder',
+            deleteFailed: 'Impossible de supprimer',
+            loadFailed: 'Impossible de charger le fichier',
+            title: 'Erreur',
+            retry: 'Réessayer'
         }
     },
     en: {
@@ -402,6 +427,18 @@ const translations: Record<Language, Translations> = {
         dialogs: {
             logoutTitle: 'Logout',
             logoutMessage: 'Are you sure you want to logout?'
+        },
+        errors: {
+            fetchFailed: 'Unable to fetch data',
+            unknown: 'An unexpected error occurred',
+            networkError: 'Server connection error',
+            statsLoadFailed: 'Unable to load statistics',
+            authFailed: 'Authentication failed',
+            saveFailed: 'Unable to save',
+            deleteFailed: 'Unable to delete',
+            loadFailed: 'Unable to load file',
+            title: 'Error',
+            retry: 'Retry'
         }
     },
     es: {
@@ -533,6 +570,18 @@ const translations: Record<Language, Translations> = {
         dialogs: {
             logoutTitle: 'Cerrar sesión',
             logoutMessage: '¿Estás seguro de que quieres cerrar sesión?'
+        },
+        errors: {
+            fetchFailed: 'No se pueden obtener los datos',
+            unknown: 'Se produjo un error inesperado',
+            networkError: 'Error de conexión al servidor',
+            statsLoadFailed: 'No se pueden cargar las estadísticas',
+            authFailed: 'Error de autenticación',
+            saveFailed: 'No se puede guardar',
+            deleteFailed: 'No se puede eliminar',
+            loadFailed: 'No se puede cargar el archivo',
+            title: 'Error',
+            retry: 'Reintentar'
         }
     },
     de: {
@@ -664,6 +713,18 @@ const translations: Record<Language, Translations> = {
         dialogs: {
             logoutTitle: 'Abmelden',
             logoutMessage: 'Sind Sie sicher, dass Sie sich abmelden möchten?'
+        },
+        errors: {
+            fetchFailed: 'Daten konnten nicht abgerufen werden',
+            unknown: 'Ein unerwarteter Fehler ist aufgetreten',
+            networkError: 'Serververbindungsfehler',
+            statsLoadFailed: 'Statistiken konnten nicht geladen werden',
+            authFailed: 'Authentifizierung fehlgeschlagen',
+            saveFailed: 'Speichern nicht möglich',
+            deleteFailed: 'Löschen nicht möglich',
+            loadFailed: 'Datei konnte nicht geladen werden',
+            title: 'Fehler',
+            retry: 'Erneut versuchen'
         }
     }
 };

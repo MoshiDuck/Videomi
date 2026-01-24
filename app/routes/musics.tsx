@@ -14,6 +14,7 @@ import { CategoryBar } from '~/components/ui/categoryBar';
 import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 
 interface FileItem {
     file_id: string;
@@ -452,11 +453,74 @@ export default function MusicsRoute() {
         handlePlayTrack(tracks[0], tracks, 0);
     };
 
+    // Afficher le spinner uniquement au chargement initial (pas de données)
+    if (loading && artists.length === 0) {
+        return (
+            <AuthGuard>
+                <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
+                    <Navigation user={user!} onLogout={logout} />
+                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                            <LoadingSpinner size="large" message={t('common.loading')} />
+                        </div>
+                    </div>
+                </div>
+            </AuthGuard>
+        );
+    }
+
     if (error) {
         return (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#ff4444' }}>
-                Erreur : {error}
-            </div>
+            <AuthGuard>
+                <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
+                    <Navigation user={user!} onLogout={logout} />
+                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                        <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            minHeight: '60vh',
+                            gap: '16px'
+                        }}>
+                            <div style={{ 
+                                fontSize: '48px',
+                                marginBottom: '8px'
+                            }}>
+                                ⚠️
+                            </div>
+                            <div style={{ 
+                                color: '#ff4444',
+                                fontSize: '16px',
+                                textAlign: 'center'
+                            }}>
+                                {error}
+                            </div>
+                            <button
+                                onClick={() => window.location.reload()}
+                                style={{
+                                    marginTop: '16px',
+                                    padding: '12px 24px',
+                                    backgroundColor: darkTheme.accent.blue,
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    transition: 'transform 0.2s, opacity 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
+                            >
+                                Réessayer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </AuthGuard>
         );
     }
 
@@ -482,6 +546,7 @@ export default function MusicsRoute() {
                         }}>
                             <button
                                 onClick={handleBack}
+                                aria-label="Retour à la liste"
                                 style={{
                                     width: '40px',
                                     height: '40px',
@@ -601,6 +666,15 @@ export default function MusicsRoute() {
                                     <div
                                         key={artist.artistName}
                                         onClick={() => handleArtistClick(artist)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleArtistClick(artist);
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Voir les albums de ${artist.artistName}`}
                                         style={{
                                             padding: '20px',
                                             borderRadius: '8px',
@@ -682,7 +756,35 @@ export default function MusicsRoute() {
                                     <h2 style={{ color: '#fff', fontSize: '24px', marginBottom: '8px' }}>
                                         Aucune musique
                                     </h2>
-                                    <p>Uploadez des fichiers musicaux pour commencer</p>
+                                    <p style={{ marginBottom: '24px' }}>Uploadez des fichiers musicaux pour commencer</p>
+                                    <button
+                                        onClick={() => navigate('/upload')}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '14px 28px',
+                                            backgroundColor: '#1db954',
+                                            color: '#000',
+                                            border: 'none',
+                                            borderRadius: '50px',
+                                            fontSize: '16px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1.05)';
+                                            e.currentTarget.style.backgroundColor = '#1ed760';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                            e.currentTarget.style.backgroundColor = '#1db954';
+                                        }}
+                                    >
+                                        <span>⬆️</span>
+                                        Uploader ma première musique
+                                    </button>
                                 </div>
                             )}
                         </>
@@ -734,6 +836,15 @@ export default function MusicsRoute() {
                                     <div
                                         key={album.albumName}
                                         onClick={() => handleAlbumClick(album)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleAlbumClick(album);
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Voir les titres de ${album.albumName}`}
                                         style={{
                                             padding: '16px',
                                             borderRadius: '8px',
@@ -825,16 +936,27 @@ export default function MusicsRoute() {
                             {selectedAlbum.tracks.map((track, index) => {
                                 const isToIdentify = selectedAlbum.albumName === 'À identifier';
                                 
+                                const handleTrackClick = () => {
+                                    if (isToIdentify) {
+                                        navigate(`/match/musics/${track.file.file_id}`);
+                                    } else {
+                                        handlePlayTrack(track, selectedAlbum.tracks, index);
+                                    }
+                                };
+                                
                                 return (
                                     <div
                                         key={track.file.file_id}
-                                        onClick={() => {
-                                            if (isToIdentify) {
-                                                navigate(`/match/musics/${track.file.file_id}`);
-                                            } else {
-                                                handlePlayTrack(track, selectedAlbum.tracks, index);
+                                        onClick={handleTrackClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleTrackClick();
                                             }
                                         }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={isToIdentify ? `Identifier ${track.title}` : `Lire ${track.title}`}
                                         style={{
                                             display: 'grid',
                                             gridTemplateColumns: isToIdentify ? '50px 1fr 140px' : '50px 1fr 120px',

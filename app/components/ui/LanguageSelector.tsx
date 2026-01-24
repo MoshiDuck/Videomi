@@ -65,6 +65,8 @@ export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
                 <Tooltip key={lang.code} content={lang.name} position="top">
                     <button
                         onClick={() => setLanguage(lang.code)}
+                        aria-label={`Sélectionner ${lang.name}`}
+                        aria-pressed={language === lang.code}
                         style={{
                             width: '40px',
                             height: '40px',

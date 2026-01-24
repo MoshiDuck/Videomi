@@ -15,6 +15,8 @@ import { useLanguage } from '~/contexts/LanguageContext';
 import { DraggableItem } from '~/components/ui/DraggableItem';
 import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 
 interface FileItem {
     file_id: string;
@@ -64,71 +66,102 @@ export default function ImagesRoute() {
         navigate(getCategoryRoute(category));
     };
 
+    const fetchFiles = useCallback(async () => {
+        if (!user?.id) return;
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const token = localStorage.getItem('videomi_token');
+            // Récupérer à la fois images et raw_images
+            const [imagesResponse, rawImagesResponse] = await Promise.all([
+                fetch(
+                    `https://videomi.uk/api/upload/user/${user.id}?category=images`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                ),
+                fetch(
+                    `https://videomi.uk/api/upload/user/${user.id}?category=raw_images`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                )
+            ]);
+
+            if (!imagesResponse.ok || !rawImagesResponse.ok) {
+                throw new Error(t('errors.fetchFailed'));
+            }
+
+            const imagesData = await imagesResponse.json() as { files: FileItem[] };
+            const rawImagesData = await rawImagesResponse.json() as { files: FileItem[] };
+            const files = [...(imagesData.files || []), ...(rawImagesData.files || [])];
+
+            // Trier par date d'upload (plus récent en premier)
+            setImages(files.sort((a, b) => b.uploaded_at - a.uploaded_at));
+        } catch (err) {
+            console.error('Erreur fetch fichiers:', err);
+            setError(err instanceof Error ? err.message : t('errors.unknown'));
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id, t]);
+
     useEffect(() => {
-        const fetchFiles = async () => {
-            if (!user?.id) return;
+        fetchFiles();
+    }, [fetchFiles]);
 
-            setLoading(true);
-            setError(null);
-
-            try {
-                const token = localStorage.getItem('videomi_token');
-                // Récupérer à la fois images et raw_images
-                const [imagesResponse, rawImagesResponse] = await Promise.all([
-                    fetch(
-                        `https://videomi.uk/api/upload/user/${user.id}?category=images`,
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        }
-                    ),
-                    fetch(
-                        `https://videomi.uk/api/upload/user/${user.id}?category=raw_images`,
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        }
-                    )
-                ]);
-
-                if (!imagesResponse.ok || !rawImagesResponse.ok) {
-                    throw new Error('Erreur lors de la récupération des fichiers');
-                }
-
-                const imagesData = await imagesResponse.json() as { files: FileItem[] };
-                const rawImagesData = await rawImagesResponse.json() as { files: FileItem[] };
-                const files = [...(imagesData.files || []), ...(rawImagesData.files || [])];
-
-                // Trier par date d'upload (plus récent en premier)
-                setImages(files.sort((a, b) => b.uploaded_at - a.uploaded_at));
-            } catch (err) {
-                console.error('Erreur fetch fichiers:', err);
-                setError(err instanceof Error ? err.message : 'Erreur inconnue');
-            } finally {
-                setLoading(false);
+    // Gérer la fermeture du modal avec Escape
+    useEffect(() => {
+        if (!selectedImage) return;
+        
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setSelectedImage(null);
             }
         };
-
-        fetchFiles();
-    }, [user?.id]);
+        
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [selectedImage]);
 
 
     const getFileUrl = (file: FileItem): string => {
         return `https://videomi.uk/api/files/${file.category}/${file.file_id}`;
     };
 
-    // Plus de bloc de chargement - affichage fluide avec données du cache
+    // Afficher le spinner uniquement au chargement initial (pas de données)
+    if (loading && images.length === 0) {
+        return (
+            <AuthGuard>
+                <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
+                    <Navigation user={user!} onLogout={logout} />
+                    <div style={{ padding: '24px', maxWidth: 1600, margin: '0 auto' }}>
+                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                            <LoadingSpinner size="large" message={t('common.loading')} />
+                        </div>
+                    </div>
+                </div>
+            </AuthGuard>
+        );
+    }
 
     if (error) {
         return (
             <AuthGuard>
                 <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
                     <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '40px', textAlign: 'center', color: darkTheme.accent.red }}>
-                        Erreur : {error}
-                    </div>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <ErrorDisplay 
+                        error={error} 
+                        onRetry={fetchFiles}
+                    />
                 </div>
             </AuthGuard>
         );
@@ -168,6 +201,15 @@ export default function ImagesRoute() {
                                 >
                                     <div
                                         onClick={() => setSelectedImage(image.file_id)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                setSelectedImage(image.file_id);
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Voir ${image.filename || 'cette image'} en grand`}
                                         style={{
                                             position: 'relative',
                                             aspectRatio: '1/1',
@@ -260,7 +302,7 @@ export default function ImagesRoute() {
                                 </DraggableItem>
                             ))}
                         </div>
-                    ) : (
+                    ) : !loading ? (
                         <div style={{
                             textAlign: 'center',
                             padding: '80px 20px',
@@ -308,7 +350,7 @@ export default function ImagesRoute() {
                                 {t('emptyStates.uploadFirstImage')}
                             </button>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Modal pour afficher l'image en grand */}
                     {selectedImage && (
@@ -327,16 +369,22 @@ export default function ImagesRoute() {
                                 padding: '40px'
                             }}
                             onClick={() => setSelectedImage(null)}
+                            aria-hidden="true"
                         >
-                            <div style={{
-                                position: 'relative',
-                                maxWidth: '90vw',
-                                maxHeight: '90vh'
-                            }}
-                            onClick={(e) => e.stopPropagation()}
+                            <div 
+                                role="dialog"
+                                aria-modal="true"
+                                aria-label="Prévisualisation de l'image"
+                                style={{
+                                    position: 'relative',
+                                    maxWidth: '90vw',
+                                    maxHeight: '90vh'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
                             >
                                 <button
                                     onClick={() => setSelectedImage(null)}
+                                    aria-label="Fermer la prévisualisation"
                                     style={{
                                         position: 'absolute',
                                         top: '-40px',
@@ -351,8 +399,11 @@ export default function ImagesRoute() {
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center'
+                                        justifyContent: 'center',
+                                        transition: 'background-color 0.2s, transform 0.2s'
                                     }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = darkTheme.background.tertiary; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = darkTheme.background.secondary; e.currentTarget.style.transform = 'scale(1)'; }}
                                 >
                                     ✕
                                 </button>

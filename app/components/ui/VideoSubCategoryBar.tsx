@@ -36,6 +36,7 @@ export function VideoSubCategoryBar({ selectedSubCategory, onSubCategoryChange }
                     <button
                         key={key}
                         onClick={() => onSubCategoryChange(key)}
+                        aria-current={isSelected ? 'page' : undefined}
                         style={{
                             display: 'flex',
                             alignItems: 'center',

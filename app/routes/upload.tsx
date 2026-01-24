@@ -216,6 +216,7 @@ export default function UploadRoute() {
                                         </div>
                                         <button
                                             onClick={handleCancel}
+                                            aria-label="Annuler l'upload"
                                             style={{
                                                 backgroundColor: 'transparent',
                                                 border: 'none',

@@ -10,22 +10,29 @@ interface ErrorDisplayProps {
 
 export function ErrorDisplay({ error, onRetry, retryText = 'Réessayer' }: ErrorDisplayProps) {
     return (
-        <div style={{
-            backgroundColor: `${darkTheme.accent.red}15`,
-            color: darkTheme.accent.red,
-            padding: '16px',
-            borderRadius: '8px',
-            marginTop: '16px',
-            border: `1px solid ${darkTheme.accent.red}40`,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px'
-        }}>
-            <div style={{
-                fontSize: '20px',
-                flexShrink: 0,
-                marginTop: '2px'
-            }}>
+        <div 
+            role="alert"
+            aria-live="assertive"
+            style={{
+                backgroundColor: `${darkTheme.accent.red}15`,
+                color: darkTheme.accent.red,
+                padding: '16px',
+                borderRadius: '8px',
+                marginTop: '16px',
+                border: `1px solid ${darkTheme.accent.red}40`,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px'
+            }}
+        >
+            <div 
+                aria-hidden="true"
+                style={{
+                    fontSize: '20px',
+                    flexShrink: 0,
+                    marginTop: '2px'
+                }}
+            >
                 ⚠️
             </div>
             <div style={{ flex: 1 }}>

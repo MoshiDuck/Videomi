@@ -28,12 +28,12 @@ export function StarRating({ userRating, averageRating, onRate, disabled = false
                 gap: '4px'
             }}>
                 {[1, 2, 3, 4, 5].map((star) => {
-                    let starColor = '#666'; // Gris par défaut
+                    let starColor = '#888'; // Gris par défaut (WCAG conforme)
                     
                     if (star <= displayRating) {
                         starColor = '#FFD700'; // Or si sélectionné/hover
                     } else if (showAverage && star <= Math.round(averageRating!)) {
-                        starColor = '#999'; // Gris clair pour la moyenne
+                        starColor = '#a8a8a8'; // Gris clair pour la moyenne (WCAG conforme)
                     }
                     
                     return (
@@ -43,6 +43,7 @@ export function StarRating({ userRating, averageRating, onRate, disabled = false
                             onMouseEnter={() => !disabled && setHoveredRating(star)}
                             onMouseLeave={() => !disabled && setHoveredRating(null)}
                             disabled={disabled}
+                            aria-label={`Noter ${star} étoile${star > 1 ? 's' : ''}`}
                             style={{
                                 background: 'none',
                                 border: 'none',

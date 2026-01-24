@@ -195,6 +195,9 @@ function ConfirmToast({ message, itemName, onConfirm, onCancel }: ConfirmToastPr
 
     return (
         <div
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
             style={{
                 position: 'fixed',
                 bottom: '40px',

@@ -3,12 +3,21 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { usePlayer } from '~/contexts/PlayerContext';
 
+// Fonction utilitaire pour formater le temps
+function formatTimeUtil(seconds: number): string {
+    if (!isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 export function MiniPlayer() {
-    const { state, pause, resume, stop, playNext, playPrevious, toggleMiniPlayer, audioRef, videoRef } = usePlayer();
+    const { state, pause, resume, stop, playNext, playPrevious, toggleMiniPlayer, audioRef, videoRef, canRestore, restoredState, restorePlayback, dismissRestore } = usePlayer();
     const navigate = useNavigate();
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState({ x: 24, y: 24 }); // Position from bottom-right
     const [isClient, setIsClient] = useState(false);
+    const [mediaError, setMediaError] = useState<string | null>(null);
     const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
 
     // Protection SSR - TOUS LES HOOKS DOIVENT ÊTRE AVANT LES RETURNS CONDITIONNELS
@@ -39,8 +48,162 @@ export function MiniPlayer() {
         };
     }, [isDragging]);
 
-    // Ne pas afficher côté serveur ou si pas de lecture en cours
-    if (!isClient || !state.fileUrl || !state.isMiniPlayer) {
+    // Ne pas afficher côté serveur
+    if (!isClient) {
+        return null;
+    }
+
+    // Afficher la notification de restauration si disponible et pas de lecture en cours
+    if (canRestore && restoredState && !state.fileUrl) {
+        return (
+            <div style={{
+                position: 'fixed',
+                bottom: '24px',
+                right: '24px',
+                width: '360px',
+                background: 'rgba(20, 20, 25, 0.95)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderRadius: '12px',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)',
+                overflow: 'hidden',
+                zIndex: 9999,
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                animation: 'slideUp 0.3s ease-out'
+            }}>
+                <div style={{
+                    padding: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    {/* Thumbnail */}
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        background: restoredState.thumbnail 
+                            ? `url(${restoredState.thumbnail}) center/cover` 
+                            : restoredState.type === 'video' 
+                                ? 'linear-gradient(135deg, #e50914, #b20710)'
+                                : 'linear-gradient(135deg, #1db954, #169c46)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                    }}>
+                        {!restoredState.thumbnail && (
+                            <span style={{ fontSize: '20px' }}>
+                                {restoredState.type === 'video' ? '🎬' : '🎵'}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                            color: 'rgba(255,255,255,0.7)',
+                            fontSize: '11px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            marginBottom: '4px'
+                        }}>
+                            Reprendre la lecture
+                        </div>
+                        <div style={{
+                            color: '#fff',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}>
+                            {restoredState.title || 'Sans titre'}
+                        </div>
+                        <div style={{
+                            color: 'rgba(255,255,255,0.7)',
+                            fontSize: '12px',
+                            marginTop: '2px'
+                        }}>
+                            {formatTimeUtil(restoredState.currentTime)} • {restoredState.artist || (restoredState.type === 'video' ? 'Vidéo' : 'Audio')}
+                        </div>
+                    </div>
+
+                    {/* Boutons */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={dismissRestore}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'rgba(255,255,255,0.7)',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                padding: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                            aria-label="Ignorer la restauration"
+                        >
+                            ✕
+                        </button>
+                        <button
+                            onClick={restorePlayback}
+                            aria-label="Reprendre la lecture"
+                            style={{
+                                background: restoredState.type === 'video' ? '#e50914' : '#1db954',
+                                border: 'none',
+                                color: '#fff',
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                transition: 'transform 0.2s',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                            ▶
+                        </button>
+                    </div>
+                </div>
+                
+                {/* Barre de progression */}
+                <div style={{
+                    height: '3px',
+                    background: 'rgba(255,255,255,0.1)'
+                }}>
+                    <div style={{
+                        height: '100%',
+                        width: '100%',
+                        background: restoredState.type === 'video' 
+                            ? 'linear-gradient(90deg, #e50914, #ff4040)' 
+                            : 'linear-gradient(90deg, #1db954, #1ed760)',
+                        opacity: 0.5
+                    }} />
+                </div>
+                
+                <style>{`
+                    @keyframes slideUp {
+                        from { transform: translateY(20px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    // Ne pas afficher si pas de lecture en cours
+    if (!state.fileUrl || !state.isMiniPlayer) {
         return null;
     }
 
@@ -93,6 +256,8 @@ export function MiniPlayer() {
                     src={state.fileUrl}
                     autoPlay={state.isPlaying}
                     style={{ display: 'none' }}
+                    onError={() => setMediaError('Impossible de charger le fichier audio')}
+                    onLoadStart={() => setMediaError(null)}
                 />
             )}
 
@@ -124,6 +289,8 @@ export function MiniPlayer() {
                             src={state.fileUrl}
                             autoPlay={state.isPlaying}
                             onClick={handleExpand}
+                            onError={() => setMediaError('Impossible de charger la vidéo')}
+                            onLoadStart={() => setMediaError(null)}
                             style={{
                                 width: '100%',
                                 height: '225px', // 16:9 ratio pour 400px de large
@@ -164,6 +331,38 @@ export function MiniPlayer() {
                                 textShadow: '0 2px 4px rgba(0,0,0,0.5)'
                             }}>⤢</span>
                         </div>
+                    </div>
+                )}
+                
+                {/* Message d'erreur si le média ne charge pas */}
+                {mediaError && (
+                    <div style={{
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(229, 9, 20, 0.9)',
+                        color: '#fff',
+                        fontSize: '12px',
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}>
+                        <span>⚠️</span>
+                        <span>{mediaError}</span>
+                        <button
+                            onClick={() => { setMediaError(null); resume(); }}
+                            style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                                fontSize: '11px'
+                            }}
+                        >
+                            Réessayer
+                        </button>
                     </div>
                 )}
                 
@@ -245,7 +444,7 @@ export function MiniPlayer() {
                                 {state.title || 'Sans titre'}
                             </div>
                             <div style={{
-                                color: 'rgba(255,255,255,0.5)',
+                                color: 'rgba(255,255,255,0.7)',
                                 fontSize: '12px',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
@@ -279,17 +478,21 @@ export function MiniPlayer() {
                             <button
                                 onClick={playPrevious}
                                 disabled={state.currentTrackIndex === 0}
+                                aria-label="Piste précédente"
                                 style={{
                                     background: 'none',
                                     border: 'none',
-                                    color: state.currentTrackIndex === 0 ? 'rgba(255,255,255,0.2)' : '#fff',
+                                    color: state.currentTrackIndex === 0 ? 'rgba(255,255,255,0.5)' : '#fff',
                                     fontSize: '16px',
                                     cursor: state.currentTrackIndex === 0 ? 'not-allowed' : 'pointer',
                                     padding: '8px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    transition: 'transform 0.2s'
                                 }}
+                                onMouseEnter={(e) => state.currentTrackIndex !== 0 && (e.currentTarget.style.transform = 'scale(1.1)')}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 ⏮
                             </button>
@@ -298,6 +501,7 @@ export function MiniPlayer() {
                         {/* Play/Pause */}
                         <button
                             onClick={() => state.isPlaying ? pause() : resume()}
+                            aria-label={state.isPlaying ? 'Mettre en pause' : 'Lire'}
                             style={{
                                 background: '#fff',
                                 border: 'none',
@@ -323,17 +527,21 @@ export function MiniPlayer() {
                             <button
                                 onClick={playNext}
                                 disabled={state.currentTrackIndex === state.playlist.length - 1}
+                                aria-label="Piste suivante"
                                 style={{
                                     background: 'none',
                                     border: 'none',
-                                    color: state.currentTrackIndex === state.playlist.length - 1 ? 'rgba(255,255,255,0.2)' : '#fff',
+                                    color: state.currentTrackIndex === state.playlist.length - 1 ? 'rgba(255,255,255,0.5)' : '#fff',
                                     fontSize: '16px',
                                     cursor: state.currentTrackIndex === state.playlist.length - 1 ? 'not-allowed' : 'pointer',
                                     padding: '8px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    transition: 'transform 0.2s'
                                 }}
+                                onMouseEnter={(e) => state.currentTrackIndex !== state.playlist.length - 1 && (e.currentTarget.style.transform = 'scale(1.1)')}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 ⏭
                             </button>
@@ -342,10 +550,11 @@ export function MiniPlayer() {
                         {/* Fermer */}
                         <button
                             onClick={stop}
+                            aria-label="Fermer le lecteur"
                             style={{
                                 background: 'none',
                                 border: 'none',
-                                color: 'rgba(255,255,255,0.5)',
+                                color: 'rgba(255,255,255,0.7)',
                                 fontSize: '18px',
                                 cursor: 'pointer',
                                 padding: '8px',
@@ -356,7 +565,7 @@ export function MiniPlayer() {
                                 transition: 'color 0.2s'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
                         >
                             ✕
                         </button>
@@ -369,7 +578,7 @@ export function MiniPlayer() {
                     justifyContent: 'space-between',
                     padding: '0 16px 10px',
                     fontSize: '11px',
-                    color: 'rgba(255,255,255,0.4)'
+                    color: 'rgba(255,255,255,0.7)'
                 }}>
                     <span>{formatTime(state.currentTime)}</span>
                     <span>{formatTime(state.duration)}</span>

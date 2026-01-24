@@ -1,11 +1,12 @@
 // INFO : app/components/ui/RatingModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { darkTheme } from '~/utils/ui/theme';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 
 interface RatingModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onRate: (rating: number) => void;
+    onRate: (rating: number) => void | Promise<void>;
     title: string;
     thumbnail?: string | null;
 }
@@ -13,46 +14,89 @@ interface RatingModalProps {
 export function RatingModal({ isOpen, onClose, onRate, title, thumbnail }: RatingModalProps) {
     const [hoveredRating, setHoveredRating] = useState<number | null>(null);
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (isOpen) {
             setSelectedRating(null);
             setHoveredRating(null);
+            setIsSubmitting(false);
+        }
+    }, [isOpen]);
+
+    // Gérer la fermeture avec Escape
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !isSubmitting) {
+                onClose();
+            }
+        };
+        
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [isOpen, isSubmitting, onClose]);
+
+    // Focus sur le bouton fermer à l'ouverture
+    useEffect(() => {
+        if (isOpen && closeButtonRef.current) {
+            closeButtonRef.current.focus();
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const handleStarClick = (rating: number) => {
+    const handleStarClick = async (rating: number) => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         setSelectedRating(rating);
-        onRate(rating);
+        try {
+            await onRate(rating);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const displayRating = hoveredRating || selectedRating || 0;
 
+    const dialogId = 'rating-dialog';
+    const titleId = `${dialogId}-title`;
+
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            backdropFilter: 'blur(8px)'
-        }}>
-            <div style={{
-                backgroundColor: darkTheme.background.secondary,
-                borderRadius: '12px',
-                padding: '40px',
-                maxWidth: '500px',
-                width: '90%',
-                textAlign: 'center',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
-            }}>
+        <div 
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000,
+                backdropFilter: 'blur(8px)'
+            }}
+            onClick={onClose}
+            aria-hidden="true"
+        >
+            <div 
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    backgroundColor: darkTheme.background.secondary,
+                    borderRadius: '12px',
+                    padding: '40px',
+                    maxWidth: '500px',
+                    width: '90%',
+                    textAlign: 'center',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+                }}
+            >
                 {thumbnail && (
                     <img
                         src={thumbnail}
@@ -68,12 +112,15 @@ export function RatingModal({ isOpen, onClose, onRate, title, thumbnail }: Ratin
                     />
                 )}
                 
-                <h2 style={{
-                    fontSize: '24px',
-                    fontWeight: '700',
-                    color: darkTheme.text.primary,
-                    marginBottom: '12px'
-                }}>
+                <h2 
+                    id={titleId}
+                    style={{
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        color: darkTheme.text.primary,
+                        marginBottom: '12px'
+                    }}
+                >
                     Que pensez-vous de "{title}" ?
                 </h2>
                 
@@ -90,29 +137,37 @@ export function RatingModal({ isOpen, onClose, onRate, title, thumbnail }: Ratin
                     justifyContent: 'center',
                     gap: '8px',
                     marginBottom: '32px',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    minHeight: '60px'
                 }}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                            key={star}
-                            onClick={() => handleStarClick(star)}
-                            onMouseEnter={() => setHoveredRating(star)}
-                            onMouseLeave={() => setHoveredRating(null)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                fontSize: '48px',
-                                lineHeight: '1',
-                                color: star <= displayRating ? '#FFD700' : '#666',
-                                transition: 'transform 0.2s, color 0.2s',
-                                transform: hoveredRating === star ? 'scale(1.2)' : 'scale(1)'
-                            }}
-                        >
-                            ★
-                        </button>
-                    ))}
+                    {isSubmitting ? (
+                        <LoadingSpinner size="medium" message="Envoi de la note..." />
+                    ) : (
+                        [1, 2, 3, 4, 5].map((star) => (
+                            <button
+                                key={star}
+                                onClick={() => handleStarClick(star)}
+                                onMouseEnter={() => setHoveredRating(star)}
+                                onMouseLeave={() => setHoveredRating(null)}
+                                disabled={isSubmitting}
+                                aria-label={`Noter ${star} étoile${star > 1 ? 's' : ''}`}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                    padding: '4px',
+                                    fontSize: '48px',
+                                    lineHeight: '1',
+                                    color: star <= displayRating ? '#FFD700' : '#888',
+                                    transition: 'transform 0.2s, color 0.2s',
+                                    transform: hoveredRating === star ? 'scale(1.2)' : 'scale(1)',
+                                    opacity: isSubmitting ? 0.5 : 1
+                                }}
+                            >
+                                ★
+                            </button>
+                        ))
+                    )}
                 </div>
                 
                 {selectedRating && (
@@ -131,6 +186,7 @@ export function RatingModal({ isOpen, onClose, onRate, title, thumbnail }: Ratin
                 )}
                 
                 <button
+                    ref={closeButtonRef}
                     onClick={onClose}
                     style={{
                         padding: '12px 24px',

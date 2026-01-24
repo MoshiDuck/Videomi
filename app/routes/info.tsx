@@ -659,18 +659,28 @@ export default function InfoRoute() {
                                     const episodeThumbnail = getThumbnailUrl(episode.file);
                                     const episodeProgress = watchProgress?.file_id === episode.file.file_id ? watchProgress : null;
                                     
+                                    const handleEpisodeClick = () => {
+                                        navigate(`/reader/${episode.file.category}/${episode.file.file_id}`, {
+                                            state: {
+                                                continuePlayback: episodeProgress ? true : false,
+                                                currentTime: episodeProgress?.current_time || 0
+                                            }
+                                        });
+                                    };
+                                    
                                     return (
                                         <div
                                             key={episode.file.file_id}
-                                            onClick={() => {
-                                                // Lancer directement la lecture, pas vers /info
-                                                navigate(`/reader/${episode.file.category}/${episode.file.file_id}`, {
-                                                    state: {
-                                                        continuePlayback: episodeProgress ? true : false,
-                                                        currentTime: episodeProgress?.current_time || 0
-                                                    }
-                                                });
+                                            onClick={handleEpisodeClick}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleEpisodeClick();
+                                                }
                                             }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={`Lire épisode ${episode.episodeNumber}: ${episode.title}`}
                                             style={{
                                                 display: 'flex',
                                                 gap: '16px',
@@ -806,7 +816,7 @@ export default function InfoRoute() {
                                             </div>
                                             
                                             {/* Bouton play */}
-                                            <div 
+                                            <button 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     navigate(`/reader/${episode.file.category}/${episode.file.file_id}`, {
@@ -816,6 +826,7 @@ export default function InfoRoute() {
                                                         }
                                                     });
                                                 }}
+                                                aria-label={`Lire l'épisode ${episode.episodeNumber || ''}`}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -828,13 +839,14 @@ export default function InfoRoute() {
                                                     fontSize: '20px',
                                                     flexShrink: 0,
                                                     cursor: 'pointer',
-                                                    transition: 'transform 0.2s'
+                                                    transition: 'transform 0.2s',
+                                                    border: 'none'
                                                 }}
                                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
                                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                             >
                                                 ▶
-                                            </div>
+                                            </button>
                                         </div>
                                     );
                                 })}
@@ -871,6 +883,15 @@ export default function InfoRoute() {
                                     <div
                                         key={relatedFile.file_id}
                                         onClick={() => navigate(`/info/${relatedFile.category}/${relatedFile.file_id}`)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                navigate(`/info/${relatedFile.category}/${relatedFile.file_id}`);
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Voir ${relatedName}`}
                                         style={{
                                             cursor: 'pointer',
                                             transition: 'transform 0.2s',

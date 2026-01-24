@@ -558,7 +558,7 @@ export default function ReaderRoute() {
                         {/* Bouton Mini Player */}
                         <button
                             onClick={handleMiniPlayer}
-                            title="Mini lecteur"
+                            aria-label="Mini lecteur"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -820,7 +820,7 @@ export default function ReaderRoute() {
                         {/* Bouton Mini Player */}
                         <button
                             onClick={handleMiniPlayer}
-                            title="Mini lecteur"
+                            aria-label="Mini lecteur"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1096,10 +1096,11 @@ export default function ReaderRoute() {
                                     <button
                                         onClick={playPrevious}
                                         disabled={currentTrackIndex === 0}
+                                        aria-label="Piste précédente"
                                         style={{
                                             background: 'none',
                                             border: 'none',
-                                            color: currentTrackIndex === 0 ? 'rgba(255,255,255,0.2)' : '#fff',
+                                            color: currentTrackIndex === 0 ? 'rgba(255,255,255,0.4)' : '#fff',
                                             fontSize: '24px',
                                             cursor: currentTrackIndex === 0 ? 'not-allowed' : 'pointer',
                                             padding: '8px',
@@ -1115,10 +1116,11 @@ export default function ReaderRoute() {
                                     <button
                                         onClick={playNext}
                                         disabled={currentTrackIndex === playlist.length - 1}
+                                        aria-label="Piste suivante"
                                         style={{
                                             background: 'none',
                                             border: 'none',
-                                            color: currentTrackIndex === playlist.length - 1 ? 'rgba(255,255,255,0.2)' : '#fff',
+                                            color: currentTrackIndex === playlist.length - 1 ? 'rgba(255,255,255,0.4)' : '#fff',
                                             fontSize: '24px',
                                             cursor: currentTrackIndex === playlist.length - 1 ? 'not-allowed' : 'pointer',
                                             padding: '8px',

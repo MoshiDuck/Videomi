@@ -48,6 +48,71 @@ export default function App() {
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <Meta />
             <Links />
+            <style dangerouslySetInnerHTML={{ __html: `
+                /* Styles d'accessibilité globaux */
+                
+                /* Focus visible pour la navigation clavier */
+                :focus-visible {
+                    outline: 2px solid #3b82f6 !important;
+                    outline-offset: 2px !important;
+                }
+                
+                /* Reset outline par défaut mais garder focus-visible */
+                :focus:not(:focus-visible) {
+                    outline: none;
+                }
+                
+                /* Focus spécifique pour les boutons */
+                button:focus-visible,
+                [role="button"]:focus-visible {
+                    outline: 2px solid #3b82f6 !important;
+                    outline-offset: 2px !important;
+                    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+                }
+                
+                /* Focus pour les inputs */
+                input:focus-visible,
+                textarea:focus-visible,
+                select:focus-visible {
+                    outline: 2px solid #3b82f6 !important;
+                    outline-offset: 0 !important;
+                    border-color: #3b82f6 !important;
+                }
+                
+                /* Focus pour les liens */
+                a:focus-visible {
+                    outline: 2px solid #3b82f6 !important;
+                    outline-offset: 2px !important;
+                }
+                
+                /* Respect de prefers-reduced-motion */
+                @media (prefers-reduced-motion: reduce) {
+                    *,
+                    *::before,
+                    *::after {
+                        animation-duration: 0.01ms !important;
+                        animation-iteration-count: 1 !important;
+                        transition-duration: 0.01ms !important;
+                        scroll-behavior: auto !important;
+                    }
+                }
+                
+                /* Skip link pour accessibilité */
+                .skip-link {
+                    position: absolute;
+                    top: -40px;
+                    left: 0;
+                    background: #3b82f6;
+                    color: white;
+                    padding: 8px 16px;
+                    z-index: 100000;
+                    transition: top 0.2s;
+                }
+                
+                .skip-link:focus {
+                    top: 0;
+                }
+            ` }} />
         </head>
         <body style={{ backgroundColor: '#121212', color: '#e0e0e0', margin: 0, padding: 0 }}>
             <LanguageProvider>

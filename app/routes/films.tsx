@@ -18,6 +18,7 @@ import { useFloating, useHover, useInteractions, FloatingPortal } from '@floatin
 import { DraggableItem } from '~/components/ui/DraggableItem';
 import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
+import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 
 interface FileItem {
     file_id: string;
@@ -513,6 +514,7 @@ export default function FilmsRoute() {
                                         e.stopPropagation();
                                         onClick();
                                     }}
+                                    aria-label="Lire le film"
                                     style={{
                                         width: '48px',
                                         height: '48px',
@@ -541,6 +543,7 @@ export default function FilmsRoute() {
                                 </button>
                                 <button 
                                     onClick={(e) => e.stopPropagation()}
+                                    aria-label="Ajouter à ma liste"
                                     style={{
                                         width: '48px',
                                         height: '48px',
@@ -662,12 +665,23 @@ export default function FilmsRoute() {
                 </div>
         );
 
+        const handleKeyDown = (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+            }
+        };
+
         return (
             <>
                 <div
                     ref={refs.setReference}
                     {...getReferenceProps()}
                     onClick={onClick}
+                    onKeyDown={handleKeyDown}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Voir ${movie.title || movie.filename || 'ce film'}`}
                     style={{
                         position: 'relative',
                         width: '185px',
@@ -690,6 +704,10 @@ export default function FilmsRoute() {
                                 onMouseLeave: () => {}
                             })}
                             onClick={onClick}
+                            onKeyDown={handleKeyDown}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`Voir ${movie.title || movie.filename || 'ce film'}`}
                             style={{
                                 position: 'fixed',
                                 top: `${customPosition.top}px`,
@@ -711,9 +729,20 @@ export default function FilmsRoute() {
     };
 
     // Carte non identifiée
-    const UnidentifiedCard = ({ file }: { file: FileItem }) => (
+    const UnidentifiedCard = ({ file }: { file: FileItem }) => {
+        const handleKeyDown = (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleUnidentifiedClick(file.file_id);
+            }
+        };
+        return (
         <div
             onClick={() => handleUnidentifiedClick(file.file_id)}
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
+            role="button"
+            aria-label={`Identifier ${file.filename || 'ce fichier'}`}
             style={{
                 width: '185px',
                 flexShrink: 0,
@@ -755,7 +784,26 @@ export default function FilmsRoute() {
             </div>
         </div>
     );
+    };
 
+
+    // Afficher le spinner uniquement au chargement initial (pas de données)
+    if (loading && !heroMovie && organizedMovies.byGenre.length === 0 && organizedMovies.unidentified.length === 0) {
+        return (
+            <AuthGuard>
+                <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
+                    <Navigation user={user!} onLogout={logout} />
+                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                        <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                            <LoadingSpinner size="large" message={t('common.loading')} />
+                        </div>
+                    </div>
+                </div>
+            </AuthGuard>
+        );
+    }
 
     if (error) {
         return (
@@ -765,8 +813,37 @@ export default function FilmsRoute() {
                     <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
                         <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
                         <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
-                        <div style={{ padding: '40px', textAlign: 'center', color: netflixTheme.accent.red }}>
-                            Erreur : {error}
+                        <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            minHeight: '50vh',
+                            gap: '16px'
+                        }}>
+                            <div style={{ fontSize: '48px', marginBottom: '8px' }}>⚠️</div>
+                            <div style={{ color: netflixTheme.accent.red, fontSize: '16px', textAlign: 'center' }}>
+                                {error}
+                            </div>
+                            <button
+                                onClick={() => window.location.reload()}
+                                style={{
+                                    marginTop: '16px',
+                                    padding: '12px 24px',
+                                    backgroundColor: netflixTheme.accent.red,
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    transition: 'transform 0.2s, opacity 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
+                            >
+                                Réessayer
+                            </button>
                         </div>
                     </div>
                 </div>

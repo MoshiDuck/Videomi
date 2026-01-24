@@ -49,6 +49,7 @@ export default function MatchRoute() {
     // Recherche
     const [searchQuery, setSearchQuery] = useState('');
     const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!fileId || !category || (category !== 'videos' && category !== 'musics')) {
@@ -205,6 +206,7 @@ export default function MatchRoute() {
         
         setSearching(true);
         setSearchQuery(query);
+        setSearchError(null);
         
         try {
             // Rechercher directement des artistes sur Spotify
@@ -247,6 +249,7 @@ export default function MatchRoute() {
             }
         } catch (error) {
             console.error('Erreur recherche artistes:', error);
+            setSearchError('Impossible de rechercher les artistes. Vérifiez votre connexion ou réessayez.');
         } finally {
             setSearching(false);
             setLoading(false);
@@ -259,6 +262,7 @@ export default function MatchRoute() {
         
         setSearching(true);
         setShowingAllAlbums(false); // Réinitialiser l'état
+        setSearchError(null);
         
         try {
             // Rechercher des tracks avec ce titre exact et cet artiste
@@ -297,6 +301,7 @@ export default function MatchRoute() {
             setAlbums(albumsList);
         } catch (error) {
             console.error('Erreur recherche albums:', error);
+            setSearchError('Impossible de rechercher les albums. Vérifiez votre connexion ou réessayez.');
             setAlbums([]);
         } finally {
             setSearching(false);
@@ -331,6 +336,7 @@ export default function MatchRoute() {
             setAlbums(albumsList);
         } catch (error) {
             console.error('Erreur chargement albums artiste:', error);
+            setSearchError('Impossible de charger les albums. Vérifiez votre connexion ou réessayez.');
             setAlbums([]);
         } finally {
             setLoadingAllAlbums(false);
@@ -343,6 +349,7 @@ export default function MatchRoute() {
         
         setSearching(true);
         setSearchQuery(query);
+        setSearchError(null);
         
         try {
             const [moviesResult, tvResult] = await Promise.all([
@@ -357,6 +364,7 @@ export default function MatchRoute() {
             setMatches(allMatches);
         } catch (error) {
             console.error('Erreur recherche correspondances:', error);
+            setSearchError('Impossible de rechercher les films/séries. Vérifiez votre connexion ou réessayez.');
         } finally {
             setSearching(false);
             setLoading(false);
@@ -705,8 +713,45 @@ export default function MatchRoute() {
                                     >
                                         {searching ? 'Recherche...' : 'Rechercher'}
                                     </button>
-                                </div>
                             </div>
+                        </div>
+
+                            {/* Erreur de recherche */}
+                            {searchError && (
+                                <div style={{
+                                    padding: '16px',
+                                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                                    border: '1px solid rgba(229, 9, 20, 0.3)',
+                                    borderRadius: '8px',
+                                    marginBottom: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e50914' }}>
+                                        <span>⚠️</span>
+                                        <span>{searchError}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setSearchError(null);
+                                            if (searchQuery) performArtistSearch(searchQuery);
+                                        }}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: darkTheme.accent.blue,
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        Réessayer
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Liste des artistes */}
                             {artists.length > 0 ? (
@@ -719,6 +764,15 @@ export default function MatchRoute() {
                                         <div
                                             key={`${artist.id}-${index}`}
                                             onClick={() => handleArtistSelect(artist)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleArtistSelect(artist);
+                                                }
+                                            }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={`Sélectionner ${artist.name}`}
                                             style={{
                                                 backgroundColor: darkTheme.background.secondary,
                                                 borderRadius: '12px',
@@ -999,6 +1053,16 @@ export default function MatchRoute() {
                                             <div
                                                 key={album.id}
                                                 onClick={() => handleAlbumToggle(album)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        handleAlbumToggle(album);
+                                                    }
+                                                }}
+                                                tabIndex={0}
+                                                role="button"
+                                                aria-label={`${isSelected ? 'Désélectionner' : 'Sélectionner'} ${album.album || album.title}`}
+                                                aria-pressed={isSelected}
                                                 style={{
                                                     backgroundColor: darkTheme.background.secondary,
                                                     borderRadius: '12px',
@@ -1247,6 +1311,43 @@ export default function MatchRoute() {
                                 </div>
                             </div>
 
+                            {/* Erreur de recherche */}
+                            {searchError && (
+                                <div style={{
+                                    padding: '16px',
+                                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                                    border: '1px solid rgba(229, 9, 20, 0.3)',
+                                    borderRadius: '8px',
+                                    marginBottom: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e50914' }}>
+                                        <span>⚠️</span>
+                                        <span>{searchError}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setSearchError(null);
+                                            if (searchQuery) performMovieSearch(searchQuery);
+                                        }}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: darkTheme.accent.blue,
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        Réessayer
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Liste des films/séries */}
                             {matches.length > 0 ? (
                                 <div style={{
@@ -1258,6 +1359,15 @@ export default function MatchRoute() {
                                         <div
                                             key={match.id}
                                             onClick={() => handleMovieSelect(match)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleMovieSelect(match);
+                                                }
+                                            }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={`Sélectionner ${match.title}${match.year ? ` (${match.year})` : ''}`}
                                             style={{
                                                 backgroundColor: darkTheme.background.secondary,
                                                 borderRadius: '12px',

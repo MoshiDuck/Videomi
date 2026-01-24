@@ -11,15 +11,21 @@ export function LoadingSpinner({ message = 'Chargement en cours...', size = 'med
     const spinnerSize = size === 'small' ? 24 : size === 'large' ? 48 : 32;
     
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '16px',
-            padding: '40px'
-        }}>
+        <div 
+            role="status"
+            aria-live="polite"
+            aria-label={message || 'Chargement en cours'}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '40px'
+            }}
+        >
             <div
+                aria-hidden="true"
                 style={{
                     width: `${spinnerSize}px`,
                     height: `${spinnerSize}px`,
