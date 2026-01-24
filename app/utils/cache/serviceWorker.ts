@@ -1,5 +1,6 @@
 // INFO : app/utils/cache/serviceWorker.ts
 // Utilitaires pour gérer le Service Worker
+// ISOLATION STRICTE PAR UTILISATEUR
 
 /**
  * Enregistre le Service Worker
@@ -23,7 +24,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                         console.log('[SW] Nouvelle version disponible');
-                        // Optionnel : notifier l'utilisateur
                     }
                 });
             }
@@ -37,8 +37,34 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 /**
+ * Définit l'utilisateur courant dans le Service Worker
+ * CRITIQUE : Doit être appelé au login et au chargement si utilisateur connecté
+ * Sans cet appel, le SW ne met PAS en cache (isolation stricte)
+ */
+export async function setServiceWorkerUserId(userId: string | null): Promise<void> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+        return;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        
+        if (registration.active) {
+            registration.active.postMessage({
+                type: 'SET_USER_ID',
+                userId: userId,
+            });
+            console.log(`[SW] UserId envoyé au Service Worker: ${userId}`);
+        }
+    } catch (error) {
+        console.error('[SW] Erreur envoi userId:', error);
+    }
+}
+
+/**
  * Vide le cache du Service Worker.
- * Au logout : clearAll=true pour vider tous les caches (fetch utilise public, isolation).
+ * @param userId - L'utilisateur dont vider le cache (ou null pour courant)
+ * @param clearAll - Si true, vide TOUS les caches videomi (logout)
  */
 export async function clearServiceWorkerCache(userId?: string | null, clearAll = true): Promise<void> {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -84,10 +110,50 @@ export async function invalidateServiceWorkerCache(pattern: string, userId?: str
 }
 
 /**
- * Enregistre le Service Worker (à appeler dans root.tsx)
+ * Récupère le statut du Service Worker (debug)
  */
-export function initServiceWorker() {
+export async function getServiceWorkerStatus(): Promise<{ currentUserId: string | null; cacheEnabled: boolean } | null> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+        return null;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        
+        if (registration.active) {
+            return new Promise((resolve) => {
+                const channel = new MessageChannel();
+                channel.port1.onmessage = (event) => {
+                    resolve(event.data);
+                };
+                registration.active!.postMessage(
+                    { type: 'GET_STATUS' },
+                    [channel.port2]
+                );
+                // Timeout après 1s
+                setTimeout(() => resolve(null), 1000);
+            });
+        }
+        return null;
+    } catch (error) {
+        console.error('[SW] Erreur récupération statut:', error);
+        return null;
+    }
+}
+
+/**
+ * Enregistre le Service Worker et configure l'utilisateur
+ * À appeler dans root.tsx avec le userId si connecté
+ */
+export async function initServiceWorker(userId?: string | null): Promise<void> {
     if (typeof window !== 'undefined') {
-        registerServiceWorker().catch(console.error);
+        await registerServiceWorker();
+        // Si userId fourni, l'envoyer immédiatement au SW
+        if (userId) {
+            // Petit délai pour s'assurer que le SW est prêt
+            setTimeout(() => {
+                setServiceWorkerUserId(userId);
+            }, 100);
+        }
     }
 }

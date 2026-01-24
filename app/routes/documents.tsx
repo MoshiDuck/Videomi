@@ -1,7 +1,7 @@
 // INFO : app/routes/documents.tsx
 // Page dédiée pour l'affichage des documents
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { Navigation } from '~/components/navigation/Navigation';
@@ -12,6 +12,9 @@ import { CategoryBar } from '~/components/ui/categoryBar';
 import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatFileSize, formatDate } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { DraggableItem } from '~/components/ui/DraggableItem';
+import { useFileActions } from '~/hooks/useFileActions';
+import { useToast } from '~/components/ui/Toast';
 
 interface FileItem {
     file_id: string;
@@ -38,6 +41,7 @@ export default function DocumentsRoute() {
     const navigate = useNavigate();
     const location = useLocation();
     const [selectedCategory, setSelectedCategory] = useState<FileCategory>('documents');
+    const { showToast, ToastContainer } = useToast();
     
     // Synchroniser selectedCategory avec la route actuelle
     useEffect(() => {
@@ -54,6 +58,19 @@ export default function DocumentsRoute() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [documents, setDocuments] = useState<FileItem[]>([]);
+
+    // Callback pour mise à jour optimiste après suppression
+    const handleFileDeleted = useCallback((fileId: string) => {
+        setDocuments((prev) => prev.filter((doc) => doc.file_id !== fileId));
+    }, []);
+
+    // Hook pour les actions de fichiers (drag & drop)
+    useFileActions({
+        userId: user?.id || null,
+        onFileDeleted: handleFileDeleted,
+        onError: (error) => showToast(error, 'error'),
+        onSuccess: (message) => showToast(message, 'success'),
+    });
 
     useEffect(() => {
         const fetchFiles = async () => {
@@ -135,100 +152,114 @@ export default function DocumentsRoute() {
                             gap: '12px'
                         }}>
                             {documents.map((document) => (
-                                <div
+                                <DraggableItem
                                     key={document.file_id}
-                                    onClick={() => window.open(getFileUrl(document), '_blank')}
-                                    style={{
-                                        backgroundColor: darkTheme.background.secondary,
-                                        borderRadius: '12px',
-                                        padding: '20px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        border: `2px solid ${darkTheme.border.primary}`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '16px'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = darkTheme.accent.blue;
-                                        e.currentTarget.style.backgroundColor = darkTheme.background.tertiary;
-                                        e.currentTarget.style.transform = 'translateX(4px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = darkTheme.border.primary;
-                                        e.currentTarget.style.backgroundColor = darkTheme.background.secondary;
-                                        e.currentTarget.style.transform = 'translateX(0)';
+                                    item={{
+                                        file_id: document.file_id,
+                                        category: document.category,
+                                        filename: document.filename,
+                                        size: document.size,
+                                        mime_type: document.mime_type,
                                     }}
                                 >
-                                    {/* Icône */}
-                                    <div style={{
-                                        fontSize: '48px',
-                                        flexShrink: 0
-                                    }}>
-                                        {getDocumentIcon(document.mime_type)}
-                                    </div>
-
-                                    {/* Aperçu PDF si disponible */}
-                                    {document.mime_type.includes('pdf') && (
-                                        <div style={{
-                                            width: '120px',
-                                            height: '160px',
-                                            backgroundColor: darkTheme.background.tertiary,
-                                            borderRadius: '8px',
-                                            overflow: 'hidden',
-                                            flexShrink: 0,
-                                            border: `1px solid ${darkTheme.border.primary}`
-                                        }}>
-                                            <iframe
-                                                src={getFileUrl(document) + '#page=1&zoom=50'}
-                                                style={{
-                                                    width: '200%',
-                                                    height: '200%',
-                                                    border: 'none',
-                                                    transform: 'scale(0.5)',
-                                                    transformOrigin: 'top left'
-                                                }}
-                                                title="Preview"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Infos */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{
-                                            fontWeight: '600',
-                                            color: darkTheme.text.primary,
-                                            fontSize: '16px',
-                                            marginBottom: '8px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {document.filename || 'Sans nom'}
-                                        </div>
-                                        <div style={{
+                                    <div
+                                        onClick={() => window.open(getFileUrl(document), '_blank')}
+                                        style={{
+                                            backgroundColor: darkTheme.background.secondary,
+                                            borderRadius: '12px',
+                                            padding: '20px',
+                                            cursor: 'grab',
+                                            transition: 'all 0.2s',
+                                            border: `2px solid ${darkTheme.border.primary}`,
                                             display: 'flex',
-                                            gap: '16px',
-                                            fontSize: '14px',
-                                            color: darkTheme.text.tertiary
+                                            alignItems: 'center',
+                                            gap: '16px'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = darkTheme.accent.blue;
+                                            e.currentTarget.style.backgroundColor = darkTheme.background.tertiary;
+                                            e.currentTarget.style.transform = 'translateX(4px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = darkTheme.border.primary;
+                                            e.currentTarget.style.backgroundColor = darkTheme.background.secondary;
+                                            e.currentTarget.style.transform = 'translateX(0)';
+                                        }}
+                                    >
+                                        {/* Icône */}
+                                        <div style={{
+                                            fontSize: '48px',
+                                            flexShrink: 0,
+                                            pointerEvents: 'none',
                                         }}>
-                                            <span>{formatFileSize(document.size)}</span>
-                                            <span>•</span>
-                                            <span>{formatDate(document.uploaded_at)}</span>
-                                            <span>•</span>
-                                            <span>{document.mime_type}</span>
+                                            {getDocumentIcon(document.mime_type)}
+                                        </div>
+
+                                        {/* Aperçu PDF si disponible */}
+                                        {document.mime_type.includes('pdf') && (
+                                            <div style={{
+                                                width: '120px',
+                                                height: '160px',
+                                                backgroundColor: darkTheme.background.tertiary,
+                                                borderRadius: '8px',
+                                                overflow: 'hidden',
+                                                flexShrink: 0,
+                                                border: `1px solid ${darkTheme.border.primary}`,
+                                                pointerEvents: 'none',
+                                            }}>
+                                                <iframe
+                                                    src={getFileUrl(document) + '#page=1&zoom=50'}
+                                                    style={{
+                                                        width: '200%',
+                                                        height: '200%',
+                                                        border: 'none',
+                                                        transform: 'scale(0.5)',
+                                                        transformOrigin: 'top left',
+                                                        pointerEvents: 'none',
+                                                    }}
+                                                    title="Preview"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Infos */}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                fontWeight: '600',
+                                                color: darkTheme.text.primary,
+                                                fontSize: '16px',
+                                                marginBottom: '8px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {document.filename || 'Sans nom'}
+                                            </div>
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '16px',
+                                                fontSize: '14px',
+                                                color: darkTheme.text.tertiary
+                                            }}>
+                                                <span>{formatFileSize(document.size)}</span>
+                                                <span>•</span>
+                                                <span>{formatDate(document.uploaded_at)}</span>
+                                                <span>•</span>
+                                                <span>{document.mime_type}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Indicateur de drag */}
+                                        <div style={{
+                                            fontSize: '20px',
+                                            color: darkTheme.text.tertiary,
+                                            flexShrink: 0,
+                                            opacity: 0.5,
+                                        }}>
+                                            ⋮⋮
                                         </div>
                                     </div>
-
-                                    {/* Bouton ouvrir */}
-                                    <div style={{
-                                        fontSize: '24px',
-                                        color: darkTheme.text.tertiary,
-                                        flexShrink: 0
-                                    }}>
-                                        →
-                                    </div>
-                                </div>
+                                </DraggableItem>
                             ))}
                         </div>
                     ) : (
@@ -281,6 +312,7 @@ export default function DocumentsRoute() {
                         </div>
                     )}
                 </div>
+                <ToastContainer />
             </div>
         </AuthGuard>
     );

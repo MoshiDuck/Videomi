@@ -15,6 +15,9 @@ import { getCategoryRoute } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { useFloating, useHover, useInteractions, FloatingPortal } from '@floating-ui/react';
+import { DraggableItem } from '~/components/ui/DraggableItem';
+import { useFileActions } from '~/hooks/useFileActions';
+import { useToast } from '~/components/ui/Toast';
 
 interface FileItem {
     file_id: string;
@@ -92,6 +95,38 @@ export default function FilmsRoute() {
         continueWatching: []
     });
     const [heroMovie, setHeroMovie] = useState<FileItem | null>(null);
+    const { showToast, ToastContainer } = useToast();
+
+    // Callback pour mise à jour optimiste après suppression
+    const handleFileDeleted = useCallback((fileId: string) => {
+        setOrganizedMovies((prev) => ({
+            unidentified: prev.unidentified.filter((f) => f.file_id !== fileId),
+            byGenre: prev.byGenre.map((g) => ({
+                ...g,
+                movies: g.movies.filter((f) => f.file_id !== fileId),
+            })).filter((g) => g.movies.length > 0),
+            recentlyAdded: prev.recentlyAdded.filter((f) => f.file_id !== fileId),
+            top10: prev.top10.filter((f) => f.file_id !== fileId),
+            continueWatching: prev.continueWatching.filter((f) => f.file_id !== fileId),
+        }));
+        // Si le heroMovie est supprimé, en choisir un autre
+        if (heroMovie?.file_id === fileId) {
+            const remaining = organizedMovies.recentlyAdded.filter((f) => f.file_id !== fileId && f.thumbnail_url);
+            if (remaining.length > 0) {
+                setHeroMovie(remaining[Math.floor(Math.random() * remaining.length)]);
+            } else {
+                setHeroMovie(null);
+            }
+        }
+    }, [heroMovie, organizedMovies.recentlyAdded]);
+
+    // Hook pour les actions de fichiers (drag & drop)
+    useFileActions({
+        userId: user?.id || null,
+        onFileDeleted: handleFileDeleted,
+        onError: (error) => showToast(error, 'error'),
+        onSuccess: (message) => showToast(message, 'success'),
+    });
     
     const handleCategoryChange = useCallback((category: FileCategory) => {
         setSelectedCategory(category);
@@ -972,29 +1007,40 @@ export default function FilmsRoute() {
                     {organizedMovies.continueWatching.length > 0 && (
                         <NetflixCarousel title="Continuer de regarder">
                             {organizedMovies.continueWatching.map((file) => (
-                                <div key={file.file_id} style={{ position: 'relative' }}>
-                                    <MovieCard
-                                        file={file}
-                                        onClick={() => handleVideoClick(file.file_id, file.category)}
-                                    />
-                                    {/* Barre de progression */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: '0',
-                                        left: '0',
-                                        right: '0',
-                                        height: '4px',
-                                        backgroundColor: 'rgba(255,255,255,0.3)',
-                                        borderRadius: '0 0 6px 6px'
-                                    }}>
+                                <DraggableItem
+                                    key={file.file_id}
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
+                                    }}
+                                >
+                                    <div style={{ position: 'relative' }}>
+                                        <MovieCard
+                                            file={file}
+                                            onClick={() => handleVideoClick(file.file_id, file.category)}
+                                        />
+                                        {/* Barre de progression */}
                                         <div style={{
-                                            width: `${file.progress_percent}%`,
-                                            height: '100%',
-                                            backgroundColor: netflixTheme.accent.red,
-                                            transition: 'width 0.3s ease'
-                                        }} />
+                                            position: 'absolute',
+                                            bottom: '0',
+                                            left: '0',
+                                            right: '0',
+                                            height: '4px',
+                                            backgroundColor: 'rgba(255,255,255,0.3)',
+                                            borderRadius: '0 0 6px 6px'
+                                        }}>
+                                            <div style={{
+                                                width: `${file.progress_percent}%`,
+                                                height: '100%',
+                                                backgroundColor: netflixTheme.accent.red,
+                                                transition: 'width 0.3s ease'
+                                            }} />
+                                        </div>
                                     </div>
-                                </div>
+                                </DraggableItem>
                             ))}
                         </NetflixCarousel>
                     )}
@@ -1003,63 +1049,74 @@ export default function FilmsRoute() {
                     {organizedMovies.top10.length > 0 && (
                         <NetflixCarousel title="Top 10 - Les mieux notés">
                             {organizedMovies.top10.map((file, index) => (
-                                <div key={file.file_id} style={{ position: 'relative' }}>
-                                    <MovieCard
-                                        file={file}
-                                        onClick={() => handleVideoClick(file.file_id, file.category)}
-                                    />
-                                    {/* Badge numéro */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '-10px',
-                                        left: '-10px',
-                                        width: '40px',
-                                        height: '40px',
-                                        backgroundColor: netflixTheme.accent.red,
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#fff',
-                                        fontSize: '20px',
-                                        fontWeight: '700',
-                                        zIndex: 10,
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
-                                    }}>
-                                        {index + 1}
-                                    </div>
-                                    {/* Note moyenne */}
-                                    {'averageRating' in file && file.averageRating !== undefined && (
+                                <DraggableItem
+                                    key={file.file_id}
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
+                                    }}
+                                >
+                                    <div style={{ position: 'relative' }}>
+                                        <MovieCard
+                                            file={file}
+                                            onClick={() => handleVideoClick(file.file_id, file.category)}
+                                        />
+                                        {/* Badge numéro */}
                                         <div style={{
                                             position: 'absolute',
-                                            bottom: '8px',
-                                            right: '8px',
-                                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                            borderRadius: '6px',
-                                            padding: '4px 8px',
+                                            top: '-10px',
+                                            left: '-10px',
+                                            width: '40px',
+                                            height: '40px',
+                                            backgroundColor: netflixTheme.accent.red,
+                                            borderRadius: '50%',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '4px',
-                                            zIndex: 10
+                                            justifyContent: 'center',
+                                            color: '#fff',
+                                            fontSize: '20px',
+                                            fontWeight: '700',
+                                            zIndex: 10,
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
                                         }}>
-                                            <span style={{
-                                                color: '#FFD700',
-                                                fontSize: '14px',
-                                                fontWeight: '600'
-                                            }}>
-                                                ★ {file.averageRating.toFixed(1)}
-                                            </span>
-                                            {file.ratingCount !== undefined && (
-                                                <span style={{
-                                                    color: netflixTheme.text.secondary,
-                                                    fontSize: '11px'
-                                                }}>
-                                                    ({file.ratingCount})
-                                                </span>
-                                            )}
+                                            {index + 1}
                                         </div>
-                                    )}
-                                </div>
+                                        {/* Note moyenne */}
+                                        {'averageRating' in file && file.averageRating !== undefined && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                bottom: '8px',
+                                                right: '8px',
+                                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                                borderRadius: '6px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                zIndex: 10
+                                            }}>
+                                                <span style={{
+                                                    color: '#FFD700',
+                                                    fontSize: '14px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    ★ {file.averageRating.toFixed(1)}
+                                                </span>
+                                                {file.ratingCount !== undefined && (
+                                                    <span style={{
+                                                        color: netflixTheme.text.secondary,
+                                                        fontSize: '11px'
+                                                    }}>
+                                                        ({file.ratingCount})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </DraggableItem>
                             ))}
                         </NetflixCarousel>
                     )}
@@ -1068,7 +1125,18 @@ export default function FilmsRoute() {
                     {organizedMovies.unidentified.length > 0 && (
                         <NetflixCarousel title={t('videos.unidentifiedFiles')} icon="📁">
                             {organizedMovies.unidentified.map((file) => (
-                                <UnidentifiedCard key={file.file_id} file={file} />
+                                <DraggableItem
+                                    key={file.file_id}
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
+                                    }}
+                                >
+                                    <UnidentifiedCard file={file} />
+                                </DraggableItem>
                             ))}
                         </NetflixCarousel>
                     )}
@@ -1077,11 +1145,21 @@ export default function FilmsRoute() {
                     {organizedMovies.recentlyAdded.length > 0 && (
                         <NetflixCarousel title={t('videos.recentlyAdded') || 'Ajoutés récemment'} icon="🆕">
                             {organizedMovies.recentlyAdded.map((file) => (
-                                <MovieCard
+                                <DraggableItem
                                     key={file.file_id}
-                                    file={file}
-                                    onClick={() => handleVideoClick(file.file_id, file.category)}
-                                />
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
+                                    }}
+                                >
+                                    <MovieCard
+                                        file={file}
+                                        onClick={() => handleVideoClick(file.file_id, file.category)}
+                                    />
+                                </DraggableItem>
                             ))}
                         </NetflixCarousel>
                     )}
@@ -1090,12 +1168,22 @@ export default function FilmsRoute() {
                     {organizedMovies.byGenre.map((genreGroup) => (
                         <NetflixCarousel key={genreGroup.genre} title={genreGroup.genre}>
                             {genreGroup.movies.map((file) => (
-                                <MovieCard
+                                <DraggableItem
                                     key={`${genreGroup.genre}-${file.file_id}`}
-                                    file={file}
-                                    genre={genreGroup.genre}
-                                    onClick={() => handleVideoClick(file.file_id, file.category)}
-                                />
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
+                                    }}
+                                >
+                                    <MovieCard
+                                        file={file}
+                                        genre={genreGroup.genre}
+                                        onClick={() => handleVideoClick(file.file_id, file.category)}
+                                    />
+                                </DraggableItem>
                             ))}
                         </NetflixCarousel>
                     ))}
@@ -1145,6 +1233,7 @@ export default function FilmsRoute() {
                         </div>
                     )}
                 </div>
+                <ToastContainer />
             </div>
         </AuthGuard>
     );

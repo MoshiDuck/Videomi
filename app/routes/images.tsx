@@ -1,7 +1,7 @@
 // INFO : app/routes/images.tsx
 // Page dédiée pour l'affichage des images
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { Navigation } from '~/components/navigation/Navigation';
@@ -12,6 +12,9 @@ import { CategoryBar } from '~/components/ui/categoryBar';
 import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatFileSize } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { DraggableItem } from '~/components/ui/DraggableItem';
+import { useFileActions } from '~/hooks/useFileActions';
+import { useToast } from '~/components/ui/Toast';
 
 interface FileItem {
     file_id: string;
@@ -33,6 +36,20 @@ export default function ImagesRoute() {
     const [images, setImages] = useState<FileItem[]>([]);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<FileCategory>('images');
+    const { showToast, ToastContainer } = useToast();
+
+    // Callback pour mise à jour optimiste après suppression
+    const handleFileDeleted = useCallback((fileId: string) => {
+        setImages((prev) => prev.filter((img) => img.file_id !== fileId));
+    }, []);
+
+    // Hook pour les actions de fichiers (drag & drop)
+    useFileActions({
+        userId: user?.id || null,
+        onFileDeleted: handleFileDeleted,
+        onError: (error) => showToast(error, 'error'),
+        onSuccess: (message) => showToast(message, 'success'),
+    });
     
     // Synchroniser selectedCategory avec la route actuelle
     useEffect(() => {
@@ -139,79 +156,108 @@ export default function ImagesRoute() {
                             gap: '16px'
                         }}>
                             {images.map((image) => (
-                                <div
+                                <DraggableItem
                                     key={image.file_id}
-                                    onClick={() => setSelectedImage(image.file_id)}
-                                    style={{
-                                        position: 'relative',
-                                        aspectRatio: '1/1',
-                                        backgroundColor: darkTheme.background.secondary,
-                                        borderRadius: '12px',
-                                        overflow: 'hidden',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        border: `2px solid ${darkTheme.border.primary}`
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = darkTheme.accent.blue;
-                                        e.currentTarget.style.transform = 'scale(1.02)';
-                                        e.currentTarget.style.boxShadow = darkTheme.shadow.large;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = darkTheme.border.primary;
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.boxShadow = 'none';
+                                    item={{
+                                        file_id: image.file_id,
+                                        category: image.category,
+                                        filename: image.filename,
+                                        size: image.size,
+                                        mime_type: image.mime_type,
                                     }}
                                 >
-                                    <img
-                                        src={getFileUrl(image)}
-                                        alt={image.filename || 'Image'}
+                                    <div
+                                        onClick={() => setSelectedImage(image.file_id)}
                                         style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover'
-                                        }}
-                                        onError={(e) => {
-                                            const img = e.target as HTMLImageElement;
-                                            const container = img.parentElement;
-                                            if (container) {
-                                                container.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; color: ${darkTheme.text.tertiary};">
-                                                    <div style="font-size: 48px; margin-bottom: 8px;">🖼️</div>
-                                                    <div style="font-size: 12px;">Erreur de chargement</div>
-                                                </div>`;
-                                            }
-                                        }}
-                                    />
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
-                                        padding: '12px',
-                                        color: '#fff',
-                                        fontSize: '12px',
-                                        opacity: 0,
-                                        transition: 'opacity 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.opacity = '1';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.opacity = '0';
-                                    }}
-                                    >
-                                        <div style={{
+                                            position: 'relative',
+                                            aspectRatio: '1/1',
+                                            backgroundColor: darkTheme.background.secondary,
+                                            borderRadius: '12px',
                                             overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            marginBottom: '4px'
-                                        }}>
-                                            {image.filename || 'Sans nom'}
+                                            cursor: 'grab',
+                                            transition: 'all 0.2s',
+                                            border: `2px solid ${darkTheme.border.primary}`
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = darkTheme.accent.blue;
+                                            e.currentTarget.style.transform = 'scale(1.02)';
+                                            e.currentTarget.style.boxShadow = darkTheme.shadow.large;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = darkTheme.border.primary;
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        <img
+                                            src={getFileUrl(image)}
+                                            alt={image.filename || 'Image'}
+                                            draggable={false}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                                pointerEvents: 'none',
+                                            }}
+                                            onError={(e) => {
+                                                const img = e.target as HTMLImageElement;
+                                                const container = img.parentElement;
+                                                if (container) {
+                                                    container.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; color: ${darkTheme.text.tertiary};">
+                                                        <div style="font-size: 48px; margin-bottom: 8px;">🖼️</div>
+                                                        <div style="font-size: 12px;">Erreur de chargement</div>
+                                                    </div>`;
+                                                }
+                                            }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+                                            padding: '12px',
+                                            color: '#fff',
+                                            fontSize: '12px',
+                                            opacity: 0,
+                                            transition: 'opacity 0.2s',
+                                            pointerEvents: 'none',
+                                        }}
+                                        >
+                                            <div style={{
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                marginBottom: '4px'
+                                            }}>
+                                                {image.filename || 'Sans nom'}
+                                            </div>
+                                            <div>{formatFileSize(image.size)}</div>
                                         </div>
-                                        <div>{formatFileSize(image.size)}</div>
+                                        {/* Indicateur de drag au hover */}
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '6px',
+                                                backgroundColor: 'rgba(0,0,0,0.6)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                opacity: 0,
+                                                transition: 'opacity 0.2s',
+                                                fontSize: '14px',
+                                                pointerEvents: 'none',
+                                            }}
+                                            className="drag-indicator"
+                                        >
+                                            ⋮⋮
+                                        </div>
                                     </div>
-                                </div>
+                                </DraggableItem>
                             ))}
                         </div>
                     ) : (
@@ -323,7 +369,15 @@ export default function ImagesRoute() {
                             </div>
                         </div>
                     )}
+
+                    {/* Style pour l'indicateur de drag au hover */}
+                    <style>{`
+                        div:hover > .drag-indicator {
+                            opacity: 1 !important;
+                        }
+                    `}</style>
                 </div>
+                <ToastContainer />
             </div>
         </AuthGuard>
     );

@@ -12,6 +12,7 @@ import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { StarRating } from '~/components/ui/StarRating';
+import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 interface FileItem {
     file_id: string;
@@ -291,6 +292,13 @@ export default function InfoRoute() {
                 const data = await response.json() as { userRating: number; averageRating: number | null };
                 setUserRating(data.userRating);
                 setAverageRating(data.averageRating);
+                
+                // Invalider le cache après un nouveau rating (doc: invalidation rating:new)
+                await handleCacheInvalidation({
+                    type: 'rating:new',
+                    userId: user.id,
+                    fileId: fileId,
+                });
             }
         } catch (error) {
             console.error('Erreur sauvegarde note:', error);

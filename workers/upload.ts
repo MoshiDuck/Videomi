@@ -2141,9 +2141,14 @@ app.get('/api/stats', async (c) => {
             billableGB: billableGB
         };
         
-        const response = c.json(responseData);
+        // /api/stats contient billableGB (facturation) - jamais en cache selon doc
+        // Headers no-cache explicites pour empêcher cache navigateur
+        const response = c.json(responseData, 200, {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+        });
         
-        // Mettre en cache
+        // Ce bloc ne sera jamais exécuté car canCache() retourne false pour /api/stats
         if (canCache(c.req.raw, userId)) {
             const responseText = JSON.stringify(responseData);
             const etag = generateETag(responseText);

@@ -4,7 +4,7 @@ import type { CredentialResponse } from '@react-oauth/google';
 import type { ApiAuthResponse, AuthConfig } from '~/types/auth';
 import { useNavigate } from 'react-router';
 import { clearLocalCache } from '~/utils/cache/localCache';
-import { clearServiceWorkerCache } from '~/utils/cache/serviceWorker';
+import { clearServiceWorkerCache, setServiceWorkerUserId } from '~/utils/cache/serviceWorker';
 import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 // Type guard pour ApiAuthResponse
@@ -32,6 +32,12 @@ export function useAuth() {
             try {
                 const parsedUser = JSON.parse(storedUser);
                 setUser(parsedUser);
+                
+                // ISOLATION STRICTE : Envoyer le userId au Service Worker
+                // Le SW ne cache rien sans userId (pas de cache public)
+                if (parsedUser?.id) {
+                    setServiceWorkerUserId(parsedUser.id);
+                }
             } catch (e) {
                 // Nettoyer les données corrompues
                 localStorage.removeItem('videomi_token');
@@ -75,6 +81,11 @@ export function useAuth() {
             localStorage.setItem('videomi_user', JSON.stringify(completeUser));
             localStorage.setItem('videomi_token', data.token);
             setUser(completeUser);
+
+            // ISOLATION STRICTE : Envoyer le userId au Service Worker après login
+            if (completeUser.id) {
+                setServiceWorkerUserId(completeUser.id);
+            }
 
             navigate('/home');
         } catch (err: any) {
