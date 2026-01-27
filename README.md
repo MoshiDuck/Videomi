@@ -1,105 +1,135 @@
+<div align="center">
+
 # Videomi
 
-Application de gestion de médias personnels avec interface style Netflix/Spotify, déployée sur Cloudflare Workers.
+**Application de gestion de médias personnels** — Interface style Netflix/Spotify, déployée sur Cloudflare Workers.
+
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1%20%2B%20R2-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
+[![WCAG 2.1 AA](https://img.shields.io/badge/WCAG-2.1%20AA-005A9C?logo=accessibility)](https://www.w3.org/WAI/WCAG21/quickref/)
+
+**[Site en production](https://videomi.uk)** · **[Documentation](./docs/)** · **[Dépôt](https://github.com/MoshiDuck/Videomi)**
+
+</div>
+
+---
+
+## À propos
+
+**Videomi** est une application web full‑stack qui permet de gérer, organiser et consommer vos médias personnels (vidéos, musique, images, documents) via une interface moderne inspirée de Netflix et Spotify. Streaming HLS, enrichissement automatique des métadonnées (TMDb, Spotify, etc.), cache multi‑niveaux et accessibilité WCAG 2.1 AA en font une solution complète et professionnelle.
 
 ---
 
 ## Table des matières
 
-1. [Fonctionnalités](#fonctionnalités)
-2. [Architecture technique](#architecture-technique)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Développement](#développement)
-6. [Déploiement](#déploiement)
-7. [Documentation](#documentation)
-8. [Structure du projet](#structure-du-projet)
-9. [Commandes Git](#commandes-git)
-10. [Licence](#licence)
+- [Fonctionnalités](#-fonctionnalités)
+- [Architecture technique](#-architecture-technique)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Développement](#-développement)
+- [Déploiement](#-déploiement)
+- [Documentation](#-documentation)
+- [Structure du projet](#-structure-du-projet)
+- [Workflow Git](#-workflow-git)
+- [Roadmap](#-roadmap)
+- [Statistiques](#-statistiques)
+- [Licence](#-licence)
+- [Liens](#-liens)
 
 ---
 
 ## Fonctionnalités
 
 ### Gestion de fichiers
-- Upload multi-format (vidéos, musiques, images, documents, archives)
-- Chunked upload avec reprise automatique
-- Déduplication par hash SHA-256
-- Streaming HLS pour vidéos
+
+| Capacité | Détail |
+|----------|--------|
+| **Upload multi‑format** | Vidéos, musiques, images, documents, archives |
+| **Chunked upload** | Reprise automatique, upload par morceaux |
+| **Déduplication** | Hash SHA‑256 pour éviter les doublons |
+| **Streaming** | HLS pour la lecture vidéo |
 
 ### Interface utilisateur
-- Interface style Netflix pour films/séries
-- Interface style Spotify pour musique
-- Mini-player flottant avec playlist
-- Drag & drop pour suppression de fichiers
 
-### Enrichissement de métadonnées
-- TMDb pour films et séries
-- Spotify pour musique
-- Génération automatique de miniatures
+| Capacité | Détail |
+|----------|--------|
+| **Films & séries** | Interface type Netflix (carrousels, fiches) |
+| **Musique** | Interface type Spotify (playlists, mini‑player) |
+| **Mini‑player** | Lecteur flottant avec playlist et contrôles |
+| **Drag & drop** | Réorganisation et suppression de fichiers |
 
-### Performances
-- Cache multi-niveaux (navigateur, Edge, IndexedDB)
-- Préchargement intelligent des catégories
-- Service Worker pour cache des images
+### Enrichissement des métadonnées
 
-### Accessibilité
-- Conformité WCAG 2.1 AA certifiée
-- Navigation clavier complète
-- Support `prefers-reduced-motion`
-- Internationalisation (FR, EN, ES, DE)
+| Source | Usage |
+|--------|--------|
+| **TMDb** | Films et séries |
+| **Spotify** | Musique (pochettes, infos) |
+| **OMDb / Discogs** | Compléments optionnels |
+| **Miniatures** | Génération automatique |
+
+### Performances & accessibilité
+
+- **Cache multi‑niveaux** : Navigateur (IndexedDB), Edge (Cache API), Service Worker pour images/médias  
+- **Préchargement** : Catégories préchargées de façon intelligente  
+- **WCAG 2.1 AA** : Conformité certifiée, navigation clavier, `prefers-reduced-motion`  
+- **i18n** : FR, EN, ES, DE  
 
 ---
 
 ## Architecture technique
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CLIENT (React + Vite)                     │
-│  ┌──────────────────┐  ┌──────────────────┐                 │
-│  │  IndexedDB       │  │  Service Worker  │                 │
-│  │  (Métadonnées)   │  │  (Images/Media)  │                 │
-│  └──────────────────┘  └──────────────────┘                 │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              CLOUDFLARE EDGE (Workers + Hono)                │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Cache API + Headers HTTP + ETag                        │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              STOCKAGE (Cloudflare D1 + R2)                   │
-│  ┌──────────────────┐  ┌──────────────────┐                 │
-│  │  D1 (SQLite)     │  │  R2 (S3-compat)  │                 │
-│  │  Métadonnées     │  │  Fichiers        │                 │
-│  └──────────────────┘  └──────────────────┘                 │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    CLIENT (React 19 + Vite 6)                    │
+│  ┌────────────────────┐  ┌────────────────────┐                  │
+│  │  IndexedDB         │  │  Service Worker    │                  │
+│  │  (métadonnées)     │  │  (images / média)  │                  │
+│  └────────────────────┘  └────────────────────┘                  │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              CLOUDFLARE EDGE (Workers + Hono)                    │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Cache API · Headers HTTP · ETag                            │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              STOCKAGE (Cloudflare D1 + R2)                       │
+│  ┌────────────────────┐  ┌────────────────────┐                  │
+│  │  D1 (SQLite)       │  │  R2 (S3‑compatible)│                  │
+│  │  Métadonnées       │  │  Fichiers          │                  │
+│  └────────────────────┘  └────────────────────┘                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Technologies
+### Stack technique
 
 | Couche | Technologies |
 |--------|--------------|
-| Frontend | React 18, Vite, TypeScript, React Router v7 |
-| Backend | Cloudflare Workers, Hono, D1, R2 |
-| Auth | Google OAuth 2.0, JWT |
-| Cache | IndexedDB, Service Worker, Cache API |
+| **Frontend** | React 19, Vite 6, TypeScript, React Router v7, Tailwind CSS, Motion |
+| **Backend** | Cloudflare Workers, Hono, D1, R2 |
+| **Auth** | Google OAuth 2.0, JWT (jose) |
+| **Cache** | IndexedDB, Service Worker, Cache API |
+| **Desktop** | Electron (optionnel) |
+
+---
+
+## Prérequis
+
+- **Node.js** 18+  
+- **npm** 9+  
+- **Compte Cloudflare** avec accès à Workers, D1 et R2  
+- **Wrangler CLI** : `npm install -g wrangler` (ou utilisation via `npx wrangler`)  
 
 ---
 
 ## Installation
-
-### Prérequis
-
-- Node.js 18+
-- npm 9+
-- Compte Cloudflare (Workers, D1, R2)
-
-### Étapes
 
 ```bash
 # Cloner le dépôt
@@ -108,109 +138,111 @@ cd Videomi
 
 # Installer les dépendances
 npm install
-
-# Configurer les variables d'environnement
-cp wrangler.jsonc.example wrangler.jsonc
-# Éditer wrangler.jsonc avec vos IDs Cloudflare
 ```
+
+Ensuite, configurer **Wrangler** et les **secrets** Cloudflare (voir [Configuration](#-configuration)).
 
 ---
 
 ## Configuration
 
-### Variables d'environnement (Cloudflare Secrets)
+### 1. Wrangler & ressources Cloudflare
+
+Créez ou adaptez `wrangler.jsonc` avec vos identifiants Cloudflare (IDs Workers, D1, R2). Les ressources typiques sont :
+
+- **D1** : base `videomi_db`  
+- **R2** : bucket `videomi-storage`  
+
+### 2. Secrets (variables d'environnement)
 
 ```bash
-# Authentification
-wrangler secret put JWT_SECRET
-wrangler secret put GOOGLE_CLIENT_ID
-wrangler secret put GOOGLE_CLIENT_SECRET
+# Authentification (obligatoire)
+npx wrangler secret put JWT_SECRET
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
 
-# APIs métadonnées (optionnel)
-wrangler secret put TMDB_API_KEY
-wrangler secret put OMDB_API_KEY
-wrangler secret put SPOTIFY_CLIENT_ID
-wrangler secret put SPOTIFY_CLIENT_SECRET
-wrangler secret put DISCOGS_API_TOKEN
+# Métadonnées (optionnel mais recommandé)
+npx wrangler secret put TMDB_API_KEY
+npx wrangler secret put OMDB_API_KEY
+npx wrangler secret put SPOTIFY_CLIENT_ID
+npx wrangler secret put SPOTIFY_CLIENT_SECRET
+npx wrangler secret put DISCOGS_API_TOKEN
 ```
 
-Voir [CONFIGURATION_API_KEYS.md](./CONFIGURATION_API_KEYS.md) pour plus de détails.
-
-### Configuration Cloudflare
-
-| Service | Configuration |
-|---------|---------------|
-| Workers | `wrangler.jsonc` |
-| D1 | Base `videomi_db` |
-| R2 | Bucket `videomi-storage` |
+Pour le détail des clés API et où les obtenir : **[CONFIGURATION_API_KEYS.md](./CONFIGURATION_API_KEYS.md)**.
 
 ---
 
 ## Développement
 
-### Démarrage local
+### Démarrer l’app en local
 
 ```bash
-# Serveur de développement
 npm run dev
 ```
 
-L'application sera disponible sur `http://localhost:5173`.
+L’application est accessible sur **http://localhost:5173**.
 
-### Scripts disponibles
+### Scripts npm
 
 | Commande | Description |
 |----------|-------------|
-| `npm run dev` | Serveur de développement |
+| `npm run dev` | Serveur de développement (React Router + Vite) |
 | `npm run build` | Build de production |
-| `npm run deploy` | Déploiement Cloudflare |
-| `npm run lint` | Vérification ESLint |
-| `npm run typecheck` | Vérification TypeScript |
+| `npm run preview` | Build + prévisualisation du build |
+| `npm run deploy` | Build + déploiement sur Cloudflare Workers |
+| `npm run typecheck` | Génération des types Wrangler + vérification TypeScript |
+| `npm run electron:build` | Build du package Electron |
+| `npm run electron:deploy` | Build Electron + lancement en mode prod (videomi.uk) |
+| `npm run total:build` | Build web + Electron |
+| `npm run total:deploy` | Build web + Electron, déploiement Cloudflare, puis lancement Electron |
 
 ---
 
 ## Déploiement
 
-### Déploiement sur Cloudflare
+### Déployer sur Cloudflare
 
 ```bash
 npm run deploy
 ```
 
-### Troubleshooting
+Le site est alors disponible sur **https://videomi.uk** (ou votre domaine configuré).
 
-Voir [DEPLOY_TROUBLESHOOTING.md](./DEPLOY_TROUBLESHOOTING.md) pour les erreurs courantes (403, etc.).
+### Dépannage
+
+En cas d’erreurs (403, CORS, secrets, etc.) : **[DEPLOY_TROUBLESHOOTING.md](./DEPLOY_TROUBLESHOOTING.md)**.
 
 ---
 
 ## Documentation
 
-### Documentation technique (`docs/`)
+### Technique
 
 | Document | Description |
 |----------|-------------|
-| [API_REFERENCE.md](./docs/API_REFERENCE.md) | Référence complète de l'API (42 endpoints) |
-| [COMPONENTS_REFERENCE.md](./docs/COMPONENTS_REFERENCE.md) | Référence des composants React (20 composants) |
-| [HOOKS_CONTEXTS_REFERENCE.md](./docs/HOOKS_CONTEXTS_REFERENCE.md) | Référence des hooks et contextes (12 fichiers) |
+| [API_REFERENCE.md](./docs/API_REFERENCE.md) | Référence API (42 endpoints) |
+| [COMPONENTS_REFERENCE.md](./docs/COMPONENTS_REFERENCE.md) | Composants React |
+| [HOOKS_CONTEXTS_REFERENCE.md](./docs/HOOKS_CONTEXTS_REFERENCE.md) | Hooks et contextes |
 
-### Documentation cache (`docs/`)
+### Cache
 
 | Document | Description |
 |----------|-------------|
-| [CACHE_ARCHITECTURE.md](./docs/CACHE_ARCHITECTURE.md) | Architecture cache 3 niveaux |
-| [CACHE_README.md](./docs/CACHE_README.md) | Vue d'ensemble du système de cache |
+| [CACHE_ARCHITECTURE.md](./docs/CACHE_ARCHITECTURE.md) | Architecture du cache 3 niveaux |
+| [CACHE_README.md](./docs/CACHE_README.md) | Vue d’ensemble |
 | [CACHE_BEST_PRACTICES.md](./docs/CACHE_BEST_PRACTICES.md) | Bonnes pratiques |
-| [CACHE_EXAMPLES.md](./docs/CACHE_EXAMPLES.md) | Exemples d'intégration |
-| [CACHE_CONFORMITY_FINAL_AUDIT.md](./docs/CACHE_CONFORMITY_FINAL_AUDIT.md) | Audit conformité 100% |
+| [CACHE_EXAMPLES.md](./docs/CACHE_EXAMPLES.md) | Exemples d’intégration |
+| [CACHE_CONFORMITY_FINAL_AUDIT.md](./docs/CACHE_CONFORMITY_FINAL_AUDIT.md) | Audit de conformité |
 
-### Documentation UX/Accessibilité (`docs/`)
+### UX & accessibilité
 
 | Document | Description |
 |----------|-------------|
 | [UX_AUDIT_SPRINT1_2.md](./docs/UX_AUDIT_SPRINT1_2.md) | Audit UX Sprint 1 & 2 |
-| [UX_CONFORMITY_AUDIT.md](./docs/UX_CONFORMITY_AUDIT.md) | Audit WCAG 2.1 AA certifié |
+| [UX_CONFORMITY_AUDIT.md](./docs/UX_CONFORMITY_AUDIT.md) | Audit WCAG 2.1 AA |
 
-### Audit final
+### Audits
 
 | Document | Description |
 |----------|-------------|
@@ -223,58 +255,47 @@ Voir [DEPLOY_TROUBLESHOOTING.md](./DEPLOY_TROUBLESHOOTING.md) pour les erreurs c
 ```
 videomi/
 ├── app/
-│   ├── components/        # Composants React (20 fichiers)
-│   │   ├── auth/         # AuthGuard, GoogleAuthButton
-│   │   ├── navigation/   # Navigation
-│   │   ├── profile/      # UserProfile
-│   │   ├── ui/           # Composants UI (15 fichiers)
-│   │   └── upload/       # UploadManager
-│   ├── contexts/         # Contextes React (4 fichiers)
-│   │   ├── AuthContext.tsx
-│   │   ├── DragDropContext.tsx
-│   │   ├── LanguageContext.tsx
-│   │   └── PlayerContext.tsx
-│   ├── hooks/            # Hooks personnalisés (8 fichiers)
-│   │   ├── useAuth.ts
-│   │   ├── useConfig.ts
-│   │   ├── useFiles.ts
-│   │   ├── useLocalCache.ts
-│   │   └── ...
-│   ├── routes/           # Pages (18 fichiers)
-│   ├── types/            # Types TypeScript
-│   └── utils/            # Utilitaires
-│       ├── cache/        # Système de cache
-│       ├── file/         # Gestion fichiers
-│       └── ui/           # Thème
-├── workers/              # Cloudflare Workers
-│   ├── app.ts            # Application principale
-│   ├── auth.ts           # Authentification
-│   ├── cache.ts          # Utilitaires cache Edge
-│   └── upload.ts         # Gestion fichiers
-├── public/
-│   └── sw.js             # Service Worker
-├── docs/                 # Documentation
-└── electron/             # Application desktop (optionnel)
+│   ├── components/          # Composants React
+│   │   ├── auth/            # AuthGuard, GoogleAuthButton
+│   │   ├── navigation/      # Navigation
+│   │   ├── profile/         # UserProfile
+│   │   ├── ui/              # Composants UI (categoryBar, MiniPlayer, etc.)
+│   │   └── upload/          # UploadManager
+│   ├── contexts/            # Auth, DragDrop, Language, Player
+│   ├── hooks/               # useAuth, useFiles, useLocalCache, etc.
+│   ├── routes/              # Pages (films, séries, musique, documents, …)
+│   ├── types/               # Types TypeScript
+│   └── utils/               # Cache, fichiers, i18n, thème
+├── workers/                 # Cloudflare Workers (Hono)
+│   ├── app.ts               # Application principale
+│   ├── auth.ts              # Authentification
+│   ├── cache.ts             # Cache Edge
+│   └── upload.ts            # Gestion uploads
+├── electron/                # App desktop (optionnel)
+├── public/                  # Assets statiques, Service Worker
+├── docs/                    # Documentation
+├── wrangler.jsonc           # Configuration Cloudflare
+└── package.json
 ```
 
 ---
 
-## Commandes Git
+## Workflow Git
 
-### Récupérer la version en ligne
+### Récupérer la version distante
 
 ```bash
 git fetch origin
 git reset --hard origin/main
 ```
 
-### Créer une sauvegarde locale
+### Sauvegarde locale avant mise à jour
 
 ```bash
 git branch backup-local
 git fetch origin
 git reset --hard origin/main
-# Pour restaurer: git checkout backup-local
+# Restaurer : git checkout backup-local
 ```
 
 ### Pousser des modifications
@@ -291,27 +312,27 @@ git push origin main
 
 ### En cours
 
-- [ ] Grille d'images améliorée
-- [ ] Grille de documents avec dates
-- [ ] Option de stockage local dans upload
+- [ ] Grille d’images améliorée  
+- [ ] Grille de documents avec dates  
+- [ ] Option de stockage local dans l’upload  
 
 ### Prévu
 
-- [ ] Streaming via liens YouTube
-- [ ] Téléchargement depuis streaming
-- [ ] Sous-titres (.srt, .vtt)
-- [ ] Partage de fichiers avec liens temporaires
+- [ ] Streaming via liens YouTube  
+- [ ] Téléchargement depuis flux  
+- [ ] Sous-titres (.srt, .vtt)  
+- [ ] Partage de fichiers par liens temporaires  
 
 ### Idées futures
 
-- [ ] Mode hors ligne amélioré
-- [ ] Import depuis Google Drive/Dropbox
-- [ ] Extension navigateur
-- [ ] Application mobile
+- [ ] Mode hors ligne amélioré  
+- [ ] Import depuis Google Drive / Dropbox  
+- [ ] Extension navigateur  
+- [ ] Application mobile  
 
 ---
 
-## Statistiques du projet
+## Statistiques
 
 | Métrique | Valeur |
 |----------|--------|
@@ -320,27 +341,29 @@ git push origin main
 | Contextes React | 4 |
 | Routes | 18 |
 | Endpoints API | 42 |
-| Langues supportées | 4 (FR, EN, ES, DE) |
-| Conformité WCAG | 100% (AA) |
-| Conformité Cache | 100% |
+| Langues | 4 (FR, EN, ES, DE) |
+| Conformité WCAG | 100 % (AA) |
+| Conformité cache | 100 % |
 
 ---
 
 ## Licence
 
-© 2025-2026 Videomi — Tous droits réservés.
+© **2025–2026 Videomi** — Tous droits réservés.
 
-Ce projet, y compris son code source, son design, ses textes, ses images et ses animations, est la propriété exclusive de Videomi (auteur : MoshiDoki).
+Ce projet (code, design, textes, images, animations) est la propriété exclusive de **Videomi** (auteur : **MoshiDoki**).
 
-- ❌ Aucune autorisation n'est accordée pour la copie, la modification, la distribution ou l'exploitation
-- ❌ Toute utilisation commerciale est strictement interdite sans accord écrit explicite
-- ❌ La redistribution, même partielle, est interdite
+- Aucune autorisation n’est accordée pour la copie, la modification, la distribution ou l’exploitation.  
+- Toute utilisation commerciale est interdite sans accord écrit explicite.  
+- La redistribution, même partielle, est interdite.
 
-🔒 Ce projet est protégé. Vous pouvez le consulter, mais vous n'avez pas le droit de l'utiliser, le copier ou le modifier sans autorisation écrite de l'auteur.
+Vous pouvez consulter le projet, mais **aucune utilisation, copie ou modification** n’est autorisée sans accord écrit de l’auteur.
 
 ---
 
 ## Liens
 
-- **Dépôt GitHub** : https://github.com/MoshiDuck/Videomi
-- **Production** : https://videomi.uk
+| Ressource | URL |
+|-----------|-----|
+| **Site en production** | [https://videomi.uk](https://videomi.uk) |
+| **Dépôt GitHub** | [https://github.com/MoshiDuck/Videomi](https://github.com/MoshiDuck/Videomi) |
