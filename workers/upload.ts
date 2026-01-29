@@ -9,8 +9,22 @@ import {
     generateETag, 
     CACHE_TTL,
     canCache,
-    invalidateCache
+    invalidateCache,
+    getDefaultCache
 } from './cache.js';
+import {
+    normalizeMusicText,
+    cleanArtistName,
+    extractArtistTitleFromFilename,
+    generateMusicTitleVariants,
+    parseArtistTitleFromId3Title,
+    isCleanId3Title,
+    getArtistSimilarityThreshold,
+    getTitleSimilarityThreshold,
+    acceptMusicMatch,
+    MIN_TITLE_SIMILARITY_LAST_RESORT,
+    MIN_ARTIST_SIMILARITY_LAST_RESORT,
+} from './musicEnrichment.js';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -71,10 +85,10 @@ function cleanVideoFilenameForEnrichment(rawTitleOrFilename: string): { baseTitl
     
     const tokens = name.split(' ').filter(t => t.length > 0);
     
-    // Mots techniques/qualité à couper (tout ce qui est à droite sera ignoré)
+    // Mots techniques/qualité à couper (tout ce qui est à droite sera ignoré) — pas utilisés en musique
     const stopWords = new Set([
         '1080p','720p','480p','2160p','4k',
-        'webrip','webdl','bdrip','brrip','bluray','blu-ray','hdrip','dvdrip','hdtv','tvrip','cam','ts','hc',
+        'hd', 'webrip','webdl','bdrip','brrip','bluray','blu-ray','hdrip','dvdrip','hdtv','tvrip','cam','ts','hc',
         'proper','repack','rerip',
         'vostfr','multi','truefrench','vf','vf2','vo','subfrench','fansub',
         'eac3','ddp5','ddp','aac','ac3','mp3','dts','xvid','x264','x265','h264','h265','hevc',
@@ -131,26 +145,483 @@ function cleanTitleFromFeaturing(title: string): string {
     return cleanedTitle;
 }
 
-function cleanArtistName(artist: string): string[] {
-    const variants: string[] = [];
-    
-    // Retirer "Official" à la fin ou au début
-    const withoutOfficial = artist
-        .replace(/\s+Official\s*$/i, '')
-        .replace(/^\s*Official\s+/i, '')
-        .trim();
-    
-    if (withoutOfficial !== artist && withoutOfficial.length > 0) {
-        // Mettre la variante sans "Official" en premier (priorité)
-        variants.push(withoutOfficial);
+/**
+ * Utilise l'API Gemini pour extraire un titre de film/série depuis un nom de fichier.
+ * Fallback quand regex/variantes n'ont pas trouvé de métadonnées TMDb/OMDb.
+ */
+async function extractTitleWithGemini(filename: string, apiKey: string): Promise<string | null> {
+    try {
+        const prompt = `Extract ONLY the movie or TV show title from this filename. Remove quality (1080p, HD, etc.), language (VOSTFR, VF), codec, year in brackets, and any technical tags. Return ONLY the title, in the original language, nothing else. No quotes, no JSON, no explanation.
+
+Filename: ${filename}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    maxOutputTokens: 80,
+                    temperature: 0.1,
+                    responseMimeType: 'text/plain'
+                }
+            })
+        });
+        if (!res.ok) {
+            console.warn(`[ENRICHMENT] Gemini API error: ${res.status} ${await res.text()}`);
+            return null;
+        }
+        const data = await res.json() as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+            error?: { message?: string };
+        };
+        if (data.error) {
+            console.warn('[ENRICHMENT] Gemini error:', data.error.message);
+            return null;
+        }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        return text && text.length >= 1 ? text : null;
+    } catch (e) {
+        console.warn('[ENRICHMENT] extractTitleWithGemini failed:', e);
+        return null;
     }
-    
-    // Toujours ajouter l'original (au cas où "Official" serait nécessaire)
-    if (artist.length > 0) {
-        variants.push(artist);
+}
+
+/** Fallback IA : extrait artiste et titre depuis un filename musique pour réessayer les APIs */
+async function extractArtistTitleWithGemini(filename: string, apiKey: string): Promise<{ artist?: string; title?: string } | null> {
+    try {
+        const prompt = `From this music filename, extract ONLY the artist name and the track title. Format: "Artist - Title" or just "Title" if no artist. Remove file extension, quality tags, year in parentheses, (Official Video), (Remaster), etc. Return exactly one line: "Artist - Title" or "Title". Nothing else.`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: `${prompt}\n\nFilename: ${filename}` }] }],
+                generationConfig: { maxOutputTokens: 80, temperature: 0.1, responseMimeType: 'text/plain' }
+            })
+        });
+        if (!res.ok) return null;
+        const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } };
+        if (data.error) return null;
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (!text || text.length < 2) return null;
+        const sep = /\s*[-–—]\s*/;
+        const parts = text.split(sep);
+        if (parts.length >= 2) {
+            return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
+        }
+        return { title: text };
+    } catch (e) {
+        console.warn('[ENRICHMENT] extractArtistTitleWithGemini failed:', e);
+        return null;
     }
-    
-    return Array.from(new Set(variants)).filter(v => v.length > 0);
+}
+
+/** Recherche MusicBrainz (recordings) puis Cover Art Archive pour pochette */
+async function searchMusicBrainz(
+    artist: string | undefined,
+    title: string
+): Promise<{ title: string; artists: string[]; album: string | null; thumbnail_url: string | null } | null> {
+    try {
+        const query = artist
+            ? `artist:"${artist.replace(/"/g, '')}" AND recording:"${title.replace(/"/g, '')}"`
+            : `recording:"${title.replace(/"/g, '')}"`;
+        const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=5&inc=releases`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Videomi/1.0 (https://videomi.uk)' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json() as {
+            recordings?: Array<{
+                title?: string;
+                'artist-credit'?: Array<{ name?: string }>;
+                releases?: Array<{ title?: string; id?: string }>;
+            }>;
+        };
+        const rec = data.recordings?.[0];
+        if (!rec?.title) return null;
+        const artists = (rec['artist-credit'] || []).map((a: { name?: string }) => a.name).filter(Boolean) as string[];
+        const album = rec.releases?.[0]?.title ?? null;
+        const releaseId = rec.releases?.[0]?.id;
+        let thumbnail_url: string | null = null;
+        if (releaseId) {
+            try {
+                const coverRes = await fetch(`https://coverartarchive.org/release/${releaseId}`, {
+                    headers: { 'User-Agent': 'Videomi/1.0 (https://videomi.uk)' }
+                });
+                if (coverRes.ok) {
+                    const coverData = await coverRes.json() as { images?: Array<{ front?: boolean; image?: string }> };
+                    const front = coverData.images?.find((i: { front?: boolean }) => i.front) ?? coverData.images?.[0];
+                    thumbnail_url = front?.image ?? null;
+                }
+            } catch (_) { /* ignore */ }
+        }
+        return { title: rec.title, artists, album, thumbnail_url };
+    } catch (e) {
+        console.warn('[ENRICHMENT] searchMusicBrainz failed:', e);
+        return null;
+    }
+}
+
+/** Seuil de score AcoustID pour accepter un résultat (0–1). */
+const ACOUSTID_MIN_SCORE = 0.8;
+
+/**
+ * Lookup AcoustID par empreinte Chromaprint + durée.
+ * Retourne titre, artistes, album (premier enregistrement) ou null.
+ * Rate limit: max 3 req/s (AcoustID).
+ */
+async function lookupAcoustId(
+    apiKey: string,
+    fingerprint: string,
+    durationSeconds: number
+): Promise<{ title: string; artists: string[]; album: string | null; thumbnail_url: string | null } | null> {
+    try {
+        const duration = Math.round(Number(durationSeconds));
+        if (!Number.isFinite(duration) || duration < 1) return null;
+        const url = new URL('https://api.acoustid.org/v2/lookup');
+        url.searchParams.set('client', apiKey);
+        url.searchParams.set('duration', String(duration));
+        url.searchParams.set('fingerprint', fingerprint.trim());
+        url.searchParams.set('meta', 'recordings+releasegroups');
+        const res = await fetch(url.toString(), {
+            method: 'GET',
+            headers: { 'User-Agent': 'Videomi/1.0 (https://videomi.uk)' }
+        });
+        if (!res.ok) {
+            console.warn(`[ENRICHMENT] AcoustID lookup HTTP ${res.status}`);
+            return null;
+        }
+        const data = await res.json() as {
+            status?: string;
+            results?: Array<{
+                score?: number;
+                id?: string;
+                recordings?: Array<{
+                    id?: string;
+                    title?: string;
+                    duration?: number;
+                    artists?: Array<{ id?: string; name?: string }>;
+                    releasegroups?: Array<{ id?: string; title?: string; type?: string }>;
+                }>;
+            }>;
+        };
+        if (data.status !== 'ok' || !data.results?.length) return null;
+        const best = data.results[0];
+        const score = best.score ?? 0;
+        if (score < ACOUSTID_MIN_SCORE) return null;
+        const recording = best.recordings?.[0];
+        if (!recording?.title) return null;
+        const artists = (recording.artists || []).map(a => a.name).filter(Boolean) as string[];
+        const album = recording.releasegroups?.[0]?.title ?? null;
+        let thumbnail_url: string | null = null;
+        const releaseGroupId = recording.releasegroups?.[0]?.id;
+        if (releaseGroupId) {
+            try {
+                const mbRes = await fetch(
+                    `https://musicbrainz.org/ws/2/release-group/${releaseGroupId}?inc=releases&fmt=json`,
+                    { headers: { 'User-Agent': 'Videomi/1.0 (https://videomi.uk)' } }
+                );
+                if (mbRes.ok) {
+                    const mbData = await mbRes.json() as { releases?: Array<{ id?: string }> };
+                    const releaseId = mbData.releases?.[0]?.id;
+                    if (releaseId) {
+                        const coverRes = await fetch(`https://coverartarchive.org/release/${releaseId}`, {
+                            headers: { 'User-Agent': 'Videomi/1.0 (https://videomi.uk)' }
+                        });
+                        if (coverRes.ok) {
+                            const coverData = await coverRes.json() as { images?: Array<{ front?: boolean; image?: string }> };
+                            const front = coverData.images?.find(i => i.front) ?? coverData.images?.[0];
+                            thumbnail_url = front?.image ?? null;
+                        }
+                    }
+                }
+            } catch (_) { /* ignore */ }
+        }
+        return { title: recording.title, artists, album, thumbnail_url };
+    } catch (e) {
+        console.warn('[ENRICHMENT] lookupAcoustId failed:', e instanceof Error ? e.message : e);
+        return null;
+    }
+}
+
+/** Résultat de l'enrichissement musique (partagé upload + app). */
+export interface EnrichedMusicMetadataResult {
+    source_api: string;
+    source_id: string | null;
+    title: string | null;
+    year: number | null;
+    thumbnail_url: string | null;
+    artists: string[] | null;
+    albums: string[] | null;
+    album_thumbnails: string[] | null;
+}
+
+/** Optionnel : empreinte Chromaprint + durée en secondes pour AcoustID (avant Spotify). */
+export interface AcoustIdInput {
+    fingerprint: string;
+    duration: number; // secondes, entier
+}
+
+/** Paramètres pour l'enrichissement musique (upload simple ou route app). */
+export interface RunMusicEnrichmentParams {
+    cleanedTitle: string;
+    basicMetadata?: { title?: string; artist?: string; year?: number; duration?: number };
+    /** Si fourni avec ACOUSTID_API_KEY, identification AcoustID est tentée avant Spotify */
+    acoustid?: AcoustIdInput;
+    filename: string;
+}
+
+/** Optionnel : rapporter chaque tentative (upload garde le rapport). */
+export type OnMusicEnrichmentTentative = (step: string, result: 'accepté' | 'refusé', reason?: string) => void;
+
+/**
+ * Enrichissement musique partagé (upload + app) : priorité ID3/filename, variantes,
+ * Spotify (avec/sans artiste, limit=5, acceptMusicMatch), MusicBrainz, Gemini, dernier recours.
+ */
+export async function runMusicEnrichment(
+    params: RunMusicEnrichmentParams,
+    env: Bindings,
+    options?: { onTentative?: OnMusicEnrichmentTentative }
+): Promise<EnrichedMusicMetadataResult | null> {
+    const { cleanedTitle, basicMetadata, filename, acoustid } = params;
+    const onTentative = options?.onTentative ?? (() => {});
+
+    // AcoustID : identification par empreinte Chromaprint avant Spotify (si fingerprint + duration fournis)
+    const acoustidApiKey = env.ACOUSTID_API_KEY;
+    if (acoustidApiKey && acoustid?.fingerprint?.trim() && acoustid?.duration != null) {
+        const durationSec = Number(acoustid.duration);
+        if (Number.isFinite(durationSec) && durationSec >= 1) {
+            console.log(`🎵 [ENRICHMENT] Tentative AcoustID (fingerprint + duration=${Math.round(durationSec)}s)...`);
+            const acoustidResult = await lookupAcoustId(acoustidApiKey, acoustid.fingerprint.trim(), durationSec);
+            if (acoustidResult) {
+                onTentative('AcoustID', 'accepté');
+                console.log(`✅ [ENRICHMENT] AcoustID trouvé: "${acoustidResult.title}" par ${acoustidResult.artists.join(', ')}`);
+                return {
+                    source_api: 'acoustid',
+                    source_id: null,
+                    title: acoustidResult.title,
+                    year: null,
+                    thumbnail_url: acoustidResult.thumbnail_url,
+                    artists: acoustidResult.artists.length ? acoustidResult.artists : null,
+                    albums: acoustidResult.album ? [acoustidResult.album] : null,
+                    album_thumbnails: acoustidResult.thumbnail_url ? [acoustidResult.thumbnail_url] : null,
+                };
+            }
+            onTentative('AcoustID', 'refusé', 'aucun résultat ou score insuffisant');
+        }
+    }
+
+    const spotifyClientId = env.SPOTIFY_CLIENT_ID;
+    const spotifyClientSecret = env.SPOTIFY_CLIENT_SECRET;
+    if (!spotifyClientId || !spotifyClientSecret) {
+        console.warn(`⚠️ [ENRICHMENT] Clés API Spotify non configurées`);
+        return null;
+    }
+    let tokenResponse: Response;
+    try {
+        tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Basic ${btoa(`${spotifyClientId}:${spotifyClientSecret}`)}`
+            },
+            body: 'grant_type=client_credentials'
+        });
+    } catch (fetchError) {
+        console.error(`❌ [ENRICHMENT] Erreur réseau token Spotify:`, fetchError instanceof Error ? fetchError.message : String(fetchError));
+        return null;
+    }
+    if (!tokenResponse.ok) {
+        console.error(`❌ [ENRICHMENT] Erreur auth Spotify: ${tokenResponse.status} ${tokenResponse.statusText}`);
+        return null;
+    }
+    const tokenData = await tokenResponse.json() as { access_token?: string; error?: string; error_description?: string };
+    if (tokenData.error || !tokenData.access_token) {
+        console.error(`❌ [ENRICHMENT] Token Spotify: ${tokenData.error ?? 'pas de access_token'}`);
+        return null;
+    }
+    const accessToken = tokenData.access_token;
+
+    // Priorité ID3 > filename (ne pas écraser titre ID3 propre)
+    let rawArtist: string | undefined;
+    let rawTitle: string = cleanedTitle;
+    if (basicMetadata?.artist && typeof basicMetadata.artist === 'string' && basicMetadata.artist.trim().length > 0) {
+        rawArtist = normalizeMusicText(basicMetadata.artist.trim());
+    }
+    const fromFilename = extractArtistTitleFromFilename(filename);
+    const id3TitleLooksLikeArtistTitle = /\s*[-–—]\s*/.test(cleanedTitle) || /^\s*[^:]+:\s+/.test(cleanedTitle) || /\uFF1A/.test(cleanedTitle);
+    if (id3TitleLooksLikeArtistTitle) {
+        const parsed = parseArtistTitleFromId3Title(cleanedTitle);
+        rawTitle = parsed.title;
+        if (parsed.artist && !rawArtist) rawArtist = normalizeMusicText(parsed.artist);
+    } else if (!isCleanId3Title(cleanedTitle)) {
+        if (fromFilename.title && fromFilename.title.length >= 2) rawTitle = fromFilename.title;
+    }
+    if (fromFilename.artist && !rawArtist) rawArtist = fromFilename.artist;
+
+    const searchTitle = cleanTitleFromFeaturing(normalizeMusicText(rawTitle));
+    const titleVariants = generateMusicTitleVariants(searchTitle, rawArtist);
+    const artistVariants = rawArtist ? cleanArtistName(rawArtist) : [];
+    const artistSimilarityThreshold = getArtistSimilarityThreshold(env);
+    const titleSimilarityThreshold = getTitleSimilarityThreshold(env);
+
+    type Enriched = EnrichedMusicMetadataResult;
+    let enrichedMetadata: Enriched | null = null;
+    let found = false;
+
+    // Spotify avec artiste (limit=5, premier match acceptMusicMatch)
+    for (const titleVariant of titleVariants) {
+        if (found) break;
+        if (artistVariants.length > 0) {
+            for (const artistVariant of artistVariants) {
+                if (found) break;
+                const query = `track:${encodeURIComponent(titleVariant)} artist:${encodeURIComponent(artistVariant)}`;
+                const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`;
+                const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } });
+                if (!searchResponse.ok) { onTentative('Spotify avec artiste', 'refusé', `HTTP ${searchResponse.status}`); continue; }
+                const searchData = await searchResponse.json() as { tracks?: { items?: Array<{ id: string; name: string; artists?: Array<{ id?: string; name: string }>; album?: { name: string; images?: Array<{ url: string; width?: number }>; release_date?: string } }> } };
+                const items = searchData.tracks?.items ?? [];
+                for (const t of items) {
+                    if (!t) continue;
+                    const artistsArray = (t.artists || []).map(a => a.name).filter(Boolean);
+                    const verdict = acceptMusicMatch({ ourArtist: rawArtist ?? artistVariant, ourTitle: titleVariant, trackTitle: t.name, trackArtists: artistsArray, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                    if (!verdict.accept) continue;
+                    const albumsArray = t.album?.name ? [t.album.name] : [];
+                    const albumThumbnails = t.album?.images?.length ? [t.album.images.sort((a: { url: string; width?: number }, b: { url: string; width?: number }) => (b.width || 0) - (a.width || 0))[0]?.url].filter(Boolean) as string[] : [];
+                    let thumbnailUrl: string | null = null;
+                    if (t.artists?.[0]?.id) {
+                        try {
+                            const ar = await fetch(`https://api.spotify.com/v1/artists/${t.artists[0].id}`, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } });
+                            if (ar.ok) { const ad = await ar.json() as { images?: Array<{ url: string }> }; thumbnailUrl = ad.images?.[0]?.url ?? null; }
+                        } catch (_) { /* ignore */ }
+                    }
+                    onTentative('Spotify avec artiste', 'accepté');
+                    enrichedMetadata = { source_api: 'spotify', source_id: t.id, title: t.name || null, year: t.album?.release_date ? parseInt(t.album.release_date.substring(0, 4)) : null, thumbnail_url: thumbnailUrl, artists: artistsArray.length ? artistsArray : null, albums: albumsArray.length ? albumsArray : null, album_thumbnails: albumThumbnails.length ? albumThumbnails : null };
+                    found = true;
+                    break;
+                }
+            }
+        }
+        // Spotify sans artiste (limit=5)
+        if (!found) {
+            const query = `track:${encodeURIComponent(titleVariant)}`;
+            const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`;
+            const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } });
+            if (searchResponse.ok) {
+                const searchData = await searchResponse.json() as { tracks?: { items?: Array<{ id: string; name: string; artists?: Array<{ id?: string; name: string }>; album?: { name: string; images?: Array<{ url: string }>; release_date?: string } }> } };
+                const items = searchData.tracks?.items ?? [];
+                for (const t of items) {
+                    if (!t) continue;
+                    const artistsArray = (t.artists || []).map(a => a.name).filter(Boolean);
+                    const verdict = acceptMusicMatch({ ourArtist: rawArtist ?? artistVariants[0], ourTitle: titleVariant, trackTitle: t.name, trackArtists: artistsArray, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                    if (!verdict.accept) continue;
+                    const albumsArray = t.album?.name ? [t.album.name] : [];
+                    const albumThumbnails = t.album?.images?.length ? [t.album.images.sort((a: { url: string; width?: number }, b: { url: string; width?: number }) => (b.width || 0) - (a.width || 0))[0]?.url].filter(Boolean) as string[] : [];
+                    let thumbnailUrl: string | null = null;
+                    if (t.artists?.[0]?.id) {
+                        try {
+                            const ar = await fetch(`https://api.spotify.com/v1/artists/${t.artists[0].id}`, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } });
+                            if (ar.ok) { const ad = await ar.json() as { images?: Array<{ url: string }> }; thumbnailUrl = ad.images?.[0]?.url ?? null; }
+                        } catch (_) { /* ignore */ }
+                    }
+                    onTentative('Spotify sans artiste', 'accepté');
+                    enrichedMetadata = { source_api: 'spotify', source_id: t.id, title: t.name || null, year: t.album?.release_date ? parseInt(t.album.release_date.substring(0, 4)) : null, thumbnail_url: thumbnailUrl, artists: artistsArray.length ? artistsArray : null, albums: albumsArray.length ? albumsArray : null, album_thumbnails: albumThumbnails.length ? albumThumbnails : null };
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) onTentative('Spotify sans artiste', 'refusé', 'aucun résultat');
+        }
+    }
+
+    // MusicBrainz (avec puis sans artiste)
+    if (!found) {
+        for (const titleVariant of titleVariants) {
+            if (found) break;
+            if (artistVariants.length > 0) {
+                for (const artistVariant of artistVariants) {
+                    if (found) break;
+                    const mb = await searchMusicBrainz(artistVariant, titleVariant);
+                    if (!mb) continue;
+                    const verdict = acceptMusicMatch({ ourArtist: rawArtist ?? artistVariant, ourTitle: titleVariant, trackTitle: mb.title, trackArtists: mb.artists, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                    if (verdict.accept) {
+                        onTentative('MusicBrainz', 'accepté');
+                        enrichedMetadata = { source_api: 'musicbrainz', source_id: '', title: mb.title, year: null, thumbnail_url: mb.thumbnail_url, artists: mb.artists.length ? mb.artists : null, albums: mb.album ? [mb.album] : null, album_thumbnails: mb.thumbnail_url ? [mb.thumbnail_url] : null };
+                        found = true;
+                    } else onTentative('MusicBrainz', 'refusé', verdict.reason);
+                }
+            }
+            if (!found) {
+                const mb = await searchMusicBrainz(undefined, titleVariant);
+                if (mb) {
+                    const verdict = acceptMusicMatch({ ourArtist: rawArtist ?? artistVariants[0], ourTitle: titleVariant, trackTitle: mb.title, trackArtists: mb.artists, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                    if (verdict.accept) {
+                        onTentative('MusicBrainz (sans artiste)', 'accepté');
+                        enrichedMetadata = { source_api: 'musicbrainz', source_id: '', title: mb.title, year: null, thumbnail_url: mb.thumbnail_url, artists: mb.artists.length ? mb.artists : null, albums: mb.album ? [mb.album] : null, album_thumbnails: mb.thumbnail_url ? [mb.thumbnail_url] : null };
+                        found = true;
+                    } else onTentative('MusicBrainz (sans artiste)', 'refusé', verdict.reason);
+                }
+            }
+        }
+    }
+
+    // Fallback Gemini (extraction artiste/titre depuis filename puis réessayer)
+    if (!found && env.GEMINI_API_KEY) {
+        const extracted = await extractArtistTitleWithGemini(filename, env.GEMINI_API_KEY);
+        if (extracted?.title) {
+            const newArtist = extracted.artist ? normalizeMusicText(extracted.artist) : undefined;
+            const newTitle = normalizeMusicText(extracted.title);
+            const newTitleVariants = generateMusicTitleVariants(newTitle, newArtist);
+            const newArtistVariants = newArtist ? cleanArtistName(newArtist) : [];
+            for (const tv of newTitleVariants) {
+                if (found) break;
+                if (newArtistVariants.length > 0) {
+                    for (const av of newArtistVariants) {
+                        if (found) break;
+                        const mb = await searchMusicBrainz(av, tv);
+                        if (mb) {
+                            const verdict = acceptMusicMatch({ ourArtist: newArtist ?? av, ourTitle: tv, trackTitle: mb.title, trackArtists: mb.artists, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                            if (verdict.accept) { onTentative('Gemini + MusicBrainz', 'accepté'); enrichedMetadata = { source_api: 'musicbrainz', source_id: '', title: mb.title, year: null, thumbnail_url: mb.thumbnail_url, artists: mb.artists.length ? mb.artists : null, albums: mb.album ? [mb.album] : null, album_thumbnails: mb.thumbnail_url ? [mb.thumbnail_url] : null }; found = true; }
+                        }
+                    }
+                }
+                if (!found) {
+                    const mb = await searchMusicBrainz(undefined, tv);
+                    if (mb) {
+                        const verdict = acceptMusicMatch({ ourArtist: newArtist ?? newArtistVariants[0], ourTitle: tv, trackTitle: mb.title, trackArtists: mb.artists, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                        if (verdict.accept) { onTentative('Gemini + MusicBrainz (sans artiste)', 'accepté'); enrichedMetadata = { source_api: 'musicbrainz', source_id: '', title: mb.title, year: null, thumbnail_url: mb.thumbnail_url, artists: mb.artists.length ? mb.artists : null, albums: mb.album ? [mb.album] : null, album_thumbnails: mb.thumbnail_url ? [mb.thumbnail_url] : null }; found = true; }
+                    }
+                }
+            }
+            if (!found) {
+                for (const tv of newTitleVariants) {
+                    if (found) break;
+                    const query = `track:${tv}`;
+                    const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } });
+                    if (!searchResponse.ok) continue;
+                    const searchData = await searchResponse.json() as { tracks?: { items?: Array<{ id: string; name: string; artists?: Array<{ name: string }>; album?: { name: string; images?: Array<{ url: string }>; release_date?: string } }> } };
+                    const items = searchData.tracks?.items ?? [];
+                    for (const track of items) {
+                        if (!track) continue;
+                        const artistsArray = (track.artists || []).map(a => a.name).filter(Boolean);
+                        const verdict = acceptMusicMatch({ ourArtist: newArtist ?? newArtistVariants[0], ourTitle: tv, trackTitle: track.name, trackArtists: artistsArray, artistThreshold: artistSimilarityThreshold, titleThreshold: titleSimilarityThreshold, rejectLiveMismatch: false });
+                        if (verdict.accept) {
+                            onTentative('Gemini + Spotify', 'accepté');
+                            const albumThumbnails = track.album?.images?.length ? [track.album.images[0]?.url].filter(Boolean) as string[] : [];
+                            enrichedMetadata = { source_api: 'spotify', source_id: track.id, title: track.name || null, year: track.album?.release_date ? parseInt(track.album.release_date.substring(0, 4)) : null, thumbnail_url: null, artists: artistsArray.length ? artistsArray : null, albums: track.album?.name ? [track.album.name] : null, album_thumbnails: albumThumbnails.length ? albumThumbnails : null };
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!found) onTentative('Gemini extraction', 'refusé', 'aucun match après extraction');
+        }
+    }
+
+    if (!found) console.warn(`❌ [ENRICHMENT] Aucun track trouvé après chaîne complète (Spotify → MusicBrainz → Gemini)`);
+    return enrichedMetadata;
 }
 
 // Middleware CORS et logging pour toutes les routes /api/upload/*
@@ -1022,6 +1493,15 @@ app.post('/api/upload/complete', async (c) => {
                     }
                     
                     let enrichedMetadata: any = null;
+                    let usedGeminiFallback = false;
+                    const enrichmentReport: Record<string, unknown> = {
+                        file_id: uploadInfo.file_id,
+                        category: uploadInfo.category,
+                        filename: uploadInfo.filename,
+                        titre_original: cleanedTitle,
+                        success: false,
+                        taux_reussite_pct: 0
+                    };
                     
                     if (uploadInfo.category === 'videos') {
                         // Enrichissement pour les vidéos (TMDb / OMDb) avec variantes de titre
@@ -1050,6 +1530,11 @@ app.post('/api/upload/complete', async (c) => {
                         ]));
                         console.log(`🎬 [ENRICHMENT] Titre de base: "${baseTitle}"`);
                         console.log(`🎬 [ENRICHMENT] Variantes de titre générées (${titleVariants.length}):`, titleVariants);
+                        enrichmentReport.titre_base = baseTitle;
+                        enrichmentReport.nb_variantes = titleVariants.length;
+                        enrichmentReport.type_detecte = isLikelySeries ? 'serie' : 'film';
+                        enrichmentReport.saison_detectee = detectedSeason;
+                        enrichmentReport.episode_detecte = detectedEpisode;
 
                         // Exception spéciale pour Doctor Who : détecter si c'est la série de 2005
                         const isDoctorWho = /doctor\s*who/i.test(baseTitle) || /doctor\s*who/i.test(cleanedTitle);
@@ -1357,326 +1842,132 @@ app.post('/api/upload/complete', async (c) => {
                                 }
                             }
 
+                            // Fallback Gemini : extraire un titre propre et réessayer TMDb/OMDb
+                            if (!enrichedMetadata && c.env.GEMINI_API_KEY && (tmdbApiKey || omdbApiKey)) {
+                                try {
+                                    usedGeminiFallback = true;
+                                    enrichmentReport.fallback_gemini_titre_extrait = true;
+                                    console.log(`🤖 [ENRICHMENT] Fallback Gemini pour: "${uploadInfo.filename}"`);
+                                    const geminiTitle = await extractTitleWithGemini(uploadInfo.filename, c.env.GEMINI_API_KEY);
+                                    if (geminiTitle && geminiTitle.trim().length >= 2) {
+                                        enrichmentReport.titre_apres_gemini = geminiTitle;
+                                        const { baseTitle: b2, progressiveVariants: p2 } = cleanVideoFilenameForEnrichment(geminiTitle);
+                                        const gVariants = Array.from(new Set([...generateTitleVariants(b2), ...p2]));
+                                        enrichmentReport.nb_variantes_gemini = gVariants.length;
+                                        console.log(`🤖 [ENRICHMENT] Titre extrait par Gemini: "${geminiTitle}", variantes: ${gVariants.length}`);
+                                        for (const variant of gVariants) {
+                                            if (enrichedMetadata) break;
+                                            if (tmdbApiKey && !isLikelySeries) {
+                                                const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbApiKey}&query=${encodeURIComponent(variant)}&language=fr-FR`;
+                                                const movieResponse = await fetch(movieUrl);
+                                                if (movieResponse.ok) {
+                                                    const movieData = await movieResponse.json() as { results?: Array<{ id: number; title?: string; poster_path?: string | null; backdrop_path?: string | null; release_date?: string; overview?: string | null }> };
+                                                    if (movieData.results && movieData.results.length > 0) {
+                                                        const movie = movieData.results[0];
+                                                        const genres = await fetchTmdbGenres('movie', movie.id);
+                                                        const backdropUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : null;
+                                                        const thumbnailUrl = movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null;
+                                                        enrichedMetadata = { source_api: 'tmdb', source_id: String(movie.id), title: movie.title || null, year: movie.release_date ? parseInt(movie.release_date.substring(0, 4)) : null, thumbnail_url: thumbnailUrl, backdrop_url: backdropUrl, description: movie.overview || null, genres: genres || undefined };
+                                                        console.log(`✅ [ENRICHMENT] Métadonnées trouvées via fallback Gemini (TMDb Movie): "${movie.title}"`);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (!enrichedMetadata && tmdbApiKey) {
+                                                const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${tmdbApiKey}&query=${encodeURIComponent(variant)}&language=fr-FR`;
+                                                const tvResponse = await fetch(tvUrl);
+                                                if (tvResponse.ok) {
+                                                    const tvData = await tvResponse.json() as { results?: Array<{ id: number; name?: string; poster_path?: string | null; backdrop_path?: string | null; first_air_date?: string; overview?: string | null }> };
+                                                    if (tvData.results && tvData.results.length > 0) {
+                                                        const tv = tvData.results[0];
+                                                        const genres = await fetchTmdbGenres('tv', tv.id);
+                                                        const backdropUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w1280${tv.poster_path}` : null;
+                                                        const thumbnailUrl = tv.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tv.backdrop_path}` : null;
+                                                        enrichedMetadata = { source_api: 'tmdb_tv', source_id: String(tv.id), title: tv.name || null, year: tv.first_air_date ? parseInt(tv.first_air_date.substring(0, 4)) : null, thumbnail_url: thumbnailUrl, backdrop_url: backdropUrl, description: tv.overview || null, genres: genres || undefined };
+                                                        console.log(`✅ [ENRICHMENT] Métadonnées trouvées via fallback Gemini (TMDb TV): "${tv.name}"`);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (!enrichedMetadata && omdbApiKey) {
+                                                const url = `https://www.omdbapi.com/?t=${encodeURIComponent(variant)}&apikey=${omdbApiKey}`;
+                                                const omdbResponse = await fetch(url);
+                                                if (omdbResponse.ok) {
+                                                    const omdbData = await omdbResponse.json() as { Response?: string; imdbID?: string; Title?: string; Year?: string; Poster?: string; Plot?: string };
+                                                    if (omdbData.Response === 'True' && omdbData.imdbID) {
+                                                        enrichedMetadata = { source_api: 'omdb', source_id: omdbData.imdbID, title: omdbData.Title || null, year: omdbData.Year ? parseInt(omdbData.Year.substring(0, 4)) : null, thumbnail_url: omdbData.Poster && omdbData.Poster !== 'N/A' ? omdbData.Poster : null, description: omdbData.Plot || null };
+                                                        console.log(`✅ [ENRICHMENT] Métadonnées trouvées via fallback Gemini (OMDb): "${omdbData.Title}"`);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn(`⚠️ [ENRICHMENT] Erreur fallback Gemini:`, e);
+                                }
+                            }
+
                             if (!enrichedMetadata) {
                                 console.warn(`❌ [ENRICHMENT] Aucune métadonnée vidéo trouvée après ${titleVariants.length} variantes pour "${cleanedTitle}"`);
                             }
                         }
                     } else if (uploadInfo.category === 'musics') {
-                        // Enrichissement pour les musiques (Spotify)
-                        console.log(`🎵 [ENRICHMENT] Recherche musique sur Spotify pour: "${cleanedTitle}"`);
-                        const spotifyClientId = c.env.SPOTIFY_CLIENT_ID;
-                        const spotifyClientSecret = c.env.SPOTIFY_CLIENT_SECRET;
-                        
-                        if (!spotifyClientId || !spotifyClientSecret) {
-                            console.warn(`⚠️ [ENRICHMENT] Clés API Spotify non configurées`);
-                        } else {
-                            // Obtenir le token d'accès Spotify
-                            console.log(`🎵 [ENRICHMENT] Obtention token d'accès Spotify...`);
-                            let tokenResponse: Response;
-                            try {
-                                tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/x-www-form-urlencoded',
-                                        'Authorization': `Basic ${btoa(`${spotifyClientId}:${spotifyClientSecret}`)}`
-                                    },
-                                    body: 'grant_type=client_credentials'
-                                });
-                                console.log(`🎵 [ENRICHMENT] Réponse token Spotify reçue: ${tokenResponse.status} ${tokenResponse.statusText}`);
-                            } catch (fetchError) {
-                                console.error(`❌ [ENRICHMENT] Erreur réseau lors de l'obtention du token Spotify:`, fetchError instanceof Error ? fetchError.message : String(fetchError));
-                                return; // Arrêter l'enrichissement si on ne peut pas obtenir le token
-                            }
-                            
-                            console.log(`🎵 [ENRICHMENT] Réponse token Spotify: ${tokenResponse.status} ${tokenResponse.statusText}`);
-                            
-                            if (tokenResponse.ok) {
-                                const tokenData = await tokenResponse.json() as { access_token?: string; error?: string; error_description?: string };
-                                
-                                if (tokenData.error) {
-                                    console.error(`❌ [ENRICHMENT] Erreur token Spotify: ${tokenData.error} - ${tokenData.error_description || 'Pas de description'}`);
-                                } else {
-                                    const accessToken = tokenData.access_token;
-                                    
-                                    if (accessToken) {
-                                        console.log(`✅ [ENRICHMENT] Token Spotify obtenu (${accessToken.substring(0, 20)}...)`);
-                                        
-                                        // Extraire et nettoyer l'artiste depuis basicMetadata ou filename
-                                        let rawArtist: string | undefined;
-                                        if (basicMetadata?.artist && typeof basicMetadata.artist === 'string') {
-                                            rawArtist = basicMetadata.artist.trim();
-                                            console.log(`🎵 [ENRICHMENT] Artiste depuis métadonnées ID3: "${rawArtist}"`);
-                                        } else {
-                                            // Essayer d'extraire depuis le filename (format "Artiste - Titre")
-                                            const parts = uploadInfo.filename.split(/\s*[-–]\s*/);
-                                            if (parts.length >= 2) {
-                                                rawArtist = parts[0].trim();
-                                                console.log(`🎵 [ENRICHMENT] Artiste extrait du filename: "${rawArtist}"`);
-                                            } else {
-                                                console.log(`⚠️ [ENRICHMENT] Aucun artiste trouvé, recherche uniquement par titre`);
-                                            }
-                                        }
-                                        
-                                        // Nettoyer le titre (enlever "ft", "feat", etc.)
-                                        let searchTitle = cleanTitleFromFeaturing(cleanedTitle);
-                                        console.log(`🎵 [ENRICHMENT] Titre nettoyé: "${searchTitle}"`);
-                                        
-                                        // Générer les variantes de titre
-                                        const titleVariants = generateTitleVariants(searchTitle);
-                                        console.log(`🎵 [ENRICHMENT] ${titleVariants.length} variantes de titre générées`);
-                                        
-                                        // Nettoyer l'artiste (enlever "Official", etc.)
-                                        const artistVariants = rawArtist ? cleanArtistName(rawArtist) : [];
-                                        console.log(`🎵 [ENRICHMENT] ${artistVariants.length} variantes d'artiste générées`);
-                                        
-                                        // Essayer toutes les combinaisons de variantes
-                                        let found = false;
-                                        for (const titleVariant of titleVariants) {
-                                            if (found) break;
-                                            
-                                            // Essayer d'abord avec chaque variante d'artiste
-                                            if (artistVariants.length > 0) {
-                                                for (const artistVariant of artistVariants) {
-                                                    if (found) break;
-                                                    
-                                                    const query = `track:${encodeURIComponent(titleVariant)} artist:${encodeURIComponent(artistVariant)}`;
-                                                    console.log(`🎵 [ENRICHMENT] Recherche Spotify: "${query}"`);
-                                                    
-                                                    const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`;
-                                                    const searchResponse = await fetch(searchUrl, {
-                                                        headers: {
-                                                            'Authorization': `Bearer ${accessToken}`,
-                                                            'Content-Type': 'application/json'
-                                                        }
-                                                    });
-                                                    
-                                                    if (searchResponse.ok) {
-                                                        const searchData = await searchResponse.json() as {
-                                                            tracks?: {
-                                                                items?: Array<{
-                                                                    id: string;
-                                                                    name: string;
-                                                                    artists?: Array<{ id?: string; name: string }>;
-                                                                    album?: {
-                                                                        name: string;
-                                                                        images?: Array<{ url: string; width?: number }>;
-                                                                        release_date?: string;
-                                                                    };
-                                                                }>;
-                                                            };
-                                                        };
-                                                        
-                                                        if (searchData.tracks?.items && searchData.tracks.items.length > 0) {
-                                                            const track = searchData.tracks.items[0];
-                                                            
-                                                            // Extraire les artistes
-                                                            const artistsArray: string[] = [];
-                                                            if (track.artists) {
-                                                                for (const artistData of track.artists) {
-                                                                    if (artistData.name && !artistsArray.includes(artistData.name)) {
-                                                                        artistsArray.push(artistData.name);
-                                                                    }
-                                                                }
-                                                            }
-                                                            
-                                                        // Extraire les albums
-                                                        const albumsArray: string[] = [];
-                                                        const albumThumbnails: string[] = [];
-                                                        if (track.album?.name) {
-                                                            albumsArray.push(track.album.name);
-                                                            // Récupérer l'image de l'album
-                                                            if (track.album.images && track.album.images.length > 0) {
-                                                                const images = track.album.images.sort((a, b) => (b.width || 0) - (a.width || 0));
-                                                                const mediumImage = images.find(img => img.width && img.width >= 300 && img.width <= 500) || images[0];
-                                                                if (mediumImage?.url) {
-                                                                    albumThumbnails.push(mediumImage.url);
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                        // Récupérer l'image de l'artiste pour l'image principale
-                                                        let thumbnailUrl: string | null = null;
-                                                        if (track.artists && track.artists.length > 0 && track.artists[0].id) {
-                                                            try {
-                                                                const artistId = track.artists[0].id;
-                                                                console.log(`🎵 [ENRICHMENT] Récupération image artiste Spotify (ID: ${artistId})...`);
-                                                                const artistResponse = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
-                                                                    headers: {
-                                                                        'Authorization': `Bearer ${accessToken}`,
-                                                                        'Content-Type': 'application/json'
-                                                                    }
-                                                                });
-                                                                
-                                                                if (artistResponse.ok) {
-                                                                    const artistData = await artistResponse.json() as {
-                                                                        images?: Array<{ url: string; width?: number; height?: number }>;
-                                                                    };
-                                                                    
-                                                                    if (artistData.images && artistData.images.length > 0) {
-                                                                        // Trier par taille (plus grand en premier)
-                                                                        const images = artistData.images.sort((a, b) => (b.width || 0) - (a.width || 0));
-                                                                        // Prendre une taille moyenne (300-500px) si disponible, sinon la plus grande
-                                                                        const mediumImage = images.find(img => img.width && img.width >= 300 && img.width <= 500) || images[0];
-                                                                        thumbnailUrl = mediumImage?.url || images[0]?.url || null;
-                                                                        console.log(`✅ [ENRICHMENT] Image artiste récupérée: ${thumbnailUrl ? thumbnailUrl.substring(0, 80) + '...' : 'aucune'}`);
-                                                                    } else {
-                                                                        console.warn(`⚠️ [ENRICHMENT] Aucune image disponible pour l'artiste ${artistId}`);
-                                                                    }
-                                                                } else {
-                                                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération artiste Spotify: ${artistResponse.status}`);
-                                                                }
-                                                            } catch (artistError) {
-                                                                console.warn(`⚠️ [ENRICHMENT] Erreur récupération image artiste:`, artistError);
-                                                            }
-                                                        }
-                                                        
-                                                        console.log(`✅ [ENRICHMENT] Track trouvé sur Spotify: "${track.name}" par ${artistsArray.join(', ')} (Album: ${albumsArray.join(', ') || 'N/A'}, Année: ${track.album?.release_date ? track.album.release_date.substring(0, 4) : 'N/A'})`);
-                                                        
-                                                        enrichedMetadata = {
-                                                            source_api: 'spotify',
-                                                            source_id: track.id,
-                                                            title: track.name || null,
-                                                            year: track.album?.release_date ? parseInt(track.album.release_date.substring(0, 4)) : null,
-                                                            thumbnail_url: thumbnailUrl, // Image de l'artiste
-                                                            artists: artistsArray.length > 0 ? artistsArray : null,
-                                                            albums: albumsArray.length > 0 ? albumsArray : null,
-                                                            album_thumbnails: albumThumbnails.length > 0 ? albumThumbnails : null // Images des albums
-                                                        };
-                                                        found = true;
-                                                        }
-                                                    } else {
-                                                        console.warn(`⚠️ [ENRICHMENT] Erreur API Spotify search (${searchResponse.status}): "${query}"`);
-                                                    }
-                                                }
-                                            }
-                                            
-                                            // Si pas trouvé avec artiste, essayer sans artiste
-                                            if (!found) {
-                                                const query = `track:${encodeURIComponent(titleVariant)}`;
-                                                console.log(`🎵 [ENRICHMENT] Recherche Spotify (sans artiste): "${query}"`);
-                                                
-                                                const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`;
-                                                const searchResponse = await fetch(searchUrl, {
-                                                    headers: {
-                                                        'Authorization': `Bearer ${accessToken}`,
-                                                        'Content-Type': 'application/json'
-                                                    }
-                                                });
-                                                
-                                                if (searchResponse.ok) {
-                                                    const searchData = await searchResponse.json() as {
-                                                        tracks?: {
-                                                            items?: Array<{
-                                                                id: string;
-                                                                name: string;
-                                                                artists?: Array<{ id?: string; name: string }>;
-                                                                album?: {
-                                                                    name: string;
-                                                                    images?: Array<{ url: string; width?: number }>;
-                                                                    release_date?: string;
-                                                                };
-                                                            }>;
-                                                        };
-                                                    };
-                                                    
-                                                    if (searchData.tracks?.items && searchData.tracks.items.length > 0) {
-                                                        const track = searchData.tracks.items[0];
-                                                        
-                                                        // Extraire les artistes
-                                                        const artistsArray: string[] = [];
-                                                        if (track.artists) {
-                                                            for (const artistData of track.artists) {
-                                                                if (artistData.name && !artistsArray.includes(artistData.name)) {
-                                                                    artistsArray.push(artistData.name);
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                        // Extraire les albums
-                                                        const albumsArray: string[] = [];
-                                                        const albumThumbnails: string[] = [];
-                                                        if (track.album?.name) {
-                                                            albumsArray.push(track.album.name);
-                                                            // Récupérer l'image de l'album
-                                                            if (track.album.images && track.album.images.length > 0) {
-                                                                const images = track.album.images.sort((a, b) => (b.width || 0) - (a.width || 0));
-                                                                const mediumImage = images.find(img => img.width && img.width >= 300 && img.width <= 500) || images[0];
-                                                                if (mediumImage?.url) {
-                                                                    albumThumbnails.push(mediumImage.url);
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                        // Récupérer l'image de l'artiste pour l'image principale
-                                                        let thumbnailUrl: string | null = null;
-                                                        if (track.artists && track.artists.length > 0 && track.artists[0].id) {
-                                                            try {
-                                                                const artistId = track.artists[0].id;
-                                                                console.log(`🎵 [ENRICHMENT] Récupération image artiste Spotify (ID: ${artistId})...`);
-                                                                const artistResponse = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
-                                                                    headers: {
-                                                                        'Authorization': `Bearer ${accessToken}`,
-                                                                        'Content-Type': 'application/json'
-                                                                    }
-                                                                });
-                                                                
-                                                                if (artistResponse.ok) {
-                                                                    const artistData = await artistResponse.json() as {
-                                                                        images?: Array<{ url: string; width?: number; height?: number }>;
-                                                                    };
-                                                                    
-                                                                    if (artistData.images && artistData.images.length > 0) {
-                                                                        // Trier par taille (plus grand en premier)
-                                                                        const images = artistData.images.sort((a, b) => (b.width || 0) - (a.width || 0));
-                                                                        // Prendre une taille moyenne (300-500px) si disponible, sinon la plus grande
-                                                                        const mediumImage = images.find(img => img.width && img.width >= 300 && img.width <= 500) || images[0];
-                                                                        thumbnailUrl = mediumImage?.url || images[0]?.url || null;
-                                                                        console.log(`✅ [ENRICHMENT] Image artiste récupérée: ${thumbnailUrl ? thumbnailUrl.substring(0, 80) + '...' : 'aucune'}`);
-                                                                    } else {
-                                                                        console.warn(`⚠️ [ENRICHMENT] Aucune image disponible pour l'artiste ${artistId}`);
-                                                                    }
-                                                                } else {
-                                                                    console.warn(`⚠️ [ENRICHMENT] Erreur récupération artiste Spotify: ${artistResponse.status}`);
-                                                                }
-                                                            } catch (artistError) {
-                                                                console.warn(`⚠️ [ENRICHMENT] Erreur récupération image artiste:`, artistError);
-                                                            }
-                                                        }
-                                                        
-                                                        console.log(`✅ [ENRICHMENT] Track trouvé sur Spotify (sans artiste): "${track.name}" par ${artistsArray.join(', ')}`);
-                                                        
-                                                        enrichedMetadata = {
-                                                            source_api: 'spotify',
-                                                            source_id: track.id,
-                                                            title: track.name || null,
-                                                            year: track.album?.release_date ? parseInt(track.album.release_date.substring(0, 4)) : null,
-                                                            thumbnail_url: thumbnailUrl, // Image de l'artiste
-                                                            artists: artistsArray.length > 0 ? artistsArray : null,
-                                                            albums: albumsArray.length > 0 ? albumsArray : null,
-                                                            album_thumbnails: albumThumbnails.length > 0 ? albumThumbnails : null // Images des albums
-                                                        };
-                                                        found = true;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        
-                                        if (!found) {
-                                            console.warn(`❌ [ENRICHMENT] Aucun track trouvé sur Spotify après ${titleVariants.length} variantes de titre`);
-                                        }
-                                    } else {
-                                        console.error(`❌ [ENRICHMENT] Échec obtention token Spotify: pas de access_token dans la réponse`);
-                                        console.error(`❌ [ENRICHMENT] Réponse complète:`, JSON.stringify(tokenData, null, 2));
-                                    }
-                                }
-                            } else {
-                                const errorText = await tokenResponse.text().catch(() => 'Impossible de lire la réponse');
-                                console.error(`❌ [ENRICHMENT] Erreur authentification Spotify: ${tokenResponse.status} ${tokenResponse.statusText}`);
-                                console.error(`❌ [ENRICHMENT] Réponse d'erreur:`, errorText.substring(0, 500));
-                            }
+                        console.log(`🎵 [ENRICHMENT] Recherche musique pour: "${cleanedTitle}"`);
+                        const tentatives: Array<{ step: string; result: string; reason?: string }> = [];
+                        enrichmentReport.tentatives = tentatives;
+                        const acoustidInput = (basicMetadata as { acoustid?: { fingerprint?: string; duration?: number } })?.acoustid;
+                        const acoustid = acoustidInput?.fingerprint?.trim() && acoustidInput?.duration != null
+                            ? { fingerprint: acoustidInput.fingerprint.trim(), duration: Number(acoustidInput.duration) }
+                            : undefined;
+                        enrichedMetadata = await runMusicEnrichment(
+                            { cleanedTitle, basicMetadata: basicMetadata ?? undefined, filename: uploadInfo.filename, acoustid },
+                            c.env,
+                            { onTentative: (step, result, reason) => { tentatives.push({ step, result, reason }); console.log(`🎵 [ENRICHMENT] tentative=${step} result=${result}${reason ? ` reason=${reason}` : ''}`); } }
+                        );
+                        if (enrichedMetadata) {
+                            enrichmentReport.artiste_original = (enrichedMetadata as any).artists?.[0] ?? null;
                         }
                     }
                     
+                    // Rapport d'enrichissement (taux de réussite, titre original/trouvé, film/série, saison, épisode, artistes, album, genres)
+                    enrichmentReport.success = !!enrichedMetadata;
+                    enrichmentReport.taux_reussite_pct = enrichedMetadata ? 100 : 0;
+                    if (enrichedMetadata) {
+                        enrichmentReport.source_api = enrichedMetadata.source_api;
+                        enrichmentReport.titre_trouve = enrichedMetadata.title;
+                        enrichmentReport.annee = enrichedMetadata.year;
+                        enrichmentReport.genres = enrichedMetadata.genres;
+                        if (uploadInfo.category === 'videos') {
+                            enrichmentReport.film_ou_serie = enrichedMetadata.title;
+                            enrichmentReport.saison = enrichedMetadata.season;
+                            enrichmentReport.episode = enrichedMetadata.episode;
+                            enrichmentReport.fallback_gemini = usedGeminiFallback;
+                        } else if (uploadInfo.category === 'musics') {
+                            enrichmentReport.artistes = enrichedMetadata.artists;
+                            enrichmentReport.album = enrichedMetadata.albums;
+                        }
+                    } else {
+                        if (uploadInfo.category === 'videos') {
+                            enrichmentReport.fallback_gemini = usedGeminiFallback;
+                        }
+                    }
+                    console.log(`\n📊 [ENRICHMENT] ========== RAPPORT ENRICHISSEMENT ==========`);
+                    console.log(`📊 [ENRICHMENT] Fichier: ${uploadInfo.filename}`);
+                    console.log(`📊 [ENRICHMENT] Réussite: ${enrichmentReport.success ? 'OUI' : 'NON'} | Taux: ${enrichmentReport.taux_reussite_pct}%`);
+                    console.log(`📊 [ENRICHMENT] Titre original: ${enrichmentReport.titre_original}`);
+                    if (enrichmentReport.titre_trouve) console.log(`📊 [ENRICHMENT] Titre trouvé: ${enrichmentReport.titre_trouve}`);
+                    if (enrichmentReport.film_ou_serie) console.log(`📊 [ENRICHMENT] Film/Série: ${enrichmentReport.film_ou_serie}`);
+                    if (enrichmentReport.saison != null) console.log(`📊 [ENRICHMENT] Saison: ${enrichmentReport.saison}`);
+                    if (enrichmentReport.episode != null) console.log(`📊 [ENRICHMENT] Épisode: ${enrichmentReport.episode}`);
+                    if (enrichmentReport.artistes) console.log(`📊 [ENRICHMENT] Artistes: ${JSON.stringify(enrichmentReport.artistes)}`);
+                    if (enrichmentReport.album) console.log(`📊 [ENRICHMENT] Album: ${JSON.stringify(enrichmentReport.album)}`);
+                    if (enrichmentReport.genres) console.log(`📊 [ENRICHMENT] Genres: ${JSON.stringify(enrichmentReport.genres)}`);
+                    if (enrichmentReport.source_api) console.log(`📊 [ENRICHMENT] Source API: ${enrichmentReport.source_api}`);
+                    if (enrichmentReport.fallback_gemini) console.log(`📊 [ENRICHMENT] Fallback Gemini utilisé: OUI`);
+                    console.log(`📊 [ENRICHMENT] Rapport complet (JSON):`, JSON.stringify(enrichmentReport, null, 2));
+                    console.log(`📊 [ENRICHMENT] ==========================================\n`);
+
                     // Stocker les métadonnées enrichies si trouvées
                     if (enrichedMetadata) {
                         console.log(`💾 [ENRICHMENT] Métadonnées enrichies trouvées, stockage en cours...`);
@@ -1857,7 +2148,7 @@ app.post('/api/upload/complete', async (c) => {
         }
 
         // Invalider le cache Edge après upload réussi
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const patternsToInvalidate = [
             generateCacheKey(uploadInfo.user_id, 'files', { category: uploadInfo.category }),
             generateCacheKey(uploadInfo.user_id, 'stats'),
@@ -1949,7 +2240,7 @@ app.get('/api/upload/user/:userId', async (c) => {
         const category = c.req.query('category') || null;
         
         // Vérifier si on peut utiliser le cache
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const cacheKey = generateCacheKey(userId, 'files', { category });
         
         // Vérifier l'ETag de la requête
@@ -1969,7 +2260,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                 
                 // Servir depuis le cache
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as object;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -1999,9 +2290,11 @@ app.get('/api/upload/user/:userId', async (c) => {
         
         query += ` ORDER BY uf.uploaded_at DESC`;
 
-        let files;
+        /** Résultat D1 typé pour éviter l'inférence trop profonde */
+        type D1QueryResult = { results: Record<string, unknown>[] };
+        let files: D1QueryResult;
         try {
-            files = await c.env.DATABASE.prepare(query).bind(...bindParams).all();
+            files = await c.env.DATABASE.prepare(query).bind(...bindParams).all() as D1QueryResult;
         } catch (queryError) {
             // Si la colonne album_thumbnails n'existe pas, essayer sans
             const errorMsg = queryError instanceof Error ? queryError.message : String(queryError);
@@ -2021,7 +2314,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                 }
                 
                 query += ` ORDER BY uf.uploaded_at DESC`;
-                files = await c.env.DATABASE.prepare(query).bind(...bindParams).all();
+                files = await c.env.DATABASE.prepare(query).bind(...bindParams).all() as D1QueryResult;
             } else {
                 throw queryError;
             }
@@ -2088,7 +2381,7 @@ app.get('/api/stats', async (c) => {
         }
 
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const cacheKey = generateCacheKey(userId, 'stats');
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2103,7 +2396,7 @@ app.get('/api/stats', async (c) => {
                 }
                 
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as object;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -2176,6 +2469,78 @@ app.get('/api/stats', async (c) => {
     }
 });
 
+// Liste des file_ids de l'utilisateur (D1) pour vérification cache vs cloud au splash
+app.get('/api/cache/file-ids', async (c) => {
+    try {
+        const authHeader = c.req.header('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const userId = c.req.query('userId');
+        if (!userId) {
+            return c.json({ error: 'Missing userId' }, 400);
+        }
+
+        const rows = await c.env.DATABASE.prepare(
+            `SELECT file_id FROM user_files WHERE user_id = ?`
+        ).bind(userId).all() as { results: { file_id: string }[] };
+
+        const fileIds = (rows.results ?? []).map((r) => r.file_id);
+
+        return c.json({ fileIds }, 200, {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+        });
+    } catch (error) {
+        console.error('Cache file-ids error:', error);
+        return c.json({ error: 'Internal server error' }, 500);
+    }
+});
+
+// Catégories utilisées pour le cache Edge des listes fichiers (invalidation)
+const USER_FILES_CACHE_CATEGORIES = [
+    null,
+    'videos',
+    'musics',
+    'images',
+    'documents',
+    'books',
+    'archives',
+    'executables',
+    'others',
+    'raw_images',
+    'ebooks',
+    'comics',
+    'manga',
+] as const;
+
+// Invalider le cache Edge des listes fichiers utilisateur (après sync splash / DB vide)
+app.post('/api/cache/invalidate-user-files', async (c) => {
+    try {
+        const authHeader = c.req.header('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const userId = c.req.query('userId');
+        if (!userId) {
+            return c.json({ error: 'Missing userId' }, 400);
+        }
+
+        const cache = getDefaultCache();
+        const keysToInvalidate = USER_FILES_CACHE_CATEGORIES.map((category) =>
+            generateCacheKey(userId, 'files', { category: category as string | null })
+        );
+        await invalidateCache(cache, keysToInvalidate);
+
+        return c.json({ ok: true }, 200);
+    } catch (error) {
+        console.error('Cache invalidate-user-files error:', error);
+        return c.json({ error: 'Internal server error' }, 500);
+    }
+});
+
 // Récupérer les détails d'un fichier (pour la page de sélection)
 app.get('/api/files/:category/:fileId/info', async (c) => {
     try {
@@ -2183,7 +2548,7 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
         const fileId = c.req.param('fileId');
         
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const cacheKey = generateCacheKey(null, 'file:info', { fileId, category });
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2198,7 +2563,7 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
                 }
                 
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as object;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -2283,7 +2648,7 @@ app.get('/api/files/:category/:fileId/thumbnail', async (c) => {
         const fileId = c.req.param('fileId');
         
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const cacheKey = generateCacheKey(null, 'thumbnail', { fileId, category });
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2574,7 +2939,7 @@ app.delete('/api/files/:category/:fileId', async (c) => {
         }
 
         // Invalider le cache Edge après suppression
-        const cache = caches.default;
+        const cache = getDefaultCache();
         const patternsToInvalidate = [
             generateCacheKey(userId, 'files', { category }),
             generateCacheKey(userId, 'stats'),
@@ -2869,7 +3234,7 @@ app.post('/api/files/:fileId/metadata', async (c) => {
         }
 
         // Invalider le cache Edge après mise à jour métadonnées
-        const cache = caches.default;
+        const cache = getDefaultCache();
         // Récupérer la catégorie du fichier pour invalidation
         const fileInfo = await c.env.DATABASE.prepare(
             `SELECT category FROM files WHERE file_id = ?`

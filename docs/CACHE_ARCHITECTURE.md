@@ -127,16 +127,28 @@ Cette architecture implémente une stratégie de cache à 3 niveaux pour optimis
    - Vide : tout le cache local (IndexedDB + Cache Storage)
    - Edge : pas d'action (expiration naturelle)
 
+### Vérification au lancement (splash)
+
+À chaque ouverture de l’app (écran splash, utilisateur connecté) :
+
+1. **Source de vérité** : `GET /api/cache/file-ids?userId=…` renvoie la liste des `file_id` présents en D1.
+2. **Cache local (IndexedDB)** : `syncLocalCacheWithD1(userId, validFileIds)` supprime les entrées orphelines (file:info, file:metadata, ratings) et invalide les listes `files:category:*`.
+3. **Cache Edge** : `POST /api/cache/invalidate-user-files?userId=…` purge toutes les clés listes fichiers (`user:${userId}:files:category:${category}`) pour que la prochaine requête aille en D1.
+4. **Cache client (mémoire + localStorage)** : `invalidateAllFileCache()` est **toujours** appelé, pour que les listes (musique, vidéos, etc.) refetchent depuis l’API après le splash. Sinon : D1 vide → anciens items restent ; D1 plein → nouveaux items n’apparaissent pas.
+5. **Service Worker** : purge des thumbnails pour les `file_id` orphelins (supprimés via R2/D1).
+
+**Requêtes listes fichiers** : Tous les `fetch` vers `/api/upload/user/…?category=…` utilisent `cache: 'no-store'` pour que le navigateur ne renvoie pas une réponse HTTP en cache obsolète après l’invalidation Edge au splash.
+
 ### Mécanisme d'invalidation
 
 **Côté Client** :
 - Événements personnalisés (`videomi:cache-invalidate`)
 - Service Worker pour invalidation Cache Storage
-- Dexie pour nettoyage IndexedDB
+- Au splash : `invalidateAllFileCache()` (mémoire + localStorage) + sync IndexedDB
 
 **Côté Edge** :
 - Headers `Cache-Tags` pour invalidation par tag
-- Purge manuelle via Cache API `cache.delete()`
+- Purge manuelle via Cache API `cache.delete()` (endpoint `/api/cache/invalidate-user-files` au splash)
 - Versioning des clés de cache
 
 ## Isolation et Sécurité

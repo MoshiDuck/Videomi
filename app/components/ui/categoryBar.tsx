@@ -13,9 +13,14 @@ const CATEGORY_ICONS: Record<FileCategory, string> = {
     musics: '🎵',
     images: '🖼️',
     documents: '📄',
+    books: '📚',
+    ebooks: '📖',
+    comics: '🦸',
+    manga: '📕',
     archives: '📦',
     executables: '⚙️',
-    others: '📎'
+    others: '📎',
+    raw_images: '🖼️',
 };
 
 interface CategoryBarProps {
@@ -23,7 +28,7 @@ interface CategoryBarProps {
     onCategoryChange: (category: FileCategory) => void;
 }
 
-const CATEGORIES: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'archives', 'executables', 'others'];
+const CATEGORIES: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'books', 'archives', 'executables', 'others'];
 
 export function CategoryBar({ selectedCategory, onCategoryChange }: CategoryBarProps) {
     const { user } = useAuth();
