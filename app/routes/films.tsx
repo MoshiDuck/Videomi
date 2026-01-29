@@ -152,7 +152,7 @@ export default function FilmsRoute() {
                 // Récupérer les fichiers
                 const response = await fetch(
                     `https://videomi.uk/api/upload/user/${user.id}?category=videos`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
+                    { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
                 );
 
                 if (!response.ok) throw new Error('Erreur lors de la récupération des fichiers');

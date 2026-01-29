@@ -110,6 +110,31 @@ export async function invalidateServiceWorkerCache(pattern: string, userId?: str
 }
 
 /**
+ * Supprime du cache SW les entrées pour des file_ids orphelins (supprimés via R2/D1)
+ */
+export async function purgeServiceWorkerCacheForFileIds(
+    fileIds: string[],
+    userId?: string | null
+): Promise<void> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || fileIds.length === 0) {
+        return;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration.active) {
+            registration.active.postMessage({
+                type: 'PURGE_FILE_IDS',
+                fileIds,
+                userId: userId ?? null,
+            });
+        }
+    } catch (error) {
+        console.error('[SW] Erreur purge file_ids:', error);
+    }
+}
+
+/**
  * Récupère le statut du Service Worker (debug)
  */
 export async function getServiceWorkerStatus(): Promise<{ currentUserId: string | null; cacheEnabled: boolean } | null> {

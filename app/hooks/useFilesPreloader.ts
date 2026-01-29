@@ -4,7 +4,7 @@
 import { useEffect, useCallback } from 'react';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 
-const ALL_CATEGORIES: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'archives', 'executables', 'others'];
+const ALL_CATEGORIES: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'ebooks', 'comics', 'manga', 'archives', 'executables', 'others'];
 
 interface UseFilesPreloaderOptions {
     userId: string | null;
@@ -30,7 +30,8 @@ export function useFilesPreloader({ userId, enabled = true, preloadOnHover = tru
                 fetch(`https://videomi.uk/api/upload/user/${userId}?category=${category}`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('videomi_token') || ''}`
-                    }
+                    },
+                    cache: 'no-store',
                 }).catch(() => {
                     // Ignorer silencieusement les erreurs de préchargement
                 });
@@ -77,7 +78,8 @@ export function useFilesPreloader({ userId, enabled = true, preloadOnHover = tru
         fetch(`https://videomi.uk/api/upload/user/${userId}?category=${category}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('videomi_token') || ''}`
-            }
+            },
+            cache: 'no-store',
         } as RequestInit).then(response => {
             if (response.ok) {
                 return response.json();

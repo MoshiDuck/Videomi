@@ -60,9 +60,8 @@ export default function ArchivesRoute() {
             const response = await fetch(
                 `https://videomi.uk/api/upload/user/${user.id}?category=archives`,
                 {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store',
                 }
             );
 

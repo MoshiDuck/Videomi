@@ -116,25 +116,25 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/films"
-                            aria-current={isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? 'page' : undefined}
+                            aria-current={isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/books') || isActive('/archives') || isActive('/executables') || isActive('/others') ? 'page' : undefined}
                             style={{
-                                color: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.accent.blue : darkTheme.text.secondary,
+                                color: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/books') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.accent.blue : darkTheme.text.secondary,
                                 textDecoration: 'none',
                                 padding: '10px 16px',
                                 borderRadius: darkTheme.radius.medium,
-                                backgroundColor: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.surface.info : 'transparent',
+                                backgroundColor: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/books') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.surface.info : 'transparent',
                                 transition: darkTheme.transition.normal,
-                                fontWeight: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? '600' : '500',
+                                fontWeight: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/books') || isActive('/archives') || isActive('/executables') || isActive('/others') ? '600' : '500',
                                 fontSize: '15px'
                             }}
                             onMouseEnter={(e) => {
-                                if (!isActive('/films') && !isActive('/series') && !isActive('/musics') && !isActive('/images') && !isActive('/documents') && !isActive('/archives') && !isActive('/executables') && !isActive('/others')) {
+                                if (!isActive('/films') && !isActive('/series') && !isActive('/musics') && !isActive('/images') && !isActive('/documents') && !isActive('/books') && !isActive('/archives') && !isActive('/executables') && !isActive('/others')) {
                                     e.currentTarget.style.backgroundColor = darkTheme.background.tertiary;
                                     e.currentTarget.style.color = darkTheme.text.primary;
                                 }
                             }}
                             onMouseLeave={(e) => {
-                                if (!isActive('/films') && !isActive('/series') && !isActive('/musics') && !isActive('/images') && !isActive('/documents') && !isActive('/archives') && !isActive('/executables') && !isActive('/others')) {
+                                if (!isActive('/films') && !isActive('/series') && !isActive('/musics') && !isActive('/images') && !isActive('/documents') && !isActive('/books') && !isActive('/archives') && !isActive('/executables') && !isActive('/others')) {
                                     e.currentTarget.style.backgroundColor = 'transparent';
                                     e.currentTarget.style.color = darkTheme.text.secondary;
                                 }

@@ -12,6 +12,10 @@ export const CATEGORY_ROUTES: Record<FileCategory, string> = {
     'images': '/images',
     'raw_images': '/images', // Les images RAW sont fusionnées avec images
     'documents': '/documents',
+    'books': '/books',
+    'ebooks': '/books',
+    'comics': '/books',
+    'manga': '/books',
     'archives': '/archives',
     'executables': '/executables',
     'others': '/others'
@@ -31,6 +35,9 @@ export function getCategoryFromPathname(pathname: string): FileCategory | null {
     // Gérer /films et /series comme des sous-catégories de videos
     if (pathname === '/films' || pathname === '/series') {
         return 'videos';
+    }
+    if (pathname === '/books') {
+        return 'books';
     }
     for (const [category, route] of Object.entries(CATEGORY_ROUTES) as Array<[FileCategory, string]>) {
         if (pathname === route) {

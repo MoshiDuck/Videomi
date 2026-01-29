@@ -228,7 +228,10 @@ export function useFiles({ category, userId, enabled = true, refetchInterval }: 
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`
-                        }
+                        },
+                        // Éviter que le navigateur renvoie une réponse HTTP en cache obsolète
+                        // (après invalidation Edge au splash, on doit bien aller au serveur)
+                        cache: 'no-store',
                     }
                 );
 

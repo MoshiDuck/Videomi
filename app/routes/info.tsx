@@ -109,9 +109,8 @@ export default function InfoRoute() {
                 // Récupérer les infos du fichier
                 const token = localStorage.getItem('videomi_token');
                 const response = await fetch(`https://videomi.uk/api/upload/user/${user.id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store',
                 });
 
                 if (!response.ok) {

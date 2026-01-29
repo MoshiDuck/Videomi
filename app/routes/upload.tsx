@@ -140,30 +140,34 @@ export default function UploadRoute() {
                                 Sélectionnez un fichier
                             </h2>
 
-                            <div style={{
-                                border: '2px dashed #4285f4',
-                                borderRadius: '8px',
-                                padding: '40px 20px',
-                                textAlign: 'center',
-                                backgroundColor: darkTheme.background.tertiary,
-                                transition: 'all 0.3s',
-                                cursor: 'pointer',
-                                marginBottom: '20px'
-                            }}
-                                 onClick={() => {
-                                     if (typeof document === 'undefined') return;
-                                     const input = document.createElement('input');
-                                     input.type = 'file';
-                                     input.accept = '*/*';
-                                     input.multiple = true;
-                                     input.onchange = (e) => {
-                                         const files = (e.target as HTMLInputElement).files;
-                                         if (files && files.length > 0 && uploadManagerRef.current) {
-                                             uploadManagerRef.current.uploadFiles(files);
-                                         }
-                                     };
-                                     input.click();
-                                 }}
+                            <input
+                                id="upload-dropzone-input"
+                                type="file"
+                                multiple
+                                accept="*/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    const files = e.target.files;
+                                    if (files && files.length > 0 && uploadManagerRef.current) {
+                                        uploadManagerRef.current.uploadFiles(Array.from(files));
+                                    }
+                                    e.target.value = '';
+                                }}
+                                aria-label={t('upload.dragDrop')}
+                            />
+                            <label
+                                htmlFor="upload-dropzone-input"
+                                style={{
+                                    display: 'block',
+                                    border: '2px dashed #4285f4',
+                                    borderRadius: '8px',
+                                    padding: '40px 20px',
+                                    textAlign: 'center',
+                                    backgroundColor: darkTheme.background.tertiary,
+                                    transition: 'all 0.3s',
+                                    cursor: 'pointer',
+                                    marginBottom: '20px'
+                                }}
                             >
                                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📤</div>
                                 <p style={{ marginBottom: '8px', color: '#4285f4', fontWeight: '500' }}>
@@ -175,7 +179,7 @@ export default function UploadRoute() {
                                 <p style={{ color: '#888', fontSize: '12px' }}>
                                     {t('upload.supportedFormats')}
                                 </p>
-                            </div>
+                            </label>
 
                             <input
                                 id="file-input"

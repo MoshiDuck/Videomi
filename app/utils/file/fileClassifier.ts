@@ -7,6 +7,10 @@ export type FileCategory =
     | 'images'      // Ne pas transcoder
     | 'raw_images'  // Images RAW (NEF, etc.) - Ne pas transcoder
     | 'documents'   // Ne pas transcoder
+    | 'books'       // Catégorie nav (Livres) - sous-catégories ebooks / comics / manga
+    | 'ebooks'      // Livre numérique (EPUB, MOBI, etc.)
+    | 'comics'      // Comics (CBZ, CBR, etc.)
+    | 'manga'       // Manga (même formats, classement manuel possible)
     | 'archives'    // Ne pas transcoder
     | 'executables' // Ne pas transcoder
     | 'others';     // Ne pas transcoder
@@ -46,6 +50,11 @@ const MIME_CATEGORIES: Record<string, FileCategory> = {
     'image/webp': 'images',
     'image/svg+xml': 'images',
     'image/bmp': 'images',
+
+    // Livres numériques (ebooks)
+    'application/epub+zip': 'ebooks',
+    'application/x-mobipocket-ebook': 'ebooks',
+    'application/vnd.amazon.ebook': 'ebooks',
 
     // Documents
     'application/pdf': 'documents',
@@ -88,6 +97,14 @@ const EXTENSION_CATEGORIES: Record<string, FileCategory> = {
     '.png': 'images',
     '.gif': 'images',
     '.nef': 'raw_images',
+    '.epub': 'ebooks',
+    '.mobi': 'ebooks',
+    '.azw': 'ebooks',
+    '.azw3': 'ebooks',
+    '.cbz': 'comics',
+    '.cbr': 'comics',
+    '.cbt': 'comics',
+    '.cb7': 'comics',
     '.pdf': 'documents',
     '.doc': 'documents',
     '.docx': 'documents',
@@ -154,13 +171,19 @@ export function classifyFile(file: File): FileCategory {
         return category;
     }
 
-    // 3. Vérifier le nom pour les vidéos/audio
+    // 3. Vérifier le nom pour les vidéos/audio/livres
     const name = file.name.toLowerCase();
     if (name.match(/\.(mp4|avi|mov|mkv|webm|flv|wmv|m4v|mpg|mpeg)$/)) {
         return 'videos';
     }
     if (name.match(/\.(mp3|wav|aac|flac|ogg|m4a|wma)$/)) {
         return 'musics';
+    }
+    if (name.match(/\.(epub|mobi|azw|azw3)$/)) {
+        return 'ebooks';
+    }
+    if (name.match(/\.(cbz|cbr|cbt|cb7)$/)) {
+        return 'comics';
     }
 
     return 'others';

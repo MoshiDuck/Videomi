@@ -296,6 +296,89 @@ export async function invalidateLocalCache(
     }
 }
 
+/** Préfixes de clés qui contiennent un file_id (pour sync cache vs D1) */
+const FILE_ID_KEY_PREFIXES = [
+    'file:info:fileId:',
+    'file:metadata:fileId:',
+    'ratings:fileId:',
+] as const;
+
+/**
+ * Retourne toutes les clés du cache local pour un utilisateur
+ */
+export async function getAllLocalCacheKeys(userId: string): Promise<string[]> {
+    try {
+        const db = await initDB(userId);
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.openKeyCursor();
+        const keys: string[] = [];
+
+        await new Promise<void>((resolve, reject) => {
+            request.onsuccess = (event) => {
+                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                if (cursor) {
+                    keys.push(cursor.key as string);
+                    cursor.continue();
+                } else {
+                    resolve();
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+        return keys;
+    } catch (error) {
+        console.error('[LOCAL_CACHE] Erreur getAllKeys:', error);
+        return [];
+    }
+}
+
+/**
+ * Synchronise le cache local avec D1 : supprime les entrées dont le file_id
+ * n'est plus présent côté cloud (ex. suppression via R2/D1).
+ * Invalide aussi les listes fichiers (files:category:*) pour refetch frais.
+ * @returns file_ids orphelins supprimés du cache (pour purge SW)
+ */
+export async function syncLocalCacheWithD1(
+    userId: string,
+    validFileIds: Set<string>
+): Promise<{ removedFileIds: string[] }> {
+    const removedFileIds: string[] = [];
+    try {
+        const keys = await getAllLocalCacheKeys(userId);
+        const toDelete: string[] = [];
+
+        for (const key of keys) {
+            for (const prefix of FILE_ID_KEY_PREFIXES) {
+                if (key.startsWith(prefix)) {
+                    const fileId = key.slice(prefix.length);
+                    if (!validFileIds.has(fileId)) {
+                        toDelete.push(key);
+                        if (!removedFileIds.includes(fileId)) {
+                            removedFileIds.push(fileId);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        for (const key of toDelete) {
+            await deleteFromLocalCache(userId, key);
+        }
+
+        // Invalider les listes par catégorie pour refetch frais
+        await invalidateLocalCache(userId, 'files:category:');
+
+        if (removedFileIds.length > 0) {
+            console.log(`[LOCAL_CACHE] Sync D1: ${removedFileIds.length} file(s) orphelin(s) supprimés du cache`);
+        }
+    } catch (error) {
+        console.error('[LOCAL_CACHE] Erreur syncLocalCacheWithD1:', error);
+    }
+    return { removedFileIds };
+}
+
 /**
  * Wrapper pour les requêtes fetch avec cache local
  */

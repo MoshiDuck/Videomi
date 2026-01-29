@@ -60,9 +60,8 @@ export default function OthersRoute() {
             const response = await fetch(
                 `https://videomi.uk/api/upload/user/${user.id}?category=others`,
                 {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store',
                 }
             );
 
