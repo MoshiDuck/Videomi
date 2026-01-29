@@ -2,11 +2,70 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { darkTheme } from '~/utils/ui/theme';
+import { syncLocalCacheWithD1 } from '~/utils/cache/localCache';
+import { purgeServiceWorkerCacheForFileIds } from '~/utils/cache/serviceWorker';
+import { invalidateAllFileCache } from '~/hooks/useFiles';
+
+/**
+ * Vérification cache vs D1 au lancement : compare le cache local (IndexedDB + SW)
+ * avec les file_ids présents en cloud (D1). Supprime les entrées orphelines si
+ * l'utilisateur a supprimé des fichiers via R2/D1.
+ */
+async function verifyCacheAgainstD1(): Promise<void> {
+    if (typeof window === 'undefined') return;
+
+    const userStr = localStorage.getItem('videomi_user');
+    const token = localStorage.getItem('videomi_token');
+    if (!userStr || !token) return;
+
+    let userId: string;
+    try {
+        const user = JSON.parse(userStr) as { id?: string };
+        userId = user?.id;
+    } catch {
+        return;
+    }
+    if (!userId) return;
+
+    try {
+        const res = await fetch(`/api/cache/file-ids?userId=${encodeURIComponent(userId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const data = (await res.json()) as { fileIds?: string[] };
+        const fileIds = data.fileIds ?? [];
+        const validFileIds = new Set(fileIds);
+
+        const { removedFileIds } = await syncLocalCacheWithD1(userId, validFileIds);
+
+        // Invalider le cache Edge des listes (musique, vidéos, etc.) pour que
+        // la prochaine requête aille en D1 (évite listes fantômes si DB vide)
+        await fetch(`/api/cache/invalidate-user-files?userId=${encodeURIComponent(userId)}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Toujours invalider le cache client (mémoire + localStorage) à chaque lancement,
+        // pour que les listes (musique, vidéos, etc.) refetchent depuis D1 après le splash.
+        // Sinon : D1 vide → anciens items restent ; D1 plein → nouveaux items n'apparaissent pas.
+        invalidateAllFileCache();
+
+        if (removedFileIds.length > 0) {
+            await purgeServiceWorkerCacheForFileIds(removedFileIds, userId);
+        }
+    } catch {
+        // Ne pas bloquer le lancement en cas d'erreur réseau
+    }
+}
 
 export function SplashScreen() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        // Vérification cache vs D1 (simple comparaison au lancement)
+        verifyCacheAgainstD1();
+
         // Rediriger vers /home après 2 secondes
         const timer = setTimeout(() => {
             navigate('/home', { replace: true });
