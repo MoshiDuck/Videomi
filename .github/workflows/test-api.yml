@@ -1,0 +1,52 @@
+# Workflow CI : tests d'intégration API métadonnées
+# Exécute les tests unitaires et d'intégration (mock) pour app/utils/media/api
+# Rollback / échec du déploiement si les tests échouent (à brancher sur votre pipeline de déploiement)
+
+name: Test API Metadata Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/utils/media/api/**'
+      - 'app/types/metadata.ts'
+      - 'tests/api/**'
+      - 'vitest.config.ts'
+      - 'package.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/utils/media/api/**'
+      - 'app/types/metadata.ts'
+      - 'tests/api/**'
+      - 'vitest.config.ts'
+      - 'package.json'
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run API tests
+        run: npm run test:api
+
+      - name: Run API tests with coverage
+        run: npm run test:api:coverage
+
+      - name: Upload coverage (optional)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-api
+          path: coverage/
+          retention-days: 7
