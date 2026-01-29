@@ -78,20 +78,12 @@ export default function ImagesRoute() {
             const [imagesResponse, rawImagesResponse] = await Promise.all([
                 fetch(
                     `https://videomi.uk/api/upload/user/${user.id}?category=images`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }
+                    { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
                 ),
                 fetch(
                     `https://videomi.uk/api/upload/user/${user.id}?category=raw_images`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }
-                )
+                    { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
+                ),
             ]);
 
             if (!imagesResponse.ok || !rawImagesResponse.ok) {

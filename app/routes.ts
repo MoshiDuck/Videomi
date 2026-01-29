@@ -18,6 +18,7 @@ export default [
     route("videos", "routes/videosRedirect.tsx"),  // Redirige vers /films
     route("images", "routes/images.tsx"),
     route("documents", "routes/documents.tsx"),
+    route("books", "routes/books.tsx"),
     route("archives", "routes/archives.tsx"),
     route("executables", "routes/executables.tsx"),
     route("others", "routes/others.tsx"),
