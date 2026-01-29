@@ -85,9 +85,8 @@ export default function DocumentsRoute() {
             const response = await fetch(
                 `https://videomi.uk/api/upload/user/${user.id}?category=documents`,
                 {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store',
                 }
             );
 

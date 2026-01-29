@@ -79,9 +79,16 @@ export interface Translations {
         musics: string;
         images: string;
         documents: string;
+        books: string;
         archives: string;
         executables: string;
         others: string;
+    };
+    // Books page (Livre numérique / Comics / Manga)
+    books: {
+        ebooks: string;
+        comics: string;
+        manga: string;
     };
     // Videos page (Films & Séries)
     videos: {
@@ -119,6 +126,9 @@ export interface Translations {
         noDocuments: string;
         noDocumentsDescription: string;
         uploadFirstDocument: string;
+        noBooks: string;
+        noBooksDescription: string;
+        uploadFirstBook: string;
         noArchives: string;
         noArchivesDescription: string;
         uploadFirstArchive: string;
@@ -244,9 +254,15 @@ const translations: Record<Language, Translations> = {
             musics: 'Musiques',
             images: 'Images',
             documents: 'Documents',
+            books: 'Livres',
             archives: 'Archives',
             executables: 'Exécutables',
             others: 'Autres'
+        },
+        books: {
+            ebooks: 'Livre numérique',
+            comics: 'Comics',
+            manga: 'Manga'
         },
         emptyStates: {
             noVideos: 'Aucune vidéo',
@@ -267,6 +283,9 @@ const translations: Record<Language, Translations> = {
             noDocuments: 'Aucun document',
             noDocumentsDescription: 'Commencez à organiser vos documents',
             uploadFirstDocument: '📤 Uploadez votre premier document',
+            noBooks: 'Aucun livre',
+            noBooksDescription: 'Ajoutez des livres numériques (EPUB, MOBI), comics ou manga (CBZ, CBR)',
+            uploadFirstBook: '📤 Uploadez votre premier livre',
             noArchives: 'Aucune archive',
             noArchivesDescription: 'Commencez à organiser vos fichiers d\'archive',
             uploadFirstArchive: '📤 Uploadez votre première archive',
@@ -385,9 +404,15 @@ const translations: Record<Language, Translations> = {
             musics: 'Musics',
             images: 'Images',
             documents: 'Documents',
+            books: 'Books',
             archives: 'Archives',
             executables: 'Executables',
             others: 'Others'
+        },
+        books: {
+            ebooks: 'E-book',
+            comics: 'Comics',
+            manga: 'Manga'
         },
         emptyStates: {
             noVideos: 'No videos',
@@ -408,6 +433,9 @@ const translations: Record<Language, Translations> = {
             noDocuments: 'No documents',
             noDocumentsDescription: 'Start organizing your documents',
             uploadFirstDocument: '📤 Upload your first document',
+            noBooks: 'No books',
+            noBooksDescription: 'Add e-books (EPUB, MOBI), comics or manga (CBZ, CBR)',
+            uploadFirstBook: '📤 Upload your first book',
             noArchives: 'No archives',
             noArchivesDescription: 'Start organizing your archive files',
             uploadFirstArchive: '📤 Upload your first archive',
@@ -528,9 +556,15 @@ const translations: Record<Language, Translations> = {
             musics: 'Músicas',
             images: 'Imágenes',
             documents: 'Documentos',
+            books: 'Libros',
             archives: 'Archivos',
             executables: 'Ejecutables',
             others: 'Otros'
+        },
+        books: {
+            ebooks: 'Libro digital',
+            comics: 'Cómic',
+            manga: 'Manga'
         },
         emptyStates: {
             noVideos: 'Sin videos',
@@ -551,6 +585,9 @@ const translations: Record<Language, Translations> = {
             noDocuments: 'Sin documentos',
             noDocumentsDescription: 'Comienza a organizar tus documentos',
             uploadFirstDocument: '📤 Sube tu primer documento',
+            noBooks: 'Sin libros',
+            noBooksDescription: 'Añade libros digitales (EPUB, MOBI), cómics o manga (CBZ, CBR)',
+            uploadFirstBook: '📤 Sube tu primer libro',
             noArchives: 'Sin archivos',
             noArchivesDescription: 'Comienza a organizar tus archivos',
             uploadFirstArchive: '📤 Sube tu primer archivo',
@@ -671,9 +708,15 @@ const translations: Record<Language, Translations> = {
             musics: 'Musik',
             images: 'Bilder',
             documents: 'Dokumente',
+            books: 'Bücher',
             archives: 'Archive',
             executables: 'Ausführbare Dateien',
             others: 'Andere'
+        },
+        books: {
+            ebooks: 'E-Book',
+            comics: 'Comics',
+            manga: 'Manga'
         },
         emptyStates: {
             noVideos: 'Keine Videos',
@@ -694,6 +737,9 @@ const translations: Record<Language, Translations> = {
             noDocuments: 'Keine Dokumente',
             noDocumentsDescription: 'Beginnen Sie, Ihre Dokumente zu organisieren',
             uploadFirstDocument: '📤 Laden Sie Ihr erstes Dokument hoch',
+            noBooks: 'Keine Bücher',
+            noBooksDescription: 'Fügen Sie E-Books (EPUB, MOBI), Comics oder Manga (CBZ, CBR) hinzu',
+            uploadFirstBook: '📤 Laden Sie Ihr erstes Buch hoch',
             noArchives: 'Keine Archive',
             noArchivesDescription: 'Beginnen Sie, Ihre Archivdateien zu organisieren',
             uploadFirstArchive: '📤 Laden Sie Ihr erstes Archiv hoch',
