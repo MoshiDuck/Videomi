@@ -16,6 +16,10 @@ export interface BaseAudioMetadata {
     year: number | null;
     track: number | null;
     genre: string | null;
+    /** Durée en secondes (pour AcoustID si fingerprint fourni) */
+    duration?: number | null;
+    /** Empreinte Chromaprint + durée pour AcoustID (identification avant Spotify) */
+    acoustid?: { fingerprint: string; duration: number } | null;
 }
 
 export interface BaseVideoMetadata {
@@ -35,15 +39,16 @@ export async function extractAudioMetadata(file: File): Promise<BaseAudioMetadat
         const mm = await import('music-metadata-browser');
 
         
-        // Analyser les métadonnées ID3
+        // Analyser les métadonnées ID3 (duration: true pour AcoustID)
         const metadata = await mm.parseBlob(file, { 
-            duration: false, 
+            duration: true, 
             skipCovers: true, // Ne pas extraire les images ici (trop lourd)
             skipPostHeaders: false,
             includeChapters: false
         });
 
         const common = metadata?.common || {};
+        const format = metadata?.format;
         
         // Extraire les informations de base
         const title = common.title || null;
@@ -133,13 +138,31 @@ export async function extractAudioMetadata(file: File): Promise<BaseAudioMetadat
             }
         }
 
+        const durationSec = format?.duration != null && Number.isFinite(format.duration) ? Math.round(format.duration) : null;
+
+        // Empreinte Chromaprint + durée pour AcoustID (navigateur uniquement)
+        let acoustid: { fingerprint: string; duration: number } | null = null;
+        if (typeof window !== 'undefined') {
+            try {
+                const { calculateChromaprintFromFile } = await import('../media/chromaprintBrowser');
+                const fp = await calculateChromaprintFromFile(file);
+                if (fp) {
+                    acoustid = { fingerprint: fp.fingerprint, duration: fp.duration };
+                }
+            } catch (e) {
+                console.warn('🎵 [AUDIO METADATA] Chromaprint non disponible:', e);
+            }
+        }
+
         return {
             title: finalTitle, // NULL si pas de titre dans les métadonnées ID3 (ne pas utiliser filename)
             artist,
             album,
             year: year && !isNaN(year) ? year : null,
             track: track && !isNaN(track) ? track : null,
-            genre
+            genre,
+            duration: acoustid?.duration ?? durationSec ?? null,
+            acoustid
         };
     } catch (error) {
         console.warn(`🎵 [AUDIO METADATA] Erreur extraction métadonnées:`, error);
@@ -149,7 +172,9 @@ export async function extractAudioMetadata(file: File): Promise<BaseAudioMetadat
             album: null,
             year: null,
             track: null,
-            genre: null
+            genre: null,
+            duration: null,
+            acoustid: null
         };
     }
 }

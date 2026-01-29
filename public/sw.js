@@ -289,6 +289,17 @@ self.addEventListener('message', (event) => {
         );
     }
     
+    // PURGE_FILE_IDS : Supprimer du cache les réponses pour des file_ids orphelins (supprimés via R2/D1)
+    if (event.data && event.data.type === 'PURGE_FILE_IDS') {
+        const fileIds = event.data.fileIds || [];
+        const userId = event.data.userId || currentUserId;
+        if (fileIds.length > 0) {
+            event.waitUntil(
+                purgeCacheByFileIds(fileIds, userId)
+            );
+        }
+    }
+    
     // GET_STATUS : Retourner le statut courant (debug)
     if (event.data && event.data.type === 'GET_STATUS') {
         event.ports[0]?.postMessage({
@@ -316,5 +327,31 @@ async function invalidateCachePattern(pattern, userId) {
             await cache.delete(request);
             console.log(`[SW] Invalidé: ${request.url}`);
         }
+    }
+}
+
+/**
+ * Supprime du cache les entrées dont l'URL contient un des file_ids (orphelins D1/R2)
+ */
+async function purgeCacheByFileIds(fileIds, userId) {
+    const cacheName = getCacheName(userId);
+    if (!cacheName || fileIds.length === 0) {
+        return;
+    }
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    let removed = 0;
+    for (const request of requests) {
+        const url = request.url;
+        for (const fileId of fileIds) {
+            if (url.includes('/api/files/') && url.includes(fileId)) {
+                await cache.delete(request);
+                removed++;
+                break;
+            }
+        }
+    }
+    if (removed > 0) {
+        console.log('[SW] Purge file_ids orphelins: ' + removed + ' entrée(s) supprimée(s)');
     }
 }
