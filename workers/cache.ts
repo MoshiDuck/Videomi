@@ -4,6 +4,14 @@
 import type { Context } from 'hono';
 
 /**
+ * Récupère le cache Edge par défaut (Cloudflare Workers).
+ * Contourne le typage DOM CacheStorage qui n'expose pas `default`.
+ */
+export function getDefaultCache(): Cache {
+    return (globalThis.caches as unknown as { default: Cache }).default;
+}
+
+/**
  * Configuration des TTL par type de ressource
  */
 export const CACHE_TTL = {
@@ -26,6 +34,18 @@ export const CACHE_TTL = {
     // Config (rarement changé)
     CONFIG: 3600, // 1 heure
 } as const;
+
+/** Base URL pour les clés de cache (Cloudflare Cache API exige des URLs valides) */
+const CACHE_BASE_URL = 'https://videomi-cache.internal/';
+
+/**
+ * Convertit une clé logique (ex. user:abc:files:category:videos) en URL valide
+ * pour l'API Cache Cloudflare, qui n'accepte que Request ou URL.
+ */
+export function cacheKeyToRequestUrl(logicalKey: string): string {
+    const path = logicalKey.replace(/:/g, '/');
+    return `${CACHE_BASE_URL}${path}`;
+}
 
 /**
  * Génère une clé de cache sécurisée avec isolation par utilisateur
@@ -78,12 +98,17 @@ export function generateETag(content: string | object): string {
 /**
  * Récupère depuis le cache Edge ou null si absent
  */
+function toCacheUrl(key: string): string {
+    return key.startsWith('http://') || key.startsWith('https://') ? key : cacheKeyToRequestUrl(key);
+}
+
 export async function getFromCache(
     cache: Cache,
     key: string
 ): Promise<Response | null> {
     try {
-        const cachedResponse = await cache.match(key);
+        const url = toCacheUrl(key);
+        const cachedResponse = await cache.match(url);
         return cachedResponse || null;
     } catch (error) {
         console.error(`[CACHE] Erreur lecture cache pour ${key}:`, error);
@@ -161,8 +186,9 @@ export async function putInCache(
             headers: headers,
         });
         
-        // Mettre en cache
-        await cache.put(key, cachedResponse);
+        // Mettre en cache (clé = URL valide pour Cloudflare Cache API)
+        const url = toCacheUrl(key);
+        await cache.put(url, cachedResponse);
         
         console.log(`[CACHE] Mis en cache: ${key} (TTL: ${ttl}s)`);
     } catch (error) {
@@ -187,15 +213,15 @@ export async function invalidateCache(
         
         console.log(`[CACHE] Invalidation demandée pour: ${patterns.join(', ')}`);
         
-        // Suppression par clé exacte (Cache API ne supporte pas les wildcards)
-        // Toutes nos clés contiennent ':' (ex. user:abc:files:category:videos)
-        for (const key of patterns) {
-            if (key.includes('*')) continue; // wildcard non supporté, skip
+        // Suppression par clé exacte (Cache API exige des URLs valides, pas user:...)
+        for (const logicalKey of patterns) {
+            if (logicalKey.includes('*')) continue; // wildcard non supporté, skip
             try {
-                await cache.delete(key);
-                console.log(`[CACHE] Clé invalidée: ${key}`);
+                const url = toCacheUrl(logicalKey);
+                await cache.delete(url);
+                console.log(`[CACHE] Clé invalidée: ${logicalKey}`);
             } catch (error) {
-                console.error(`[CACHE] Erreur invalidation ${key}:`, error);
+                console.error(`[CACHE] Erreur invalidation ${logicalKey}:`, error);
             }
         }
     } catch (error) {
@@ -309,9 +335,9 @@ export function cacheMiddleware(
             
             // Servir depuis le cache
             console.log(`[CACHE] Hit: ${cacheKey}`);
-            return c.body(cachedResponse.body, {
+            return new Response(cachedResponse.body, {
                 status: cachedResponse.status,
-                headers: Object.fromEntries(cachedResponse.headers.entries()),
+                headers: cachedResponse.headers,
             });
         }
         
