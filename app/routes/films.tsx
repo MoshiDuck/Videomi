@@ -699,7 +699,7 @@ export default function FilmsRoute() {
                     onKeyDown={handleKeyDown}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Voir ${movie.title || movie.filename || 'ce film'}`}
+                    aria-label={`Voir ${file.title || file.filename || 'ce film'}`}
                     style={{
                         position: 'relative',
                         width: '185px',
@@ -725,7 +725,7 @@ export default function FilmsRoute() {
                             onKeyDown={handleKeyDown}
                             tabIndex={0}
                             role="button"
-                            aria-label={`Voir ${movie.title || movie.filename || 'ce film'}`}
+                            aria-label={`Voir ${file.title || file.filename || 'ce film'}`}
                             style={{
                                 position: 'fixed',
                                 top: `${customPosition.top}px`,
