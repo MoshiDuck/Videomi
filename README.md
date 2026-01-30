@@ -10,7 +10,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1%20%2B%20R2-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![WCAG 2.1 AA](https://img.shields.io/badge/WCAG-2.1%20AA-005A9C?logo=accessibility)](https://www.w3.org/WAI/WCAG21/quickref/)
 
-**[Site en production](https://videomi.uk)** · **[Documentation](./docs/)** · **[Dépôt](https://github.com/MoshiDuck/Videomi)**
+**[Site en production](https://videomi.uk)** · **[Documentation](./docs/)**
 
 </div>
 
@@ -26,18 +26,10 @@
 
 - [Fonctionnalités](#-fonctionnalités)
 - [Architecture technique](#-architecture-technique)
-- [Prérequis](#-prérequis)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Développement](#-développement)
-- [Déploiement](#-déploiement)
 - [Documentation](#-documentation)
-- [Structure du projet](#-structure-du-projet)
 - [Workflow Git](#-workflow-git)
 - [Roadmap](#-roadmap)
 - [Statistiques](#-statistiques)
-- [Licence](#-licence)
-- [Liens](#-liens)
 
 ---
 
@@ -47,10 +39,16 @@
 
 | Capacité | Détail |
 |----------|--------|
-| **Upload multi‑format** | Vidéos, musiques, images, documents, archives |
+| **Upload multi‑format** | Vidéos, musiques, images, documents, archives, exécutables |
 | **Chunked upload** | Reprise automatique, upload par morceaux |
 | **Déduplication** | Hash SHA‑256 pour éviter les doublons |
 | **Streaming** | HLS pour la lecture vidéo |
+| **Catalogue local (D1 seul)** | Métadonnées en base sans stockage R2 ; chemin du fichier stocké en D1 pour lecture sans redemander (voir ci‑dessous) |
+
+**Chemin du fichier local (`local_file_path`)**  
+En mode « catalogue local », l’app envoie le chemin du fichier au backend pour le stocker en D1. À la lecture, si un chemin est enregistré, le fichier est ouvert directement (sans redemander le fichier).  
+**En navigateur** : pour des raisons de sécurité, le JavaScript n’a pas accès au chemin réel du fichier (le `File` issu de `<input type="file">` n’expose pas le chemin, ou seulement un faux chemin type `C:\fakepath\...`). Donc **en navigateur, `local_file_path` reste toujours null** et l’utilisateur doit choisir le fichier à chaque lecture.  
+**Avec l’app Electron** : le `File` expose `file.path` ; le chemin est envoyé à l’upload, stocké en D1, et réutilisé à la lecture sans redemander le fichier.
 
 ### Interface utilisateur
 
@@ -58,6 +56,8 @@
 |----------|--------|
 | **Films & séries** | Interface type Netflix (carrousels, fiches) |
 | **Musique** | Interface type Spotify (playlists, mini‑player) |
+| **Lecteur** | Vidéo HLS et audio avec progression, playlist, mini‑player |
+| **Correspondance manuelle** | Page de match pour lier fichiers à TMDb/Spotify (artiste → album → titre) |
 | **Mini‑player** | Lecteur flottant avec playlist et contrôles |
 | **Drag & drop** | Réorganisation et suppression de fichiers |
 
@@ -118,100 +118,6 @@
 | **Cache** | IndexedDB, Service Worker, Cache API |
 | **Desktop** | Electron (optionnel) |
 
----
-
-## Prérequis
-
-- **Node.js** 18+  
-- **npm** 9+  
-- **Compte Cloudflare** avec accès à Workers, D1 et R2  
-- **Wrangler CLI** : `npm install -g wrangler` (ou utilisation via `npx wrangler`)  
-
----
-
-## Installation
-
-```bash
-# Cloner le dépôt
-git clone https://github.com/MoshiDuck/Videomi.git
-cd Videomi
-
-# Installer les dépendances
-npm install
-```
-
-Ensuite, configurer **Wrangler** et les **secrets** Cloudflare (voir [Configuration](#-configuration)).
-
----
-
-## Configuration
-
-### 1. Wrangler & ressources Cloudflare
-
-Créez ou adaptez `wrangler.jsonc` avec vos identifiants Cloudflare (IDs Workers, D1, R2). Les ressources typiques sont :
-
-- **D1** : base `videomi_db`  
-- **R2** : bucket `videomi-storage`  
-
-### 2. Secrets (variables d'environnement)
-
-```bash
-# Authentification (obligatoire)
-npx wrangler secret put JWT_SECRET
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-
-# Métadonnées (optionnel mais recommandé)
-npx wrangler secret put TMDB_API_KEY
-npx wrangler secret put OMDB_API_KEY
-npx wrangler secret put SPOTIFY_CLIENT_ID
-npx wrangler secret put SPOTIFY_CLIENT_SECRET
-npx wrangler secret put DISCOGS_API_TOKEN
-```
-
-Pour le détail des clés API et où les obtenir : **[CONFIGURATION_API_KEYS.md](./CONFIGURATION_API_KEYS.md)**.
-
----
-
-## Développement
-
-### Démarrer l’app en local
-
-```bash
-npm run dev
-```
-
-L’application est accessible sur **http://localhost:5173**.
-
-### Scripts npm
-
-| Commande | Description |
-|----------|-------------|
-| `npm run dev` | Serveur de développement (React Router + Vite) |
-| `npm run build` | Build de production |
-| `npm run preview` | Build + prévisualisation du build |
-| `npm run deploy` | Build + déploiement sur Cloudflare Workers |
-| `npm run typecheck` | Génération des types Wrangler + vérification TypeScript |
-| `npm run electron:build` | Build du package Electron |
-| `npm run electron:deploy` | Build Electron + lancement en mode prod (videomi.uk) |
-| `npm run total:build` | Build web + Electron |
-| `npm run total:deploy` | Build web + Electron, déploiement Cloudflare, puis lancement Electron |
-
----
-
-## Déploiement
-
-### Déployer sur Cloudflare
-
-```bash
-npm run deploy
-```
-
-Le site est alors disponible sur **https://videomi.uk** (ou votre domaine configuré).
-
-### Dépannage
-
-En cas d’erreurs (403, CORS, secrets, etc.) : **[DEPLOY_TROUBLESHOOTING.md](./DEPLOY_TROUBLESHOOTING.md)**.
 
 ---
 
@@ -234,6 +140,7 @@ En cas d’erreurs (403, CORS, secrets, etc.) : **[DEPLOY_TROUBLESHOOTING.md](./
 | [CACHE_BEST_PRACTICES.md](./docs/CACHE_BEST_PRACTICES.md) | Bonnes pratiques |
 | [CACHE_EXAMPLES.md](./docs/CACHE_EXAMPLES.md) | Exemples d’intégration |
 | [CACHE_CONFORMITY_FINAL_AUDIT.md](./docs/CACHE_CONFORMITY_FINAL_AUDIT.md) | Audit de conformité |
+| [CACHE_DOCUMENTARY_CHECKLIST.md](./docs/CACHE_DOCUMENTARY_CHECKLIST.md) | Checklist documentaire |
 
 ### UX & accessibilité
 
@@ -250,85 +157,66 @@ En cas d’erreurs (403, CORS, secrets, etc.) : **[DEPLOY_TROUBLESHOOTING.md](./
 
 ---
 
-## Structure du projet
-
-```
-videomi/
-├── app/
-│   ├── components/          # Composants React
-│   │   ├── auth/            # AuthGuard, GoogleAuthButton
-│   │   ├── navigation/      # Navigation
-│   │   ├── profile/         # UserProfile
-│   │   ├── ui/              # Composants UI (categoryBar, MiniPlayer, etc.)
-│   │   └── upload/          # UploadManager
-│   ├── contexts/            # Auth, DragDrop, Language, Player
-│   ├── hooks/               # useAuth, useFiles, useLocalCache, etc.
-│   ├── routes/              # Pages (films, séries, musique, documents, …)
-│   ├── types/               # Types TypeScript
-│   └── utils/               # Cache, fichiers, i18n, thème
-├── workers/                 # Cloudflare Workers (Hono)
-│   ├── app.ts               # Application principale
-│   ├── auth.ts              # Authentification
-│   ├── cache.ts             # Cache Edge
-│   └── upload.ts            # Gestion uploads
-├── electron/                # App desktop (optionnel)
-├── public/                  # Assets statiques, Service Worker
-├── docs/                    # Documentation
-├── wrangler.jsonc           # Configuration Cloudflare
-└── package.json
-```
-
----
-
 ## Workflow Git
 
-### Récupérer la version distante
+### Commandes quotidiennes
 
-```bash
-git fetch origin
-git reset --hard origin/main
-```
+| Action | Commande |
+|--------|----------|
+| **Voir l'état** | `git status` |
+| **Voir les différences** | `git diff` (ou `git diff --staged` pour ce qui est déjà add) |
+| **Ajouter des fichiers** | `git add .` (tout) ou `git add fichier.tsx` (un fichier) |
+| **Commiter** | `git commit -m "Message descriptif"` |
+| **Pousser** | `git push origin main` |
+| **Récupérer** | `git pull origin main` |
 
-### Sauvegarde locale avant mise à jour
+### Historique et navigation
 
-```bash
-git branch backup-local
-git fetch origin
-git reset --hard origin/main
-# Restaurer : git checkout backup-local
-```
+| Action | Commande |
+|--------|----------|
+| **Voir les commits** | `git log --oneline` |
+| **Revenir au commit précédent** | `git reset --hard HEAD~1` puis `git push --force` |
+| **Revenir à un commit précis** | `git reset --hard <hash>` puis `git push --force` |
+| **Annuler sans réécrire** | `git revert HEAD` puis `git push origin main` |
 
-### Pousser des modifications
+### Branches et sauvegarde
 
-```bash
-git add .
-git commit -m "Description des changements"
-git push origin main
-```
+| Action | Commande |
+|--------|----------|
+| **Créer une branche** | `git branch ma-branche` |
+| **Changer de branche** | `git checkout ma-branche` |
+| **Stasher (mettre de côté)** | `git stash` (puis `git stash pop` pour récupérer) |
+| **Sauvegarder avant reset** | `git branch backup-$(date +%Y%m%d)` |
+| **Synchroniser avec origin** | `git fetch origin` puis `git reset --hard origin/main` |
 
 ---
 
 ## Roadmap
 
-### En cours
+Fonctionnalités utiles à ajouter pour rendre l'app plus complète et fonctionnelle :
 
-- [ ] Grille d’images améliorée  
-- [ ] Grille de documents avec dates  
-- [ ] Option de stockage local dans l’upload  
+### Priorité haute (impact utilisateur direct)
 
-### Prévu
+- [ ] **Sous-titres (.srt, .vtt)** — Affichage dans le lecteur vidéo
+- [ ] **Lecture PDF intégrée** — Ouvrir les PDF dans le reader au lieu de téléchargement
+- [ ] **Reprise d'upload** — Finaliser la reprise avec les chunks déjà uploadés (TODO dans UploadManager)
+- [ ] **Recherche globale** — Rechercher dans films, séries, musiques, documents
+- [ ] **Grille d'images** — Vue galerie avec lightbox, dates, tri
+- [ ] **Grille de documents** — Dates, tri par type, aperçu rapide
 
-- [ ] Streaming via liens YouTube  
-- [ ] Téléchargement depuis flux  
-- [ ] Sous-titres (.srt, .vtt)  
-- [ ] Partage de fichiers par liens temporaires  
+### Priorité moyenne
 
-### Idées futures
+- [ ] **Catégorie Livres** — EPUB, MOBI avec métadonnées
+- [ ] **Streaming YouTube** — Ajouter des vidéos via liens
+- [ ] **Partage temporaire** — Liens avec expiration pour partager un fichier
+- [ ] **Téléchargement depuis flux** — Import depuis URL
+- [ ] **Améliorer i18n** — Compléter les traductions manquantes (FR, EN, ES, DE)
 
-- [ ] Mode hors ligne amélioré  
-- [ ] Import depuis Google Drive / Dropbox  
-- [ ] Extension navigateur  
-- [ ] Application mobile  
+### Priorité basse
+
+- [ ] **Mode hors ligne** — PWA améliorée, cache plus agressif
+- [ ] **Import Google Drive / Dropbox** — Connexion OAuth
+- [ ] **Option stockage local** — Choix dans l'upload (D1 seul vs R2)
 
 ---
 
@@ -339,31 +227,9 @@ git push origin main
 | Composants React | 20 |
 | Hooks personnalisés | 8 |
 | Contextes React | 4 |
-| Routes | 18 |
+| Routes | 19 |
 | Endpoints API | 42 |
 | Langues | 4 (FR, EN, ES, DE) |
 | Conformité WCAG | 100 % (AA) |
 | Conformité cache | 100 % |
 
----
-
-## Licence
-
-© **2025–2026 Videomi** — Tous droits réservés.
-
-Ce projet (code, design, textes, images, animations) est la propriété exclusive de **Videomi** (auteur : **MoshiDoki**).
-
-- Aucune autorisation n’est accordée pour la copie, la modification, la distribution ou l’exploitation.  
-- Toute utilisation commerciale est interdite sans accord écrit explicite.  
-- La redistribution, même partielle, est interdite.
-
-Vous pouvez consulter le projet, mais **aucune utilisation, copie ou modification** n’est autorisée sans accord écrit de l’auteur.
-
----
-
-## Liens
-
-| Ressource | URL |
-|-----------|-----|
-| **Site en production** | [https://videomi.uk](https://videomi.uk) |
-| **Dépôt GitHub** | [https://github.com/MoshiDuck/Videomi](https://github.com/MoshiDuck/Videomi) |
