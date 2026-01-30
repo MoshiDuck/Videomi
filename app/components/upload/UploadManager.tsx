@@ -5,7 +5,7 @@ import { classifyFile } from '~/utils/file/fileClassifier';
 import { useAuth } from '~/hooks/useAuth';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { darkTheme } from '~/utils/ui/theme';
-import { extractBaseMetadata, type BaseAudioMetadata, type BaseVideoMetadata } from '~/utils/file/fileMetadataExtractor';
+import { extractBaseMetadata, extractFileCreationDate, type BaseAudioMetadata, type BaseVideoMetadata } from '~/utils/file/fileMetadataExtractor';
 import { invalidateFileCache, invalidateUserFileCache } from '~/hooks/useFiles';
 import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 import { formatFileSize } from '~/utils/format';
@@ -117,7 +117,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         hash: string,
         filename: string,
         isTranscodedFile: boolean,
-        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null
+        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null,
+        fileCreatedAt?: number | null
     ): Promise<{ fileId: string; exists: boolean; url?: string }> => {
         // Utiliser le nom original du fichier sans aucun filtrage
         const token = localStorage.getItem('videomi_token');
@@ -158,6 +159,9 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
             // Ajouter les métadonnées de base si disponibles
             if (basicMetadata) {
                 formData.append('basicMetadata', JSON.stringify(basicMetadata));
+            }
+            if (fileCreatedAt != null && fileCreatedAt > 0) {
+                formData.append('file_created_at', String(fileCreatedAt));
             }
             
             const baseUrl = window.location.origin;
@@ -336,7 +340,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         uploadId: string,
         parts: Array<{ partNumber: number; etag: string }>,
         filename?: string,
-        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null
+        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null,
+        fileCreatedAt?: number | null
     ): Promise<{ success: boolean; fileId: string; size: number; url: string }> => {
         const token = localStorage.getItem('videomi_token');
         const baseUrl = window.location.origin;
@@ -355,6 +360,9 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         // Si c'est undefined, il ne sera pas ajouté (et sera omis par JSON.stringify)
         if (basicMetadata !== undefined) {
             bodyData.basicMetadata = basicMetadata;
+        }
+        if (fileCreatedAt != null && fileCreatedAt > 0) {
+            bodyData.file_created_at = fileCreatedAt;
         }
         
         // Stringify le body
@@ -496,7 +504,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         hash: string,
         originalFileName?: string,
         isTranscodedFile = false,
-        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null
+        basicMetadata?: BaseAudioMetadata | BaseVideoMetadata | null,
+        fileCreatedAt?: number | null
     ): Promise<{ fileId: string; exists: boolean; url?: string }> => {
         // Le nom de fichier est déjà nettoyé et enrichi par uploadFile avant l'appel
         // originalFileName contient déjà le titre enrichi
@@ -515,7 +524,7 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         // Vérifier d'abord si le fichier est assez grand pour multipart
         // Utiliser 10MB comme seuil pour plus de sécurité et éviter les erreurs de taille minimale
             if (fileSize < MULTIPART_RECOMMENDED_TOTAL_SIZE) {
-                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata);
+                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata, fileCreatedAt);
         }
         
         // Calculer les chunks AVANT d'initier l'upload multipart
@@ -526,12 +535,12 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
         // Si un seul chunk, vérifier qu'il fait au moins 5MB
         if (chunks === 1) {
             if (fileSize < MULTIPART_MIN_PART_SIZE) {
-                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata);
+                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata, fileCreatedAt);
             }
         } else {
             // Si plusieurs chunks, vérifier que le dernier fait au moins 10011 bytes
             if (lastChunkSize > 0 && lastChunkSize < MULTIPART_MIN_LAST_PART_SIZE) {
-                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata);
+                return await uploadFileSimple(file, fileId, uiFileId, category, hash, fileName, isTranscodedFile, basicMetadata, fileCreatedAt);
             }
         }
         
@@ -669,7 +678,7 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
             // Trier les parts par partNumber avant l'envoi (R2 exige l'ordre)
             const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
 
-            const completeResult = await completeMultipartUpload(uploadResult.uploadId, sortedParts, fileName, basicMetadata);
+            const completeResult = await completeMultipartUpload(uploadResult.uploadId, sortedParts, fileName, basicMetadata, fileCreatedAt);
 
             // Stocker les métadonnées après l'upload réussi
             // On récupère les métadonnées depuis la closure
@@ -825,6 +834,16 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                 }
             }
 
+            // Extraire la date de création réelle (EXIF images, lastModified documents) pour tri/affichage
+            let fileCreatedAt: number | null = null;
+            if (category === 'images' || category === 'raw_images' || category === 'documents') {
+                try {
+                    fileCreatedAt = await extractFileCreationDate(file, category);
+                } catch (e) {
+                    console.warn(`⚠️ [FILE_METADATA] Erreur extraction date de création (non-bloquant):`, e);
+                }
+            }
+
             // Upload du fichier avec son nom original
             try {
                 const result = await uploadFileMultipart(
@@ -835,7 +854,8 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
                     hash,
                     originalFilename, // TOUJOURS le nom original (file.name)
                     false,
-                    basicMetadata // Passer les métadonnées extraites
+                    basicMetadata, // Passer les métadonnées extraites
+                    fileCreatedAt ?? undefined
                 );
 
             // Le serveur lie automatiquement l'utilisateur au fichier dans completeMultipartUpload

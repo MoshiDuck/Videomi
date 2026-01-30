@@ -38,6 +38,14 @@ export function formatDateTime(dateString: string): string {
 }
 
 /**
+ * Formate un timestamp en libellé mois/année (ex. "Janvier 2025")
+ */
+export function formatMonthYear(timestamp: number): string {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
+
+/**
  * Formate une durée en secondes vers MM:SS ou HH:MM:SS
  */
 export function formatDuration(seconds: number | null | undefined): string {

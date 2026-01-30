@@ -575,7 +575,7 @@ app.post('/api/upload/complete', async (c) => {
         console.log(`📤 [UPLOAD] ==========================================\n`);
         
         const body = await c.req.json();
-        const { uploadId, parts, filename, basicMetadata } = body;
+        const { uploadId, parts, filename, basicMetadata, file_created_at: fileCreatedAt } = body;
         
         console.log(`📤 [UPLOAD] uploadId: ${uploadId}`);
         console.log(`📤 [UPLOAD] filename: ${filename}`);
@@ -709,7 +709,8 @@ app.post('/api/upload/complete', async (c) => {
                 { name: 'filename', type: 'TEXT' },
                 { name: 'r2_path', type: 'TEXT' },
                 { name: 'url', type: 'TEXT' },
-                { name: 'mime_type', type: 'TEXT' }
+                { name: 'mime_type', type: 'TEXT' },
+                { name: 'file_created_at', type: 'INTEGER' }
             ];
             
             // Créer la table file_metadata pour les métadonnées enrichies
@@ -863,10 +864,11 @@ app.post('/api/upload/complete', async (c) => {
                 }
             } else {
                 // Nouveau fichier ou même file_id, utiliser INSERT OR REPLACE
+                const fileCreatedAtValue = (typeof fileCreatedAt === 'number' && fileCreatedAt > 0) ? fileCreatedAt : null;
                 const insertResult = await c.env.DATABASE.prepare(
             `INSERT OR REPLACE INTO files 
-       (file_id, user_id, category, size, mime_type, hash, filename, r2_path, url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (file_id, user_id, category, size, mime_type, hash, filename, r2_path, url, created_at, file_created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
             uploadInfo.file_id,
             uploadInfo.user_id,
@@ -877,7 +879,8 @@ app.post('/api/upload/complete', async (c) => {
                 finalFilename, // Garanti non-null grâce au fallback ci-dessus
             r2Path,
                 `/api/files/${uploadInfo.category}/${uploadInfo.file_id}`,
-            Math.floor(Date.now() / 1000)
+            Math.floor(Date.now() / 1000),
+            fileCreatedAtValue
         ).run();
                 
                 if (!insertResult.success) {
@@ -1997,15 +2000,15 @@ app.get('/api/upload/user/:userId', async (c) => {
             bindParams.push(category);
         }
         
-        query += ` ORDER BY uf.uploaded_at DESC`;
+        query += ` ORDER BY COALESCE(f.file_created_at, uf.uploaded_at) DESC`;
 
         let files;
         try {
             files = await c.env.DATABASE.prepare(query).bind(...bindParams).all();
         } catch (queryError) {
-            // Si la colonne album_thumbnails n'existe pas, essayer sans
+            // Si file_created_at ou album_thumbnails n'existe pas, essayer sans
             const errorMsg = queryError instanceof Error ? queryError.message : String(queryError);
-            if (errorMsg.includes('album_thumbnails') || errorMsg.includes('no such column')) {
+            if (errorMsg.includes('album_thumbnails') || errorMsg.includes('file_created_at') || errorMsg.includes('no such column')) {
                 query = `SELECT f.*, uf.uploaded_at,
                         fm.thumbnail_r2_path, fm.thumbnail_url, fm.backdrop_url,
                         fm.source_id, fm.source_api,

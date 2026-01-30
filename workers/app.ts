@@ -320,7 +320,13 @@ app.post('/api/upload', async (c) => {
         const file = formData.get('file') as File;
         const userId = formData.get('userId') as string;
         const basicMetadataStr = formData.get('basicMetadata') as string | null;
+        const fileCreatedAtStr = formData.get('file_created_at') as string | null;
         let basicMetadata: any = null;
+        let fileCreatedAt: number | null = null;
+        if (fileCreatedAtStr) {
+            const parsed = parseInt(fileCreatedAtStr, 10);
+            if (!isNaN(parsed) && parsed > 0) fileCreatedAt = parsed;
+        }
         
         // Parser les métadonnées de base si présentes
         if (basicMetadataStr) {
@@ -397,19 +403,40 @@ app.post('/api/upload', async (c) => {
             }
         );
 
-        // 6. Enregistrer dans la table files avec le nom original du fichier
-        await c.env.DATABASE.prepare(
-            `INSERT INTO files (file_id, category, size, mime_type, hash, filename, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
-            fileId,
-            category,
-            file.size,
-            file.type,
-            hash,
-            file.name, // TOUJOURS utiliser le nom original du fichier
-            Math.floor(Date.now() / 1000)
-        ).run();
+        // 6. Enregistrer dans la table files avec le nom original du fichier (et file_created_at si fourni)
+        try {
+            await c.env.DATABASE.prepare(
+                `INSERT INTO files (file_id, category, size, mime_type, hash, filename, created_at, file_created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+                fileId,
+                category,
+                file.size,
+                file.type,
+                hash,
+                file.name, // TOUJOURS utiliser le nom original du fichier
+                Math.floor(Date.now() / 1000),
+                fileCreatedAt
+            ).run();
+        } catch (insertErr: any) {
+            const msg = insertErr?.message || String(insertErr);
+            if (msg.includes('file_created_at') || msg.includes('no such column')) {
+                await c.env.DATABASE.prepare(
+                    `INSERT INTO files (file_id, category, size, mime_type, hash, filename, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`
+                ).bind(
+                    fileId,
+                    category,
+                    file.size,
+                    file.type,
+                    hash,
+                    file.name,
+                    Math.floor(Date.now() / 1000)
+                ).run();
+            } else {
+                throw insertErr;
+            }
+        }
 
         // 7. Lier l'utilisateur au fichier
         await c.env.DATABASE.prepare(

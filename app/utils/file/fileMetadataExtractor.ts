@@ -291,3 +291,48 @@ export async function extractBaseMetadata(
     // Pour les autres types, retourner null
     return null;
 }
+
+/** Catégories pour lesquelles on peut extraire une date de création fichier */
+export type FileCreationDateCategory = 'images' | 'raw_images' | 'documents';
+
+/**
+ * Extrait la date de création réelle du fichier (métadonnées EXIF pour images,
+ * lastModified pour documents). Retourne un timestamp Unix en secondes, ou null.
+ */
+export async function extractFileCreationDate(
+    file: File,
+    category: FileCreationDateCategory
+): Promise<number | null> {
+    try {
+        if (category === 'images' || category === 'raw_images') {
+            const exifr = await import('exifr');
+            const full = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] }).catch(() => null);
+            if (full && typeof full === 'object') {
+                const dateStr =
+                    (full as Record<string, unknown>).DateTimeOriginal ??
+                    (full as Record<string, unknown>).CreateDate ??
+                    (full as Record<string, unknown>).ModifyDate ??
+                    (full as Record<string, unknown>).dateTimeOriginal ??
+                    (full as Record<string, unknown>).createDate ??
+                    (full as Record<string, unknown>).modifyDate;
+                if (dateStr) {
+                    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+                    if (!isNaN(date.getTime())) {
+                        return Math.floor(date.getTime() / 1000);
+                    }
+                }
+            }
+        }
+        // Fallback : lastModified (date de modification du fichier sur le disque)
+        if (file.lastModified && file.lastModified > 0) {
+            return Math.floor(file.lastModified / 1000);
+        }
+        return null;
+    } catch (err) {
+        console.warn('[FILE_METADATA] Erreur extraction date de création:', err);
+        if (file.lastModified && file.lastModified > 0) {
+            return Math.floor(file.lastModified / 1000);
+        }
+        return null;
+    }
+}
