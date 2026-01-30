@@ -145,3 +145,18 @@ Les fichiers de layout préfixés par `_` sont des **pathless layout routes** : 
 - **Loaders + defer** : étendre l’usage de `clientLoader` / `defer` sur d’autres routes (ex. films) lorsque l’auth est disponible côté loader.
 - **Prefetch viewport** : prefetch des liens secondaires (ex. liens Fichiers) lorsque le lien entre dans le viewport (Intersection Observer).
 - **Layouts par section** : ex. un layout « médias » pour films/séries/musics si la structure diverge de la page d’accueil.
+
+---
+
+## Changelog (session navigation)
+
+Récapitulatif des changements réalisés sur la navigation et les transitions :
+
+- **Layouts** : `_app.tsx` / `_public.tsx`, routes regroupées via `layout()`, route splat `*` → 404.
+- **Routes** : suppression des doublons AuthGuard/Navigation dans chaque route (home, films, series, musics, upload, profile, images, documents, archives, executables, others, reader, match, info).
+- **Prefetch** : `prefetch="intent"` sur les liens ; `PrefetchPageLinks` pour `/home`, `/films`, `/upload`, `/profile`.
+- **Chargement** : `AppLayoutLoadingBar` pendant `navigation.state === 'loading'` ; squelettes `PageSkeleton` (musics) et `MediaPageSkeleton` (films, series).
+- **Deep linking** : Musiques (`view`, `artist`, `album` dans l’URL) ; Films et Séries (`?genre=` avec scroll automatique vers la section).
+- **Cache / stats** : `clientLoader` + `useRevalidator()` sur home ; `invalidateStats(userId)` dans `cacheInvalidation.ts` ; doc stratégie cache dans ce fichier.
+- **Transitions** : suppression de l’effet « deux pages visibles en même temps » — pendant le chargement le `<main>` passe en `opacity: 0`, puis la nouvelle page apparaît en fondu ; `viewTransition` retiré des liens et du `navigate()` vers `/info` pour éviter la View Transitions API qui superposait les deux pages.
+- **Accessibilité** : focus sur `#main-content` après navigation ; `prefers-reduced-motion` respecté ; `meta()` sur les routes clés.
