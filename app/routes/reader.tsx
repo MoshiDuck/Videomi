@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { usePlayer } from '~/contexts/PlayerContext';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { darkTheme } from '~/utils/ui/theme';
@@ -30,7 +28,7 @@ interface LocationState {
 }
 
 export default function ReaderRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { category: categoryParam, fileId: fileIdParam } = useParams<{ category: string; fileId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
@@ -422,7 +420,7 @@ export default function ReaderRoute() {
 
     if (loading) {
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
                     minHeight: '100vh', 
                     backgroundColor: '#000',
@@ -449,17 +447,15 @@ export default function ReaderRoute() {
                         Chargement du fichier...
                     </p>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     if (error || !category || !fileId) {
         const downloadUrl = blobUrl || (category && fileId ? `https://videomi.uk/api/files/${category}/${fileId}` : null);
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <main style={{
+            <>
+                <main style={{
                         maxWidth: 1400,
                         margin: '0 auto',
                         padding: '40px 20px',
@@ -506,15 +502,14 @@ export default function ReaderRoute() {
                             )}
                         </div>
                     </main>
-                </div>
-            </AuthGuard>
+        </>
         );
     }
 
     // Lecteur plein écran style Netflix
     if (isVideo(category) && blobUrl) {
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
                     minHeight: '100vh', 
                     backgroundColor: '#000',
@@ -672,7 +667,7 @@ export default function ReaderRoute() {
                         </video>
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
@@ -740,7 +735,7 @@ export default function ReaderRoute() {
             : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%)';
         
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
                     minHeight: '100vh',
                     background: gradientColors,
@@ -1155,14 +1150,14 @@ export default function ReaderRoute() {
                         </div>
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     // Affichage image
     if (isImage(category) && blobUrl) {
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
                     minHeight: '100vh', 
                     backgroundColor: '#0a0a0a',
@@ -1222,14 +1217,14 @@ export default function ReaderRoute() {
                         />
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     // Document (PDF, etc.)
     if (isDocument(category) && blobUrl) {
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
                     minHeight: '100vh', 
                     backgroundColor: '#0a0a0a',
@@ -1284,13 +1279,13 @@ export default function ReaderRoute() {
                         />
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     // Fichier non supporté - téléchargement
     return (
-        <AuthGuard>
+        <>
             <div style={{ 
                 minHeight: '100vh', 
                 backgroundColor: '#0a0a0a',
@@ -1354,6 +1349,6 @@ export default function ReaderRoute() {
                     </a>
                 )}
             </div>
-        </AuthGuard>
+        </>
     );
 }

@@ -5,8 +5,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { useConfig } from '~/hooks/useConfig';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { formatDuration } from '~/utils/format';
@@ -80,7 +78,7 @@ const netflixTheme = {
 };
 
 export default function InfoRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const { config } = useConfig();
     const navigate = useNavigate();
@@ -360,23 +358,21 @@ export default function InfoRoute() {
 
     if (loading) {
         return (
-            <AuthGuard>
-                {user && <Navigation user={user} onLogout={logout} />}
-                <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary, paddingTop: '80px' }}>
+            <>
+                <div style={{ minHeight: '60vh', paddingTop: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <LoadingSpinner />
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     if (error || !file) {
         return (
-            <AuthGuard>
-                {user && <Navigation user={user} onLogout={logout} />}
-                <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary, paddingTop: '80px' }}>
+            <>
+                <div style={{ minHeight: '60vh', paddingTop: '80px' }}>
                     <ErrorDisplay message={error || 'Fichier non trouvé'} />
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
@@ -398,8 +394,7 @@ export default function InfoRoute() {
     const displayName = file.title || file.filename?.replace(/\.[^/.]+$/, '') || 'Sans titre';
 
     return (
-        <AuthGuard>
-            {user && <Navigation user={user} onLogout={logout} />}
+        <>
             <div style={{ 
                 minHeight: '100vh', 
                 backgroundColor: netflixTheme.bg.primary,
@@ -946,6 +941,6 @@ export default function InfoRoute() {
                     </div>
                 )}
             </div>
-        </AuthGuard>
+        </>
     );
 }

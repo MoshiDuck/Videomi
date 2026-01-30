@@ -1,11 +1,7 @@
-// INFO : app/routes/documents.tsx
-// Page dédiée pour l'affichage des documents
-
+// INFO : app/routes/documents.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { darkTheme } from '~/utils/ui/theme';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 import { CategoryBar } from '~/components/ui/categoryBar';
@@ -38,7 +34,7 @@ const getDocumentIcon = (mimeType: string): string => {
 };
 
 export default function DocumentsRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
@@ -120,39 +116,31 @@ export default function DocumentsRoute() {
     // Afficher le spinner uniquement au chargement initial (pas de données)
     if (loading && documents.length === 0) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
-                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                            <LoadingSpinner size="large" message={t('common.loading')} />
-                        </div>
+            <>
+                <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                        <LoadingSpinner size="large" message={t('common.loading')} />
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     if (error) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
-                    <ErrorDisplay 
-                        error={error} 
-                        onRetry={fetchFiles}
-                    />
-                </div>
-            </AuthGuard>
+            <>
+                <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                <ErrorDisplay 
+                    error={error} 
+                    onRetry={fetchFiles}
+                />
+            </>
         );
     }
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                <Navigation user={user!} onLogout={logout} />
+        <>
                 <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
                     <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
                     <h2 style={{
@@ -341,7 +329,6 @@ export default function DocumentsRoute() {
                     ) : null}
                 </div>
                 <ToastContainer />
-            </div>
-        </AuthGuard>
+        </>
     );
 }

@@ -1,6 +1,6 @@
 // INFO : app/components/Navigation.tsx
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, PrefetchPageLinks } from 'react-router';
 import type { User } from '~/types/auth';
 import { darkTheme } from '~/utils/ui/theme';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
@@ -20,6 +20,11 @@ export function Navigation({ user, onLogout }: NavigationProps) {
     const isActive = (path: string) => location.pathname === path;
 
     return (
+        <>
+            <PrefetchPageLinks page="/home" />
+            <PrefetchPageLinks page="/films" />
+            <PrefetchPageLinks page="/upload" />
+            <PrefetchPageLinks page="/profile" />
         <nav style={{
             backgroundColor: darkTheme.background.nav,
             padding: '16px 0',
@@ -37,6 +42,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
                     <Link
                         to="/home"
+                        prefetch="intent"
                         style={{
                             color: darkTheme.text.primary,
                             textDecoration: 'none',
@@ -58,6 +64,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
                     <div style={{ display: 'flex', gap: '20px' }}>
                         <Link
                             to="/home"
+                            prefetch="intent"
                             aria-current={isActive('/home') ? 'page' : undefined}
                             style={{
                                 color: isActive('/home') ? darkTheme.accent.blue : darkTheme.text.secondary,
@@ -87,6 +94,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/upload"
+                            prefetch="intent"
                             aria-current={isActive('/upload') ? 'page' : undefined}
                             style={{
                                 color: isActive('/upload') ? darkTheme.accent.blue : darkTheme.text.secondary,
@@ -116,6 +124,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/films"
+                            prefetch="intent"
                             aria-current={isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? 'page' : undefined}
                             style={{
                                 color: isActive('/films') || isActive('/series') || isActive('/musics') || isActive('/images') || isActive('/documents') || isActive('/archives') || isActive('/executables') || isActive('/others') ? darkTheme.accent.blue : darkTheme.text.secondary,
@@ -145,6 +154,7 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
                         <Link
                             to="/profile"
+                            prefetch="intent"
                             aria-current={isActive('/profile') ? 'page' : undefined}
                             style={{
                                 color: isActive('/profile') ? darkTheme.accent.blue : darkTheme.text.secondary,
@@ -231,5 +241,6 @@ export function Navigation({ user, onLogout }: NavigationProps) {
                 onCancel={() => setShowLogoutConfirm(false)}
             />
         </nav>
+        </>
     );
 }

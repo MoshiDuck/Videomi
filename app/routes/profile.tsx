@@ -1,12 +1,17 @@
-// INFO : app/routes/profile.tsx
+// INFO : app/routes/profile.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState } from 'react';
 import { useAuth } from '~/hooks/useAuth';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { darkTheme } from '~/utils/ui/theme';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { LanguageSelector } from '~/components/ui/LanguageSelector';
 import { replacePlaceholders } from '~/utils/i18n';
+
+export function meta() {
+    return [
+        { title: 'Profil | Videomi' },
+        { name: 'description', content: 'Gérez votre profil Videomi, langue et compte.' },
+    ];
+}
 
 export default function ProfileRoute() {
     const { user, logout } = useAuth();
@@ -28,16 +33,7 @@ export default function ProfileRoute() {
     }
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                <Navigation user={user} onLogout={logout} />
-
-                <main style={{
-                    maxWidth: 1200,
-                    margin: '0 auto',
-                    padding: '0 20px 40px',
-                    fontFamily: 'system-ui, sans-serif'
-                }}>
+        <>
                     <div style={{
                         backgroundColor: darkTheme.background.secondary,
                         borderRadius: '12px',
@@ -459,7 +455,6 @@ export default function ProfileRoute() {
                             </section>
                         </div>
                     </div>
-                </main>
 
                 <footer style={{
                     backgroundColor: darkTheme.background.nav,
@@ -478,7 +473,6 @@ export default function ProfileRoute() {
                         </p>
                     </div>
                 </footer>
-            </div>
-        </AuthGuard>
+        </>
     );
 }

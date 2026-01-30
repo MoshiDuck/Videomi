@@ -1,27 +1,36 @@
-// INFO : app/routes.ts
-// Dans React Router v7, toutes les routes sont automatiquement lazy-loaded
-// Il suffit de spécifier le chemin du fichier route et React Router s'occupe du code splitting
-import { type RouteConfig, index, route } from "@react-router/dev/routes";
+/**
+ * Configuration centralisée des routes (React Router v7).
+ * - Layouts : _public (splash, login) et _app (toutes les pages authentifiées).
+ * - Code splitting automatique par route (lazy loading).
+ * - Route splat "*" en dernier pour la page 404.
+ */
+import { type RouteConfig, index, route, layout } from "@react-router/dev/routes";
 
 export default [
-    index("routes/index.tsx"),  // Redirige vers /splash
-    route("splash", "routes/splash.tsx"),  // Écran de démarrage
-    route("login", "routes/login.tsx"),  // Page de connexion
-    route("home", "routes/home.tsx"),  // Page d'accueil
-    
-    // Routes automatiquement lazy-loaded (code splitting automatique)
-    route("profile", "routes/profile.tsx"),
-    route("upload", "routes/upload.tsx"),
-    route("musics", "routes/musics.tsx"),
-    route("films", "routes/films.tsx"),  // Films uniquement
-    route("series", "routes/series.tsx"),  // Séries uniquement
-    route("videos", "routes/videosRedirect.tsx"),  // Redirige vers /films
-    route("images", "routes/images.tsx"),
-    route("documents", "routes/documents.tsx"),
-    route("archives", "routes/archives.tsx"),
-    route("executables", "routes/executables.tsx"),
-    route("others", "routes/others.tsx"),
-    route("reader/:category/:fileId", "routes/reader.tsx"),
-    route("match/:category/:fileId", "routes/match.tsx"),
-    route("info/:category/:fileId", "routes/info.tsx")
+    index("routes/index.tsx"),
+
+    layout("routes/_public.tsx", [
+        route("splash", "routes/splash.tsx"),
+        route("login", "routes/login.tsx"),
+    ]),
+
+    layout("routes/_app.tsx", [
+        route("home", "routes/home.tsx"),
+        route("profile", "routes/profile.tsx"),
+        route("upload", "routes/upload.tsx"),
+        route("musics", "routes/musics.tsx"),
+        route("films", "routes/films.tsx"),
+        route("series", "routes/series.tsx"),
+        route("videos", "routes/videosRedirect.tsx"),
+        route("images", "routes/images.tsx"),
+        route("documents", "routes/documents.tsx"),
+        route("archives", "routes/archives.tsx"),
+        route("executables", "routes/executables.tsx"),
+        route("others", "routes/others.tsx"),
+        route("reader/:category/:fileId", "routes/reader.tsx"),
+        route("match/:category/:fileId", "routes/match.tsx"),
+        route("info/:category/:fileId", "routes/info.tsx"),
+    ]),
+
+    route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

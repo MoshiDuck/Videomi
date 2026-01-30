@@ -1,12 +1,8 @@
-// INFO : app/routes/films.tsx
-// Page Films style Netflix
-
+// INFO : app/routes/films.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router';
+import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { useConfig } from '~/hooks/useConfig';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 import { CategoryBar } from '~/components/ui/categoryBar';
 import { VideoSubCategoryBar } from '~/components/ui/VideoSubCategoryBar';
@@ -19,6 +15,14 @@ import { DraggableItem } from '~/components/ui/DraggableItem';
 import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { MediaPageSkeleton } from '~/components/ui/MediaPageSkeleton';
+
+export function meta() {
+    return [
+        { title: 'Films | Videomi' },
+        { name: 'description', content: 'Vos films en streaming. Parcourir par genre, continuer où vous en étiez, top 10.' },
+    ];
+}
 
 interface FileItem {
     file_id: string;
@@ -81,10 +85,11 @@ const netflixTheme = {
 };
 
 export default function FilmsRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const { config } = useConfig();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedCategory, setSelectedCategory] = useState<FileCategory>('videos');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -355,6 +360,19 @@ export default function FilmsRoute() {
             loadTop10(allFiles);
         }
     }, [organizedMovies.byGenre.length, user?.id, loadTop10]);
+
+    // Deep link ?genre= : scroll vers la section genre au chargement
+    const hasScrolledToGenre = useRef(false);
+    useEffect(() => {
+        const genreParam = searchParams.get('genre');
+        if (!genreParam || organizedMovies.byGenre.length === 0 || hasScrolledToGenre.current) return;
+        const genreExists = organizedMovies.byGenre.some((g) => g.genre === decodeURIComponent(genreParam));
+        if (!genreExists) return;
+        hasScrolledToGenre.current = true;
+        const id = `genre-${encodeURIComponent(decodeURIComponent(genreParam))}`;
+        const el = document.getElementById(id);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [searchParams, organizedMovies.byGenre]);
 
     const getThumbnailUrl = useCallback((file: FileItem): string | null => {
         if (file.thumbnail_r2_path) {
@@ -787,67 +805,59 @@ export default function FilmsRoute() {
     };
 
 
-    // Afficher le spinner uniquement au chargement initial (pas de données)
+    // Skeleton au chargement initial (meilleure perception de vitesse)
     if (loading && !heroMovie && organizedMovies.byGenre.length === 0 && organizedMovies.unidentified.length === 0) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
-                        <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                            <LoadingSpinner size="large" message={t('common.loading')} />
-                        </div>
-                    </div>
+            <>
+                <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
+                    <MediaPageSkeleton />
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     if (error) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
-                        <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
-                        <div style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column',
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            minHeight: '50vh',
-                            gap: '16px'
-                        }}>
-                            <div style={{ fontSize: '48px', marginBottom: '8px' }}>⚠️</div>
-                            <div style={{ color: netflixTheme.accent.red, fontSize: '16px', textAlign: 'center' }}>
-                                {error}
-                            </div>
-                            <button
-                                onClick={() => window.location.reload()}
-                                style={{
-                                    marginTop: '16px',
-                                    padding: '12px 24px',
-                                    backgroundColor: netflixTheme.accent.red,
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    transition: 'transform 0.2s, opacity 0.2s'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
-                            >
-                                Réessayer
-                            </button>
+            <>
+                <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <VideoSubCategoryBar selectedSubCategory="films" onSubCategoryChange={handleSubCategoryChange} />
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        minHeight: '50vh',
+                        gap: '16px'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '8px' }}>⚠️</div>
+                        <div style={{ color: netflixTheme.accent.red, fontSize: '16px', textAlign: 'center' }}>
+                            {error}
                         </div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            style={{
+                                marginTop: '16px',
+                                padding: '12px 24px',
+                                backgroundColor: netflixTheme.accent.red,
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                transition: 'transform 0.2s, opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
+                        >
+                            Réessayer
+                        </button>
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
@@ -855,10 +865,7 @@ export default function FilmsRoute() {
                        organizedMovies.byGenre.length > 0;
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: netflixTheme.bg.primary }}>
-                <Navigation user={user!} onLogout={logout} />
-                
+        <>
                 <div style={{ padding: '0 0 60px 0', overflow: 'visible' }}>
                     <div style={{ padding: '20px 60px' }}>
                         <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
@@ -1241,9 +1248,10 @@ export default function FilmsRoute() {
                         </NetflixCarousel>
                     )}
                     
-                    {/* Films par genre */}
+                    {/* Films par genre (id pour deep link ?genre=) */}
                     {organizedMovies.byGenre.map((genreGroup) => (
-                        <NetflixCarousel key={genreGroup.genre} title={genreGroup.genre}>
+                        <div key={genreGroup.genre} id={`genre-${encodeURIComponent(genreGroup.genre)}`}>
+                        <NetflixCarousel title={genreGroup.genre}>
                             {genreGroup.movies.map((file) => (
                                 <DraggableItem
                                     key={`${genreGroup.genre}-${file.file_id}`}
@@ -1263,6 +1271,7 @@ export default function FilmsRoute() {
                                 </DraggableItem>
                             ))}
                         </NetflixCarousel>
+                        </div>
                     ))}
                     
                     {/* Message si aucun contenu */}
@@ -1311,7 +1320,6 @@ export default function FilmsRoute() {
                     )}
                 </div>
                 <ToastContainer />
-            </div>
-        </AuthGuard>
+        </>
     );
 }

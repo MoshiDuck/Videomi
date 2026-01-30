@@ -109,3 +109,12 @@ Les métadonnées enrichies (miniatures, genres, albums, etc.) seront automatiqu
 ## Note de Sécurité
 
 ⚠️ **Important** : Les clés API sont stockées comme secrets Cloudflare et ne sont jamais exposées dans le code source. Elles sont accessibles uniquement via `c.env` dans les Workers Cloudflare.
+
+### React Router – Session stockée en fichiers (CVE-2025-61686)
+
+Si vous utilisez un jour `  ` (depuis `@react-router/node` ou `@remix-run/node`), vous devez :
+
+- **Utiliser un cookie signé** : un cookie non signé permet un path traversal (lecture/écriture hors du répertoire de sessions). Les versions corrigées sont : `@react-router/node` ≥ 7.9.4 et `@remix-run/node` ≥ 2.17.2.
+- **Ne pas exposer directement le contenu des fichiers de session** : les lectures ne renvoient pas les fichiers bruts à l’attaquant, mais les données parsées peuvent fuiter si l’application les renvoie dans les réponses.
+
+Ce projet n’utilise pas `createFileSessionStorage()` ; les dépendances sont tenues à jour pour inclure les correctifs.

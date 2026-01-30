@@ -1,118 +1,157 @@
-// INFO : app/routes/home.tsx
+// INFO : app/routes/home.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '~/hooks/useAuth';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { darkTheme } from '~/utils/ui/theme';
 import { useFilesPreloader } from '~/hooks/useFilesPreloader';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { replacePlaceholders } from '~/utils/i18n';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLoaderData, useRevalidator } from 'react-router';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 
+/** Données préchargées par le loader (user depuis localStorage, stats API ou cache). */
+export async function clientLoader() {
+    if (typeof window === 'undefined') return { stats: null as StatsPayload | null, userId: null as string | null };
+    const storedUser = localStorage.getItem('videomi_user');
+    if (!storedUser) return { stats: null, userId: null };
+    let user: { id: string };
+    try {
+        user = JSON.parse(storedUser);
+    } catch {
+        return { stats: null, userId: null };
+    }
+    const cacheKey = `videomi_stats_${user.id}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+        try {
+            const stats = JSON.parse(cached) as StatsPayload;
+            return { stats, userId: user.id };
+        } catch {
+            sessionStorage.removeItem(cacheKey);
+        }
+    }
+    const token = localStorage.getItem('videomi_token');
+    const res = await fetch(`/api/stats?userId=${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { stats: null, userId: user.id };
+    const data = (await res.json()) as { fileCount?: number; totalSizeGB?: number; billableGB?: number };
+    const stats: StatsPayload = {
+        fileCount: data.fileCount ?? 0,
+        totalSizeGB: data.totalSizeGB ?? 0,
+        billableGB: data.billableGB ?? 0,
+    };
+    sessionStorage.setItem(cacheKey, JSON.stringify(stats));
+    return { stats, userId: user.id };
+}
+
+type StatsPayload = { fileCount: number; totalSizeGB: number; billableGB: number };
+
+export function meta() {
+    return [
+        { title: 'Accueil | Videomi' },
+        { name: 'description', content: 'Votre espace personnel de stockage et streaming. Gérez vos fichiers, statistiques et accédez à vos médias.' },
+    ];
+}
+
 export default function HomeRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ fileCount: 0, totalSizeGB: 0, billableGB: 0 });
-    const [loadingStats, setLoadingStats] = useState(true);
+    const loaderData = useLoaderData() as { stats: StatsPayload | null; userId: string | null } | undefined;
+    const revalidator = useRevalidator();
+    const [stats, setStats] = useState<StatsPayload>(() => loaderData?.stats ?? { fileCount: 0, totalSizeGB: 0, billableGB: 0 });
+    const [loadingStats, setLoadingStats] = useState(!loaderData?.stats);
     const [statsError, setStatsError] = useState<string | null>(null);
-    const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // Pour savoir si on a déjà chargé les stats
-    
-    // Précharger toutes les catégories de fichiers en arrière-plan
-    useFilesPreloader({ 
-        userId: user?.id || null, 
-        enabled: !!user?.id,
-        preloadOnHover: true 
-    });
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(!!loaderData?.stats);
 
-    const fetchStats = useCallback(async (skipCache = false) => {
-        if (!user?.id) return;
-        
-        setStatsError(null);
-        
-        // Vérifier le cache sessionStorage d'abord (sauf si skipCache = true)
-        if (typeof window === 'undefined') return;
-        const cacheKey = `videomi_stats_${user.id}`;
-        if (!skipCache) {
-            const cachedStats = sessionStorage.getItem(cacheKey);
-            
-            if (cachedStats) {
-                try {
-                    const parsedStats = JSON.parse(cachedStats) as { fileCount: number; totalSizeGB: number; billableGB: number };
-                    setStats(parsedStats);
-                    setLoadingStats(false);
-                    setHasLoadedOnce(true);
-                    return; // Utiliser le cache, pas besoin d'appeler l'API
-                } catch (e) {
-                    // Si le cache est corrompu, le supprimer et continuer
-                    sessionStorage.removeItem(cacheKey);
-                }
-            }
-        }
-        
-        try {
-            const token = localStorage.getItem('videomi_token');
-            const response = await fetch(`/api/stats?userId=${user.id}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json() as { fileCount: number; totalSizeGB: number; billableGB: number };
-                const statsData = {
-                    fileCount: data.fileCount || 0,
-                    totalSizeGB: data.totalSizeGB || 0,
-                    billableGB: data.billableGB || 0
-                };
-                setStats(statsData);
-                setStatsError(null);
-                
-                // Mettre en cache dans sessionStorage
-                sessionStorage.setItem(cacheKey, JSON.stringify(statsData));
-            } else {
-                setStatsError(t('errors.statsLoadFailed') || 'Impossible de charger les statistiques');
-            }
-        } catch (error) {
-            console.error('Erreur récupération stats:', error);
-            setStatsError(t('errors.networkError') || 'Erreur de connexion');
-        } finally {
+    // Synchroniser avec les données du loader (premier rendu ou après revalidation)
+    useEffect(() => {
+        if (loaderData?.stats) {
+            setStats(loaderData.stats);
             setLoadingStats(false);
+            setStatsError(null);
             setHasLoadedOnce(true);
         }
-    }, [user?.id, t]);
+    }, [loaderData?.stats]);
+
+    // Précharger toutes les catégories de fichiers en arrière-plan
+    useFilesPreloader({
+        userId: user?.id ?? null,
+        enabled: !!user?.id,
+        preloadOnHover: true,
+    });
+
+    const fetchStats = useCallback(
+        async (skipCache: boolean) => {
+            if (!user?.id) return;
+            setStatsError(null);
+            if (typeof window === 'undefined') return;
+            const cacheKey = `videomi_stats_${user.id}`;
+            if (!skipCache) {
+                const cachedStats = sessionStorage.getItem(cacheKey);
+                if (cachedStats) {
+                    try {
+                        const parsed = JSON.parse(cachedStats) as StatsPayload;
+                        setStats(parsed);
+                        setLoadingStats(false);
+                        setHasLoadedOnce(true);
+                        return;
+                    } catch {
+                        sessionStorage.removeItem(cacheKey);
+                    }
+                }
+            }
+            try {
+                const token = localStorage.getItem('videomi_token');
+                const response = await fetch(`/api/stats?userId=${user.id}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (response.ok) {
+                    const data = (await response.json()) as { fileCount?: number; totalSizeGB?: number; billableGB?: number };
+                    const statsData: StatsPayload = {
+                        fileCount: data.fileCount ?? 0,
+                        totalSizeGB: data.totalSizeGB ?? 0,
+                        billableGB: data.billableGB ?? 0,
+                    };
+                    setStats(statsData);
+                    setStatsError(null);
+                    sessionStorage.setItem(cacheKey, JSON.stringify(statsData));
+                } else {
+                    setStatsError(t('errors.statsLoadFailed') ?? 'Impossible de charger les statistiques');
+                }
+            } catch (error) {
+                console.error('Erreur récupération stats:', error);
+                setStatsError(t('errors.networkError') ?? 'Erreur de connexion');
+            } finally {
+                setLoadingStats(false);
+                setHasLoadedOnce(true);
+            }
+        },
+        [user?.id, t]
+    );
 
     useEffect(() => {
-        fetchStats();
+        if (loaderData?.stats) return;
+        fetchStats(false);
+    }, [loaderData?.stats, fetchStats]);
 
-        // Écouter l'événement de invalidation du cache pour recharger les stats
+    // Invalidation : vider le cache puis revalider le loader (il refetch automatiquement)
+    useEffect(() => {
         const handleStatsInvalidated = (event: Event) => {
             const customEvent = event as CustomEvent<{ userId: string }>;
-            if (customEvent.detail?.userId === user?.id) {
-                fetchStats(true); // Recharger sans utiliser le cache
+            const userId = customEvent.detail?.userId;
+            if (userId && userId === user?.id) {
+                sessionStorage.removeItem(`videomi_stats_${userId}`);
+                revalidator.revalidate();
             }
         };
-
         window.addEventListener('videomi:stats-invalidated', handleStatsInvalidated);
-
-        return () => {
-            window.removeEventListener('videomi:stats-invalidated', handleStatsInvalidated);
-        };
-    }, [user?.id, fetchStats]);
+        return () => window.removeEventListener('videomi:stats-invalidated', handleStatsInvalidated);
+    }, [user?.id, revalidator]);
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                <Navigation user={user!} onLogout={logout} />
-
-                <main style={{
-                    maxWidth: 1200,
-                    margin: '0 auto',
-                    padding: '0 20px 40px',
-                    fontFamily: 'system-ui, sans-serif'
-                }}>
+        <>
                     <div style={{ marginBottom: '40px' }}>
                         <h1 style={{
                             fontSize: '32px',
@@ -423,8 +462,6 @@ export default function HomeRoute() {
                         </div>
                     )}
 
-                </main>
-
                 <footer style={{
                     backgroundColor: '#1a1a1a',
                     color: '#cccccc',
@@ -442,7 +479,6 @@ export default function HomeRoute() {
                         </p>
                     </div>
                 </footer>
-            </div>
-        </AuthGuard>
+        </>
     );
 }

@@ -1,13 +1,8 @@
-// INFO : app/routes/musics.tsx
-// Page dédiée pour l'affichage des musiques, style Spotify
-// Navigation : Artistes (rond) → Albums (carré) → Titres (liste)
-
+// INFO : app/routes/musics.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router';
+import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { useAuth } from '~/hooks/useAuth';
 import { useConfig } from '~/hooks/useConfig';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { darkTheme } from '~/utils/ui/theme';
 import type { FileCategory } from '~/utils/file/fileClassifier';
 import { CategoryBar } from '~/components/ui/categoryBar';
@@ -15,6 +10,14 @@ import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
+import { PageSkeleton } from '~/components/ui/PageSkeleton';
+
+export function meta() {
+    return [
+        { title: 'Musiques | Videomi' },
+        { name: 'description', content: 'Vos musiques par artiste et album. Écoutez en streaming.' },
+    ];
+}
 
 interface FileItem {
     file_id: string;
@@ -59,14 +62,15 @@ interface Artist {
 type ViewMode = 'artists' | 'artist-albums' | 'album-tracks';
 
 export default function MusicsRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const { config } = useConfig();
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedCategory, setSelectedCategory] = useState<FileCategory>('musics');
     
-    // États de navigation
+    // États de navigation (synchronisés avec l'URL pour deep linking / partage)
     const [viewMode, setViewMode] = useState<ViewMode>('artists');
     const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
     const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
@@ -75,6 +79,7 @@ export default function MusicsRoute() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [artists, setArtists] = useState<Artist[]>([]);
+    const hasRestoredFromUrl = useRef(false);
     
     // Fonction pour nettoyer les chaînes JSON (retirer crochets, guillemets, etc.)
     const cleanString = useCallback((value: string | null | undefined): string => {
@@ -106,6 +111,36 @@ export default function MusicsRoute() {
             setSelectedCategory(category);
         }
     }, [location.pathname]);
+
+    // Restaurer view / artist / album depuis l'URL au premier chargement des données
+    useEffect(() => {
+        if (artists.length === 0 || hasRestoredFromUrl.current) return;
+        hasRestoredFromUrl.current = true;
+        const view = searchParams.get('view') as ViewMode | null;
+        const artistParam = searchParams.get('artist');
+        const albumParam = searchParams.get('album');
+        if (view === 'artist-albums' && artistParam) {
+            const decoded = decodeURIComponent(artistParam);
+            const artist = artists.find((a) => a.artistName === decoded);
+            if (artist) {
+                setSelectedArtist(artist);
+                setSelectedAlbum(null);
+                setViewMode('artist-albums');
+            }
+        } else if (view === 'album-tracks' && artistParam && albumParam) {
+            const artistDecoded = decodeURIComponent(artistParam);
+            const albumDecoded = decodeURIComponent(albumParam);
+            const artist = artists.find((a) => a.artistName === artistDecoded);
+            if (artist) {
+                const album = artist.albums.find((a) => a.albumName === albumDecoded);
+                if (album) {
+                    setSelectedArtist(artist);
+                    setSelectedAlbum(album);
+                    setViewMode('album-tracks');
+                }
+            }
+        }
+    }, [artists, searchParams]);
     
     const handleCategoryChange = (category: FileCategory) => {
         setSelectedCategory(category);
@@ -376,25 +411,45 @@ export default function MusicsRoute() {
     }, [user?.id, config, cleanString]);
 
 
-    // Navigation handlers
+    // Navigation handlers (mise à jour URL pour partage / deep link)
     const handleArtistClick = (artist: Artist) => {
         setSelectedArtist(artist);
         setSelectedAlbum(null);
         setViewMode('artist-albums');
+        setSearchParams(
+            { view: 'artist-albums', artist: encodeURIComponent(artist.artistName) },
+            { replace: true }
+        );
     };
 
     const handleAlbumClick = (album: Album) => {
+        if (!selectedArtist) return;
         setSelectedAlbum(album);
         setViewMode('album-tracks');
+        setSearchParams(
+            {
+                view: 'album-tracks',
+                artist: encodeURIComponent(selectedArtist.artistName),
+                album: encodeURIComponent(album.albumName),
+            },
+            { replace: true }
+        );
     };
 
     const handleBack = () => {
         if (viewMode === 'album-tracks') {
             setSelectedAlbum(null);
             setViewMode('artist-albums');
+            setSearchParams(
+                selectedArtist
+                    ? { view: 'artist-albums', artist: encodeURIComponent(selectedArtist.artistName) }
+                    : { view: 'artists' },
+                { replace: true }
+            );
         } else if (viewMode === 'artist-albums') {
             setSelectedArtist(null);
             setViewMode('artists');
+            setSearchParams({}, { replace: true });
         }
     };
 
@@ -456,82 +511,68 @@ export default function MusicsRoute() {
     // Afficher le spinner uniquement au chargement initial (pas de données)
     if (loading && artists.length === 0) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                            <LoadingSpinner size="large" message={t('common.loading')} />
-                        </div>
-                    </div>
+            <>
+                <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <PageSkeleton lines={6} minHeight="60vh" variant="cards" />
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     if (error) {
         return (
-            <AuthGuard>
-                <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
-                    <Navigation user={user!} onLogout={logout} />
-                    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-                        <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+            <>
+                <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+                    <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        minHeight: '60vh',
+                        gap: '16px'
+                    }}>
                         <div style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column',
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            minHeight: '60vh',
-                            gap: '16px'
+                            fontSize: '48px',
+                            marginBottom: '8px'
                         }}>
-                            <div style={{ 
-                                fontSize: '48px',
-                                marginBottom: '8px'
-                            }}>
-                                ⚠️
-                            </div>
-                            <div style={{ 
-                                color: '#ff4444',
-                                fontSize: '16px',
-                                textAlign: 'center'
-                            }}>
-                                {error}
-                            </div>
-                            <button
-                                onClick={() => window.location.reload()}
-                                style={{
-                                    marginTop: '16px',
-                                    padding: '12px 24px',
-                                    backgroundColor: darkTheme.accent.blue,
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    transition: 'transform 0.2s, opacity 0.2s'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
-                            >
-                                Réessayer
-                            </button>
+                            ⚠️
                         </div>
+                        <div style={{ 
+                            color: '#ff4444',
+                            fontSize: '16px',
+                            textAlign: 'center'
+                        }}>
+                            {error}
+                        </div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            style={{
+                                marginTop: '16px',
+                                padding: '12px 24px',
+                                backgroundColor: darkTheme.accent.blue,
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                transition: 'transform 0.2s, opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
+                        >
+                            Réessayer
+                        </button>
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     return (
-        <AuthGuard>
-            <div style={{ 
-                minHeight: '100vh', 
-                backgroundColor: '#0a0a0a',
-                fontFamily: 'system-ui, -apple-system, sans-serif'
-            }}>
-                <Navigation user={user!} onLogout={logout} />
+        <>
                 <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
                     <CategoryBar selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
                     
@@ -1024,7 +1065,6 @@ export default function MusicsRoute() {
                         </div>
                     )}
                 </div>
-            </div>
-        </AuthGuard>
+        </>
     );
 }

@@ -1,6 +1,6 @@
 // INFO : app/root.tsx
-import React, { useEffect, useState } from 'react';
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router';
+import React from 'react';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from 'react-router';
 import type { LinksFunction } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -112,6 +112,41 @@ export default function App() {
                 .skip-link:focus {
                     top: 0;
                 }
+                
+                /* View Transitions API : ancienne page disparaît d'abord, puis la nouvelle apparaît (évite de voir les deux en même temps) */
+                @supports (view-transition-name: none) {
+                    ::view-transition-old(root) {
+                        animation: view-transition-fade-out 0.08s ease-out forwards;
+                    }
+                    ::view-transition-new(root) {
+                        animation: view-transition-fade-in 0.2s ease-out 0.06s forwards;
+                    }
+                    ::view-transition-old(main-content) {
+                        animation: view-transition-fade-out 0.08s ease-out forwards;
+                    }
+                    ::view-transition-new(main-content) {
+                        animation: view-transition-fade-in 0.2s ease-out 0.06s forwards;
+                    }
+                    @keyframes view-transition-fade-out {
+                        from { opacity: 1; }
+                        to { opacity: 0; }
+                    }
+                    @keyframes view-transition-fade-in {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    ::view-transition-old(root),
+                    ::view-transition-new(root),
+                    ::view-transition-old(main-content),
+                    ::view-transition-new(main-content) {
+                        animation: none !important;
+                    }
+                }
+                .app-main-view-transition {
+                    view-transition-name: main-content;
+                }
             ` }} />
         </head>
         <body style={{ backgroundColor: '#121212', color: '#e0e0e0', margin: 0, padding: 0 }}>
@@ -129,6 +164,36 @@ export default function App() {
         <ScrollRestoration />
         <Scripts />
         </body>
+        </html>
+    );
+}
+
+/** ErrorBoundary racine : erreurs non gérées par les routes enfants. */
+export function ErrorBoundary() {
+    const error = useRouteError() as Error | { status?: number; statusText?: string } | undefined;
+    const message =
+        error instanceof Error
+            ? error.message
+            : error && typeof error === 'object' && 'statusText' in error
+              ? (error.statusText as string) || `Erreur ${error.status ?? 500}`
+              : 'Une erreur inattendue est survenue';
+
+    return (
+        <html lang="fr">
+            <head>
+                <meta charSet="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <title>Erreur | Videomi</title>
+                <Links />
+            </head>
+            <body style={{ backgroundColor: '#121212', color: '#e0e0e0', margin: 0, padding: 40, fontFamily: 'system-ui' }}>
+                <h1 style={{ marginBottom: 16 }}>Erreur</h1>
+                <p style={{ color: '#b0b0b0', marginBottom: 24 }}>{message}</p>
+                <a href="/home" style={{ color: '#4285f4', textDecoration: 'underline' }}>
+                    Retour à l&apos;accueil
+                </a>
+                <Scripts />
+            </body>
         </html>
     );
 }

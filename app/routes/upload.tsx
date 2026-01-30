@@ -1,13 +1,18 @@
-// INFO : app/routes/upload.tsx - VERSION CORRIGÉE
+// INFO : app/routes/upload.tsx — contenu uniquement ; layout _app fournit Navigation + AuthGuard.
 import React, { useState, useCallback, useRef } from 'react';
 import { useAuth } from '~/hooks/useAuth';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { UploadManager, UploadManagerHandle } from '~/components/upload/UploadManager';
 import { darkTheme } from '~/utils/ui/theme';
 import { formatFileSize, formatDate } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+
+export function meta() {
+    return [
+        { title: 'Upload | Videomi' },
+        { name: 'description', content: 'Téléversez vos fichiers vers le cloud Videomi. Stockage sécurisé et streaming.' },
+    ];
+}
 
 interface UploadProgress {
     loaded: number;
@@ -25,7 +30,7 @@ interface UploadedFile {
 }
 
 export default function UploadRoute() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { t } = useLanguage();
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -90,16 +95,7 @@ export default function UploadRoute() {
     }, []);
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                <Navigation user={user!} onLogout={logout} />
-
-                <main style={{
-                    maxWidth: 1200,
-                    margin: '0 auto',
-                    padding: '0 20px 40px',
-                    fontFamily: 'system-ui, sans-serif'
-                }}>
+        <>
                     <div style={{ marginBottom: '40px' }}>
                         <h1 style={{
                             fontSize: '32px',
@@ -631,7 +627,6 @@ export default function UploadRoute() {
                             </div>
                         </div>
                     </div>
-                </main>
 
                 <footer style={{
                     backgroundColor: '#1a1a1a',
@@ -653,7 +648,6 @@ export default function UploadRoute() {
                         </p>
                     </div>
                 </footer>
-            </div>
-        </AuthGuard>
+        </>
     );
 }

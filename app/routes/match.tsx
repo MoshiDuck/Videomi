@@ -5,8 +5,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useConfig } from '~/hooks/useConfig';
-import { Navigation } from '~/components/navigation/Navigation';
-import { AuthGuard } from '~/components/auth/AuthGuard';
 import { useAuth } from '~/hooks/useAuth';
 import { searchMovies, searchTVShows, searchMusicOnSpotify, searchArtistsOnSpotify, searchAlbumsForArtistOnSpotify, downloadAndStoreThumbnail, type MediaMatch } from '~/utils/media/mediaMetadata';
 import { darkTheme } from '~/utils/ui/theme';
@@ -18,7 +16,7 @@ export default function MatchRoute() {
     const { fileId, category } = useParams<{ fileId: string; category: FileCategory }>();
     const navigate = useNavigate();
     const { config } = useConfig();
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [step, setStep] = useState<MatchStep>('artist');
@@ -510,10 +508,9 @@ export default function MatchRoute() {
 
     if (loading && !fileInfo) {
         return (
-            <AuthGuard>
+            <>
                 <div style={{ 
-                    minHeight: '100vh', 
-                    backgroundColor: darkTheme.background.primary,
+                    minHeight: '60vh', 
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -533,15 +530,12 @@ export default function MatchRoute() {
                         </p>
                     </div>
                 </div>
-            </AuthGuard>
+            </>
         );
     }
 
     return (
-        <AuthGuard>
-            <div style={{ minHeight: '100vh', backgroundColor: darkTheme.background.primary }}>
-                <Navigation user={user!} onLogout={logout} />
-                
+        <>
                 <main style={{
                     maxWidth: 1200,
                     margin: '0 auto',
@@ -1629,7 +1623,6 @@ export default function MatchRoute() {
                         </button>
                     </div>
                 </main>
-            </div>
-        </AuthGuard>
+        </>
     );
 }

@@ -143,6 +143,20 @@ export async function handleCacheInvalidation(event: CacheInvalidationEvent): Pr
 }
 
 /**
+ * Invalide les stats affichées sur la page d'accueil (client-side).
+ * Déclenche la réexécution du clientLoader de /home via l'événement videomi:stats-invalidated.
+ * À appeler après un upload, une suppression ou toute action modifiant le nombre/taille des fichiers.
+ */
+export function invalidateStats(userId: string): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+        new CustomEvent('videomi:stats-invalidated', {
+            detail: { userId },
+        })
+    );
+}
+
+/**
  * Hook pour écouter les événements d'invalidation
  */
 export function setupCacheInvalidationListener(
