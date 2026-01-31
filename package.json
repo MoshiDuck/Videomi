@@ -61,7 +61,7 @@
     "stripe": "^19.1.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.7.5",
+    "@cloudflare/vite-plugin": "1.22.1",
     "@react-router/dev": "7.6.3",
     "@tailwindcss/vite": "4.1.4",
     "@types/form-data": "^2.5.0",
