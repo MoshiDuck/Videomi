@@ -836,7 +836,7 @@ export const UploadManager = forwardRef<UploadManagerHandle, UploadManagerProps>
 
             // Extraire la date de création réelle (EXIF images, lastModified documents) pour tri/affichage
             let fileCreatedAt: number | null = null;
-            if (category === 'images' || category === 'raw_images' || category === 'documents') {
+            if (category === 'images' || category === 'documents') {
                 try {
                     fileCreatedAt = await extractFileCreationDate(file, category);
                 } catch (e) {

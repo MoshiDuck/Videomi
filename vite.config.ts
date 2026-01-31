@@ -4,33 +4,33 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import type { OutputBundle, OutputChunk, OutputAsset, NormalizedOutputOptions } from "rollup";
 
 /** Supprime la référence source map du worker PDF pour éviter l’erreur Wrangler (fichier .map absent). */
 function stripPdfWorkerSourceMap() {
   return {
     name: "strip-pdf-worker-source-map",
     enforce: "post" as const,
-    generateBundle(_, bundle) {
+    generateBundle(_options: NormalizedOutputOptions, bundle: OutputBundle) {
       const strip = (str: string) =>
         str.replace(/\n?\/\/# sourceMappingURL=[^\n]*/g, "").trimEnd();
 
       for (const [fileName, output] of Object.entries(bundle)) {
         if (!fileName.includes("pdf.worker")) continue;
 
-        if (output.type === "asset") {
-          const source = output.source as string | Uint8Array;
+        if ((output as OutputAsset).type === "asset") {
+          const asset = output as OutputAsset;
+          const source = asset.source as string | Uint8Array;
           const str = typeof source === "string" ? source : new TextDecoder().decode(source);
           if (str.includes("sourceMappingURL")) {
-            (output as { source: string }).source = strip(str);
+            asset.source = strip(str);
           }
           continue;
         }
 
-        if (output.type === "chunk" && "code" in output) {
-          const code = output.code as string;
-          if (code.includes("sourceMappingURL")) {
-            (output as { code: string }).code = strip(code);
-          }
+        const chunk = output as OutputChunk;
+        if (chunk.type === "chunk" && "code" in chunk && chunk.code.includes("sourceMappingURL")) {
+          chunk.code = strip(chunk.code);
         }
       }
     },

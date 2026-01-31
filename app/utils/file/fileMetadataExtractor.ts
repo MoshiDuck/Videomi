@@ -280,7 +280,7 @@ export async function extractVideoMetadata(file: File): Promise<BaseVideoMetadat
  */
 export async function extractBaseMetadata(
     file: File,
-    category: 'videos' | 'musics' | 'images' | 'raw_images' | 'documents' | 'archives' | 'executables' | 'others'
+    category: 'videos' | 'musics' | 'images' | 'documents' | 'archives' | 'executables' | 'others'
 ): Promise<BaseAudioMetadata | BaseVideoMetadata | null> {
     if (category === 'musics') {
         return await extractAudioMetadata(file);
@@ -293,7 +293,7 @@ export async function extractBaseMetadata(
 }
 
 /** Catégories pour lesquelles on peut extraire une date de création fichier */
-export type FileCreationDateCategory = 'images' | 'raw_images' | 'documents';
+export type FileCreationDateCategory = 'images' | 'documents';
 
 /**
  * Extrait la date de création réelle du fichier (métadonnées EXIF pour images,
@@ -304,7 +304,7 @@ export async function extractFileCreationDate(
     category: FileCreationDateCategory
 ): Promise<number | null> {
     try {
-        if (category === 'images' || category === 'raw_images') {
+        if (category === 'images') {
             const exifr = await import('exifr');
             const full = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] }).catch(() => null);
             if (full && typeof full === 'object') {
@@ -316,7 +316,7 @@ export async function extractFileCreationDate(
                     (full as Record<string, unknown>).createDate ??
                     (full as Record<string, unknown>).modifyDate;
                 if (dateStr) {
-                    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+                    const date = typeof dateStr === 'string' ? new Date(dateStr) : (dateStr instanceof Date ? dateStr : new Date(dateStr as number));
                     if (!isNaN(date.getTime())) {
                         return Math.floor(date.getTime() / 1000);
                     }

@@ -46,7 +46,7 @@ export function useFileActions({
                 );
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
+                    const errorData = await response.json().catch(() => ({})) as { error?: string };
                     throw new Error(errorData.error || 'Erreur lors de la suppression');
                 }
 

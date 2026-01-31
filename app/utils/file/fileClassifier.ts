@@ -4,8 +4,7 @@
 export type FileCategory =
     | 'videos'      // Transcoder avec WebCodecs pour Shaka Player
     | 'musics'      // Transcoder avec WebCodecs pour Shaka Player
-    | 'images'      // Ne pas transcoder
-    | 'raw_images'  // Images RAW (NEF, etc.) - Ne pas transcoder
+    | 'images'      // Ne pas transcoder (JPEG, PNG, NEF, etc.)
     | 'documents'   // Ne pas transcoder
     | 'archives'    // Ne pas transcoder
     | 'executables' // Ne pas transcoder
@@ -87,7 +86,7 @@ const EXTENSION_CATEGORIES: Record<string, FileCategory> = {
     '.jpeg': 'images',
     '.png': 'images',
     '.gif': 'images',
-    '.nef': 'raw_images',
+    '.nef': 'images',
     '.pdf': 'documents',
     '.doc': 'documents',
     '.docx': 'documents',

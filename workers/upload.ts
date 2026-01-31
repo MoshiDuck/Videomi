@@ -1860,7 +1860,7 @@ app.post('/api/upload/complete', async (c) => {
         }
 
         // Invalider le cache Edge après upload réussi
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const patternsToInvalidate = [
             generateCacheKey(uploadInfo.user_id, 'files', { category: uploadInfo.category }),
             generateCacheKey(uploadInfo.user_id, 'stats'),
@@ -1952,7 +1952,7 @@ app.get('/api/upload/user/:userId', async (c) => {
         const category = c.req.query('category') || null;
         
         // Vérifier si on peut utiliser le cache
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const cacheKey = generateCacheKey(userId, 'files', { category });
         
         // Vérifier l'ETag de la requête
@@ -1972,7 +1972,7 @@ app.get('/api/upload/user/:userId', async (c) => {
                 
                 // Servir depuis le cache
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as Record<string, unknown>;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -2091,7 +2091,7 @@ app.get('/api/stats', async (c) => {
         }
 
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const cacheKey = generateCacheKey(userId, 'stats');
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2106,7 +2106,7 @@ app.get('/api/stats', async (c) => {
                 }
                 
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as Record<string, unknown>;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -2186,7 +2186,7 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
         const fileId = c.req.param('fileId');
         
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const cacheKey = generateCacheKey(null, 'file:info', { fileId, category });
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2201,7 +2201,7 @@ app.get('/api/files/:category/:fileId/info', async (c) => {
                 }
                 
                 console.log(`[CACHE] Hit: ${cacheKey}`);
-                const cachedData = await cachedResponse.json();
+                const cachedData = await cachedResponse.json() as Record<string, unknown>;
                 return c.json(cachedData, 200, {
                     'ETag': etag || '',
                     'Cache-Control': cachedResponse.headers.get('Cache-Control') || '',
@@ -2286,7 +2286,7 @@ app.get('/api/files/:category/:fileId/thumbnail', async (c) => {
         const fileId = c.req.param('fileId');
         
         // Vérifier le cache Edge
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const cacheKey = generateCacheKey(null, 'thumbnail', { fileId, category });
         const ifNoneMatch = c.req.header('If-None-Match');
         
@@ -2577,7 +2577,7 @@ app.delete('/api/files/:category/:fileId', async (c) => {
         }
 
         // Invalider le cache Edge après suppression
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const patternsToInvalidate = [
             generateCacheKey(userId, 'files', { category }),
             generateCacheKey(userId, 'stats'),
@@ -2872,7 +2872,7 @@ app.post('/api/files/:fileId/metadata', async (c) => {
         }
 
         // Invalider le cache Edge après mise à jour métadonnées
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         // Récupérer la catégorie du fichier pour invalidation
         const fileInfo = await c.env.DATABASE.prepare(
             `SELECT category FROM files WHERE file_id = ?`

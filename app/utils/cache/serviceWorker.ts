@@ -123,7 +123,7 @@ export async function getServiceWorkerStatus(): Promise<{ currentUserId: string 
         if (registration.active) {
             return new Promise((resolve) => {
                 const channel = new MessageChannel();
-                channel.port1.onmessage = (event) => {
+                channel.port1.onmessage = (event: MessageEvent) => {
                     resolve(event.data);
                 };
                 registration.active!.postMessage(

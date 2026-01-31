@@ -72,6 +72,7 @@ export function PdfFirstPagePreview({
                 if (!ctx) throw new Error('Canvas 2D not available');
 
                 await page.render({
+                    canvas,
                     canvasContext: ctx,
                     viewport: scaledViewport,
                     intent: 'display',

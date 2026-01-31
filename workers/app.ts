@@ -703,7 +703,7 @@ app.post('/api/upload', async (c) => {
                                                     const isDoctorWho = serieName.includes('doctor who');
                                                     if (!isDoctorWho) {
                                                         console.warn(`⚠️ [ENRICHMENT] Série trouvée "${doctorWho2005.name}" ne correspond pas à "Doctor Who", recherche alternative...`);
-                                                        doctorWho2005 = null;
+                                                        doctorWho2005 = undefined;
                                                     }
                                                 }
                                                 
@@ -1576,7 +1576,7 @@ app.post('/api/ratings/:fileId', async (c) => {
         }
         
         // Invalider le cache Edge après nouveau rating
-        const cache = caches.default;
+        const cache = (caches as unknown as { default: Cache }).default;
         const patternsToInvalidate = [
             generateCacheKey(user_id, 'ratings', { fileId }),
             generateCacheKey(null, 'ratings:top10'),

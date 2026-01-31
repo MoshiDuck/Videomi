@@ -82,19 +82,20 @@ export function useFilesPreloader({ userId, enabled = true, preloadOnHover = tru
             if (response.ok) {
                 return response.json();
             }
-        }).then(data => {
-            if (data?.files) {
+        }).then((data: unknown) => {
+            const d = data as { files?: unknown[] } | undefined;
+            if (d?.files) {
                 // Sauvegarder dans le cache persistant et mémoire
                 try {
                     localStorage.setItem(cacheKey, JSON.stringify({
-                        data: data.files,
+                        data: d.files,
                         timestamp: Date.now(),
                         version: '1.0'
                     }));
                     // Mettre aussi dans le cache mémoire pour accès instantané
                     if (fileCache) {
                         fileCache.set(memoryCacheKey, {
-                            data: data.files,
+                            data: d.files,
                             timestamp: Date.now()
                         });
                     }

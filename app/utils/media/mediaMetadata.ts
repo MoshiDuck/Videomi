@@ -1,7 +1,7 @@
 // INFO : app/utils/mediaMetadata.ts
 // Intégration avec TMDb, TVDb, OMDb et MusicBrainz pour enrichir les métadonnées des fichiers
 
-type FileCategory = 'videos' | 'musics' | 'images' | 'raw_images' | 'documents' | 'archives' | 'executables' | 'others';
+type FileCategory = 'videos' | 'musics' | 'images' | 'documents' | 'archives' | 'executables' | 'others';
 
 // Types pour les métadonnées
 export interface MediaMetadata {

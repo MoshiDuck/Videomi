@@ -139,8 +139,8 @@ interface PlayerContextType {
     playPrevious: () => void;
     toggleMiniPlayer: (show: boolean) => void;
     expandPlayer: () => void;
-    audioRef: React.RefObject<HTMLAudioElement>;
-    videoRef: React.RefObject<HTMLVideoElement>;
+    audioRef: React.RefObject<HTMLAudioElement | null>;
+    videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);

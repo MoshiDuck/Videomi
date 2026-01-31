@@ -67,19 +67,12 @@ export default function ImagesRoute() {
         setError(null);
         try {
             const token = localStorage.getItem('videomi_token');
-            const [imagesResponse, rawImagesResponse] = await Promise.all([
-                fetch(`https://videomi.uk/api/upload/user/${user.id}?category=images`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-                fetch(`https://videomi.uk/api/upload/user/${user.id}?category=raw_images`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-            ]);
-            if (!imagesResponse.ok || !rawImagesResponse.ok) throw new Error(t('errors.fetchFailed'));
-            const imagesData = (await imagesResponse.json()) as { files: FileItem[] };
-            const rawImagesData = (await rawImagesResponse.json()) as { files: FileItem[] };
-            const files = [...(imagesData.files || []), ...(rawImagesData.files || [])];
-            setImages(files);
+            const response = await fetch(`https://videomi.uk/api/upload/user/${user.id}?category=images`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error(t('errors.fetchFailed'));
+            const data = (await response.json()) as { files: FileItem[] };
+            setImages(data.files || []);
         } catch (err) {
             console.error('Erreur fetch fichiers:', err);
             setError(err instanceof Error ? err.message : t('errors.unknown'));

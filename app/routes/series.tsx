@@ -398,6 +398,7 @@ export default function SeriesRoute() {
                 console.log('Top 10 séries reçu:', data.top10);
                 
                 // Mapper les source_id aux séries complètes avec leurs notes
+                type TVShowWithRating = TVShow & { averageRating: number; ratingCount: number };
                 const top10Series = data.top10
                     .map(item => {
                         const show = showsMap.get(item.source_id);
@@ -410,14 +411,14 @@ export default function SeriesRoute() {
                         }
                         return null;
                     })
-                    .filter((s): s is TVShow => s !== null)
+                    .filter((s): s is TVShowWithRating => s !== null)
                     .slice(0, 10);
                 
                 console.log('Top 10 séries mappées:', top10Series);
                 
                 setOrganizedSeries(prev => ({
                     ...prev,
-                    top10: top10Series
+                    top10: top10Series as TVShow[]
                 }));
             } else {
                 console.error('Erreur API top 10 séries:', response.status, response.statusText);
@@ -805,7 +806,7 @@ export default function SeriesRoute() {
                     onKeyDown={handleKeyDown}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Voir ${show.title || show.filename || 'cette série'}`}
+                    aria-label={`Voir ${show.showName || 'cette série'}`}
                     style={{
                         position: 'relative',
                         width: '185px',
@@ -831,7 +832,7 @@ export default function SeriesRoute() {
                             onKeyDown={handleKeyDown}
                             tabIndex={0}
                             role="button"
-                            aria-label={`Voir ${show.title || show.filename || 'cette série'}`}
+                            aria-label={`Voir ${show.showName || 'cette série'}`}
                             style={{
                                 position: 'fixed',
                                 top: `${customPosition.top}px`,
@@ -1343,6 +1344,7 @@ export default function SeriesRoute() {
                                 <div key={item.show.showId} style={{ position: 'relative' }}>
                                     <SeriesCard
                                         show={item.show}
+                                        genre={item.show.genres?.[0] ?? 'Série'}
                                         onClick={() => handleShowClick(item.show)}
                                     />
                                     {/* Barre de progression */}
@@ -1374,6 +1376,7 @@ export default function SeriesRoute() {
                                 <div key={show.showId} style={{ position: 'relative' }}>
                                     <SeriesCard
                                         show={show}
+                                        genre={show.genres?.[0] ?? 'Série'}
                                         onClick={() => handleShowClick(show)}
                                     />
                                     {/* Badge numéro */}
@@ -1439,6 +1442,7 @@ export default function SeriesRoute() {
                                 <SeriesCard
                                     key={show.showId}
                                     show={show}
+                                    genre={show.genres?.[0] ?? 'Série'}
                                     onClick={() => handleShowClick(show)}
                                 />
                             ))}

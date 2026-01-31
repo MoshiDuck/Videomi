@@ -10,7 +10,6 @@ export const CATEGORY_ROUTES: Record<FileCategory, string> = {
     'videos': '/films',  // Les vidéos redirigent vers /films par défaut
     'musics': '/musics',
     'images': '/images',
-    'raw_images': '/images', // Les images RAW sont fusionnées avec images
     'documents': '/documents',
     'archives': '/archives',
     'executables': '/executables',

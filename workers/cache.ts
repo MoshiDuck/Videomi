@@ -309,10 +309,13 @@ export function cacheMiddleware(
             
             // Servir depuis le cache
             console.log(`[CACHE] Hit: ${cacheKey}`);
-            return c.body(cachedResponse.body, {
-                status: cachedResponse.status,
-                headers: Object.fromEntries(cachedResponse.headers.entries()),
-            });
+            const headersObj: Record<string, string> = {};
+            cachedResponse.headers.forEach((v, k) => { headersObj[k] = v; });
+            return c.body(
+                cachedResponse.body ?? new ReadableStream(),
+                cachedResponse.status as 200,
+                headersObj
+            );
         }
         
         // Pas dans le cache, exécuter la route

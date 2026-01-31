@@ -355,7 +355,7 @@ export function invalidateUserFileCache(userId: string): void {
     if (typeof window === 'undefined') return;
     
     // Invalider toutes les catégories connues
-    const categories: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'archives', 'executables', 'others', 'raw_images'];
+    const categories: FileCategory[] = ['videos', 'musics', 'images', 'documents', 'archives', 'executables', 'others'];
     categories.forEach(category => {
         invalidateFileCache(userId, category);
     });

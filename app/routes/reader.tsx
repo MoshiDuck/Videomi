@@ -241,7 +241,7 @@ export default function ReaderRoute() {
 
     const isVideo = (cat: FileCategory | null): boolean => cat === 'videos';
     const isAudio = (cat: FileCategory | null): boolean => cat === 'musics';
-    const isImage = (cat: FileCategory | null): boolean => cat === 'images' || cat === 'raw_images';
+    const isImage = (cat: FileCategory | null): boolean => cat === 'images';
     const isDocument = (cat: FileCategory | null): boolean => cat === 'documents';
 
     // Navigation dans la playlist
@@ -359,7 +359,7 @@ export default function ReaderRoute() {
     const navigateBack = () => {
         if (category === 'musics') {
             navigate('/musics');
-        } else if (category === 'images' || category === 'raw_images') {
+        } else if (category === 'images') {
             navigate('/images');
         } else if (category === 'documents') {
             navigate('/documents');

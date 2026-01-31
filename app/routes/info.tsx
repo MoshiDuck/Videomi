@@ -116,7 +116,7 @@ export default function InfoRoute() {
                     throw new Error('Erreur lors de la récupération des fichiers');
                 }
 
-                const data = await response.json();
+                const data = await response.json() as { files?: FileItem[] };
                 const foundFile = data.files?.find((f: FileItem) => f.file_id === fileId);
 
                 if (!foundFile) {
@@ -136,7 +136,7 @@ export default function InfoRoute() {
                 // Si c'est une série, organiser les épisodes par saison
                 if (isTVShow && foundFile.source_id) {
                     const showSourceId = foundFile.source_id;
-                    const allEpisodes = data.files?.filter((f: FileItem) => {
+                    const allEpisodes = (data.files ?? []).filter((f: FileItem) => {
                         if (f.source_api !== 'tmdb_tv') return false;
                         return f.source_id === showSourceId;
                     }) || [];
@@ -199,7 +199,7 @@ export default function InfoRoute() {
                     });
 
                     if (progressResponse.ok) {
-                        const progressData = await progressResponse.json();
+                        const progressData = await progressResponse.json() as WatchProgress;
                         setWatchProgress(progressData);
                     }
                 } catch (err) {
@@ -208,7 +208,7 @@ export default function InfoRoute() {
 
                 // Récupérer les fichiers similaires (même genre ou collection)
                 // Pour les séries, exclure les épisodes de la même série
-                const related = data.files?.filter((f: FileItem) => {
+                const related = (data.files ?? []).filter((f: FileItem) => {
                     if (f.file_id === fileId) return false;
                     if (f.category !== foundFile.category) return false;
                     
@@ -370,7 +370,7 @@ export default function InfoRoute() {
         return (
             <>
                 <div style={{ minHeight: '60vh', paddingTop: '80px' }}>
-                    <ErrorDisplay message={error || 'Fichier non trouvé'} />
+                    <ErrorDisplay error={error || 'Fichier non trouvé'} />
                 </div>
             </>
         );

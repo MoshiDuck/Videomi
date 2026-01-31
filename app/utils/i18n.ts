@@ -54,6 +54,8 @@ export interface Translations {
         title: string;
         selectFile: string;
         dragDrop: string;
+        dragDropOr?: string;
+        supportedFormats?: string;
         globalProgress: string;
         filesCompleted: string;
         inProgress: string;
