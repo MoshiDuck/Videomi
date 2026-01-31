@@ -10,6 +10,7 @@ import { formatFileSize, formatDate } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
+import { useRefetchOnCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 interface FileItem {
     file_id: string;
@@ -82,6 +83,7 @@ export default function OthersRoute() {
         }
     }, [fetchFiles, user?.id]);
 
+    useRefetchOnCacheInvalidation(user?.id ?? null, 'others', fetchFiles);
 
     const getFileUrl = (file: FileItem): string => {
         return `https://videomi.uk/api/files/${file.category}/${file.file_id}`;

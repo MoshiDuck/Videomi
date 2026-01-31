@@ -16,6 +16,7 @@ import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { VirtualizedMasonryGrid } from '~/components/ui/VirtualizedMasonryGrid';
 import { groupByMonthForMasonry } from '~/utils/file/fileGridUtils';
 import type { FileWithDate } from '~/utils/file/fileGridUtils';
+import { useRefetchOnCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 interface FileItem extends FileWithDate {
     file_id: string;
@@ -143,6 +144,8 @@ export default function DocumentsRoute() {
     useEffect(() => {
         fetchFiles();
     }, [fetchFiles]);
+
+    useRefetchOnCacheInvalidation(user?.id ?? null, 'documents', fetchFiles);
 
     const getFileUrl = (file: FileItem): string =>
         `https://videomi.uk/api/files/${file.category}/${file.file_id}`;

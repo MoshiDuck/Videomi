@@ -11,6 +11,7 @@ import { formatDuration } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { PageSkeleton } from '~/components/ui/PageSkeleton';
+import { useCacheInvalidationTrigger } from '~/utils/cache/cacheInvalidation';
 
 export function meta() {
     return [
@@ -146,6 +147,8 @@ export default function MusicsRoute() {
         setSelectedCategory(category);
         navigate(getCategoryRoute(category));
     };
+
+    const cacheInvalidationTrigger = useCacheInvalidationTrigger(user?.id ?? null, 'musics');
 
     // Charger et organiser les fichiers
     useEffect(() => {
@@ -408,7 +411,7 @@ export default function MusicsRoute() {
         };
 
         if (user?.id) fetchFiles();
-    }, [user?.id, config, cleanString]);
+    }, [user?.id, config, cleanString, cacheInvalidationTrigger]);
 
 
     // Navigation handlers (mise à jour URL pour partage / deep link)

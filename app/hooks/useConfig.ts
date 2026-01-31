@@ -42,7 +42,10 @@ export function useConfig() {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const res = await fetch('/api/config');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s max
+                const res = await fetch('/api/config', { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) throw new Error(`Échec: ${res.status}`);
 
                 const data: unknown = await res.json();
@@ -76,7 +79,7 @@ export function useConfig() {
                     setError('GOOGLE_CLIENT_ID non configuré');
                 }
             } catch (err: any) {
-                setError(err.message || 'Erreur lors de la récupération');
+                setError(err?.name === 'AbortError' ? 'Délai dépassé. Vérifiez votre connexion.' : (err.message || 'Erreur lors de la récupération'));
             } finally {
                 setLoading(false);
             }

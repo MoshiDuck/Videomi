@@ -13,6 +13,7 @@ import { useLanguage } from '~/contexts/LanguageContext';
 import { useFloating, useHover, useInteractions, FloatingPortal } from '@floating-ui/react';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { MediaPageSkeleton } from '~/components/ui/MediaPageSkeleton';
+import { useCacheInvalidationTrigger } from '~/utils/cache/cacheInvalidation';
 
 export function meta() {
     return [
@@ -131,6 +132,8 @@ export default function SeriesRoute() {
         navigate(subCategory === 'films' ? '/films' : '/series');
     }, [navigate]);
 
+    const cacheInvalidationTrigger = useCacheInvalidationTrigger(user?.id ?? null, 'videos');
+
     useEffect(() => {
         const fetchFiles = async () => {
             if (!user?.id) return;
@@ -177,7 +180,7 @@ export default function SeriesRoute() {
         };
 
         fetchFiles();
-    }, [user?.id, config]);
+    }, [user?.id, config, cacheInvalidationTrigger]);
 
     const organizeSeries = useCallback((files: FileItem[], progressions: Array<{ file_id: string; progress_percent: number; current_time: number }> = []) => {
         const unidentified: FileItem[] = [];

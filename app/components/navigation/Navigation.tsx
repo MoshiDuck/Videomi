@@ -1,6 +1,6 @@
 // INFO : app/components/Navigation.tsx
 import React, { useState } from 'react';
-import { Link, useLocation, PrefetchPageLinks } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import type { User } from '~/types/auth';
 import { darkTheme } from '~/utils/ui/theme';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
@@ -21,10 +21,9 @@ export function Navigation({ user, onLogout }: NavigationProps) {
 
     return (
         <>
-            <PrefetchPageLinks page="/home" />
-            <PrefetchPageLinks page="/films" />
-            <PrefetchPageLinks page="/upload" />
-            <PrefetchPageLinks page="/profile" />
+            {/* PrefetchPageLinks désactivé : causait des centaines de requêtes __manifest
+                et ERR_INSUFFICIENT_RESOURCES / ERR_HTTP2_PROTOCOL_ERROR sur certaines configs.
+                prefetch="intent" sur les Links reste actif (prefetch au survol uniquement). */}
         <nav style={{
             backgroundColor: darkTheme.background.nav,
             padding: '16px 0',

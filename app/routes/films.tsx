@@ -14,6 +14,7 @@ import { useFloating, useHover, useInteractions, FloatingPortal } from '@floatin
 import { DraggableItem } from '~/components/ui/DraggableItem';
 import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
+import { useCacheInvalidationTrigger } from '~/utils/cache/cacheInvalidation';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { MediaPageSkeleton } from '~/components/ui/MediaPageSkeleton';
 
@@ -143,6 +144,8 @@ export default function FilmsRoute() {
         navigate(subCategory === 'films' ? '/films' : '/series');
     }, [navigate]);
 
+    const cacheInvalidationTrigger = useCacheInvalidationTrigger(user?.id ?? null, 'videos');
+
     useEffect(() => {
         const fetchFiles = async () => {
             if (!user?.id) return;
@@ -189,7 +192,7 @@ export default function FilmsRoute() {
         };
 
         fetchFiles();
-    }, [user?.id, config]);
+    }, [user?.id, config, cacheInvalidationTrigger]);
 
     const organizeMovies = useCallback((files: FileItem[], progressions: Array<{ file_id: string; progress_percent: number; current_time: number }> = []) => {
         const unidentified: FileItem[] = [];

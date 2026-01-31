@@ -16,6 +16,7 @@ import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { VirtualizedMasonryGrid } from '~/components/ui/VirtualizedMasonryGrid';
 import { groupByMonthForMasonry } from '~/utils/file/fileGridUtils';
 import type { FileWithDate } from '~/utils/file/fileGridUtils';
+import { useRefetchOnCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
 interface FileItem extends FileWithDate {
     file_id: string;
@@ -84,6 +85,8 @@ export default function ImagesRoute() {
     useEffect(() => {
         fetchFiles();
     }, [fetchFiles]);
+
+    useRefetchOnCacheInvalidation(user?.id ?? null, 'images', fetchFiles);
 
     useEffect(() => {
         if (!selectedImage) return;

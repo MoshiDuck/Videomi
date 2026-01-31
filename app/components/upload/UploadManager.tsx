@@ -6,7 +6,6 @@ import { useAuth } from '~/hooks/useAuth';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { darkTheme } from '~/utils/ui/theme';
 import { extractBaseMetadata, extractFileCreationDate, type BaseAudioMetadata, type BaseVideoMetadata } from '~/utils/file/fileMetadataExtractor';
-import { invalidateFileCache, invalidateUserFileCache } from '~/hooks/useFiles';
 import { handleCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 import { formatFileSize } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';

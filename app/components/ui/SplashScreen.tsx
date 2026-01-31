@@ -1,19 +1,33 @@
 // INFO : app/components/ui/SplashScreen.tsx
+// Affiche uniquement "Videomi" sans charger de données utilisateur.
+// Si connecté → /home après 2s. Si non connecté → /login immédiatement (évite le layout _app et les timeouts).
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { darkTheme } from '~/utils/ui/theme';
+import { useAuth } from '~/hooks/useAuth';
 
 export function SplashScreen() {
     const navigate = useNavigate();
+    const { user, loading } = useAuth();
 
     useEffect(() => {
-        // Rediriger vers /home après 2 secondes
-        const timer = setTimeout(() => {
-            navigate('/home', { replace: true });
-        }, 2000);
+        // Attendre que l'auth soit résolue (lecture localStorage, pas d'API)
+        if (loading) return;
 
-        return () => clearTimeout(timer);
-    }, [navigate]);
+        if (user) {
+            // Utilisateur connecté : courte pause branding puis /home
+            const timer = setTimeout(() => {
+                navigate('/home', { replace: true });
+            }, 1500);
+            return () => clearTimeout(timer);
+        } else {
+            // Non connecté : courte pause pour afficher "Videomi" puis /login (évite layout _app, home loader)
+            const timer = setTimeout(() => {
+                navigate('/login', { replace: true });
+            }, 800);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, user, navigate]);
 
     return (
         <div 
