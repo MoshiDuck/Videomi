@@ -32,9 +32,13 @@ export type MasonryGridItem<T> =
 /**
  * Groupe les fichiers par mois/année (date de création) et aplatit en liste
  * pour la grille : [ section, file, file, section, file, ... ]
+ * Filtre les fichiers sans file_id valide pour éviter les erreurs de virtualisation.
  */
 export function groupByMonthForMasonry<T extends FileWithDate>(files: T[]): MasonryGridItem<T>[] {
-    const sorted = sortByFileCreatedAt(files);
+    const validFiles = (files ?? []).filter(
+        (f): f is T => f != null && typeof (f as FileWithDate).file_id === 'string'
+    );
+    const sorted = sortByFileCreatedAt(validFiles);
     const result: MasonryGridItem<T>[] = [];
     let currentMonthKey = '';
 

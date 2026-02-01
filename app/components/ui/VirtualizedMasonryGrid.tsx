@@ -39,13 +39,21 @@ function SectionCell({ label, width }: { label: string; width: number }) {
     );
 }
 
+/** Filtre les items invalides (undefined/null ou sans clé) pour éviter les erreurs Masonic lors des suppressions. */
+function filterValidMasonryItems<T>(items: MasonryGridItem<T>[]): MasonryGridItem<T>[] {
+    return (items ?? []).filter(
+        (item): item is MasonryGridItem<T> =>
+            item != null && typeof item === 'object' && typeof (item as MasonryGridItem<T>).key === 'string'
+    );
+}
+
 export function VirtualizedMasonryGrid<T>({
     items,
     renderCard,
     columnWidth = 280,
     gutter = 16,
     itemHeightEstimate = 280,
-    itemKey = (item) => item.key,
+    itemKey = (item) => (item != null && item.key != null ? item.key : 'fallback'),
 }: VirtualizedMasonryGridProps<T>) {
     const render = useMemo(
         () =>
@@ -57,6 +65,7 @@ export function VirtualizedMasonryGrid<T>({
                 width: number;
                 index: number;
             }) {
+                if (data == null) return null;
                 if (data.type === 'section') {
                     return <SectionCell label={data.label} width={width} />;
                 }
@@ -65,11 +74,17 @@ export function VirtualizedMasonryGrid<T>({
         [renderCard]
     );
 
-    if (items.length === 0) return null;
+    const validItems = filterValidMasonryItems(items);
+    if (validItems.length === 0) return null;
+
+    // Clé stable qui change à chaque modification de la liste.
+    // Force un remontage complet pour éviter le bug Masonic #12 (WeakMap invalid key lors des suppressions).
+    const masonryKey = validItems.map((i) => i.key).join('|');
 
     return (
         <Masonry
-            items={items}
+            key={masonryKey}
+            items={validItems}
             render={render}
             columnWidth={columnWidth}
             columnGutter={gutter}
