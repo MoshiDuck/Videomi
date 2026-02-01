@@ -1,6 +1,6 @@
 <div align="center">
 
-# Videomi
+# Stormi
 
 **Application de gestion de médias personnels** — Interface style Netflix/Spotify, déployée sur Cloudflare Workers.
 
@@ -10,7 +10,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1%20%2B%20R2-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![WCAG 2.1 AA](https://img.shields.io/badge/WCAG-2.1%20AA-005A9C?logo=accessibility)](https://www.w3.org/WAI/WCAG21/quickref/)
 
-[**Site**](https://videomi.uk) · [**Documentation**](./docs/)
+[**Site**](https://stormi.uk) · [**Documentation**](./docs/)
 
 </div>
 
@@ -18,7 +18,7 @@
 
 ## Présentation
 
-**Videomi** est une application web full‑stack pour gérer, organiser et consommer vos médias personnels (vidéos, musique, images, documents) via une interface moderne inspirée de Netflix et Spotify.
+**Stormi** est une application web full‑stack pour gérer, organiser et consommer vos médias personnels (vidéos, musique, images, documents) via une interface moderne inspirée de Netflix et Spotify.
 
 Streaming HLS · Enrichissement TMDb/Spotify · Cache multi‑niveaux · Accessibilité WCAG 2.1 AA
 
@@ -63,9 +63,9 @@ Streaming HLS · Enrichissement TMDb/Spotify · Cache multi‑niveaux · Accessi
 
 | Priorité | Fonctionnalité |
 |:--------:|----------------|
-| **Haute** | Sous-titres (.srt, .vtt) · Lecture PDF intégrée · Reprise d'upload · Recherche globale · Grilles images/documents |
+| **Haute** | Sous-titres (.srt, .vtt) · Reprise d'upload · Recherche globale · Grilles images/documents |
 | **Moyenne** | Catégorie Livres · Streaming YouTube · Partage temporaire · Import depuis URL · i18n |
-| **Basse** | Mode hors ligne · Import Drive/Dropbox · Option stockage local |
+| **Basse** | Mode hors ligne · Import Drive/Dropbox · Option stockage local | Adapter a tout les ecrans, telephone, tablette inclu 
 
 ---
 
