@@ -13,8 +13,8 @@ import { useFileActions } from '~/hooks/useFileActions';
 import { useToast } from '~/components/ui/Toast';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
-import { VirtualizedMasonryGrid } from '~/components/ui/VirtualizedMasonryGrid';
-import { groupByMonthForMasonry } from '~/utils/file/fileGridUtils';
+import { SectionedMasonryGrid } from '~/components/ui/VirtualizedMasonryGrid';
+import { groupByMonthAsSections } from '~/utils/file/fileGridUtils';
 import type { FileWithDate } from '~/utils/file/fileGridUtils';
 import { useRefetchOnCacheInvalidation } from '~/utils/cache/cacheInvalidation';
 
@@ -150,7 +150,7 @@ export default function DocumentsRoute() {
     const getFileUrl = (file: FileItem): string =>
         `https://videomi.uk/api/files/${file.category}/${file.file_id}`;
 
-    const masonryItems = useMemo(() => groupByMonthForMasonry(documents), [documents]);
+    const masonrySections = useMemo(() => groupByMonthAsSections(documents), [documents]);
 
     const renderDocumentCard = useCallback(
         ({ data, width }: { data: FileItem; width: number }) => {
@@ -321,8 +321,8 @@ export default function DocumentsRoute() {
 
                 {documents.length > 0 ? (
                     <>
-                        <VirtualizedMasonryGrid<FileItem>
-                            items={masonryItems}
+                        <SectionedMasonryGrid<FileItem>
+                            sections={masonrySections}
                             renderCard={renderDocumentCard}
                             columnWidth={280}
                             gutter={16}

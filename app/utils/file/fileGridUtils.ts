@@ -30,9 +30,57 @@ export type MasonryGridItem<T> =
     | { type: 'file'; key: string; file: T };
 
 /**
+ * Groupe les fichiers par mois/année (date de création) en sections.
+ * Chaque section contient un label et ses fichiers, pour affichage empilé verticalement.
+ * Permet d'afficher la date en haut à gauche, puis les items en dessous,
+ * et la section suivante sous la dernière image de la précédente.
+ */
+export interface MasonrySection<T> {
+    key: string;
+    label: string;
+    sortKey: number;
+    files: T[];
+}
+
+export function groupByMonthAsSections<T extends FileWithDate>(files: T[]): MasonrySection<T>[] {
+    const validFiles = (files ?? []).filter(
+        (f): f is T => f != null && typeof (f as FileWithDate).file_id === 'string'
+    );
+    const sorted = sortByFileCreatedAt(validFiles);
+    const sectionsMap = new Map<string, T[]>();
+
+    for (const file of sorted) {
+        const ts = getSortTimestamp(file);
+        const date = new Date(ts * 1000);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        let arr = sectionsMap.get(monthKey);
+        if (!arr) {
+            arr = [];
+            sectionsMap.set(monthKey, arr);
+        }
+        arr.push(file);
+    }
+
+    return Array.from(sectionsMap.entries())
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([monthKey, sectionFiles]) => {
+            const firstTs = getSortTimestamp(sectionFiles[0]!);
+            const date = new Date(firstTs * 1000);
+            return {
+                key: `section-${monthKey}`,
+                label: date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                sortKey: firstTs,
+                files: sectionFiles,
+            };
+        });
+}
+
+/**
  * Groupe les fichiers par mois/année (date de création) et aplatit en liste
  * pour la grille : [ section, file, file, section, file, ... ]
  * Filtre les fichiers sans file_id valide pour éviter les erreurs de virtualisation.
+ * @deprecated Préférer groupByMonthAsSections + SectionedMasonryGrid pour éviter les dates à droite des items.
  */
 export function groupByMonthForMasonry<T extends FileWithDate>(files: T[]): MasonryGridItem<T>[] {
     const validFiles = (files ?? []).filter(
