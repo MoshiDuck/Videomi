@@ -8,6 +8,9 @@ import { CategoryBar } from '~/components/ui/categoryBar';
 import { getCategoryRoute, getCategoryFromPathname } from '~/utils/routes';
 import { formatFileSize, formatDate } from '~/utils/format';
 import { useLanguage } from '~/contexts/LanguageContext';
+import { DraggableItem } from '~/components/ui/DraggableItem';
+import { useFileActions } from '~/hooks/useFileActions';
+import { useToast } from '~/components/ui/Toast';
 import { LoadingSpinner } from '~/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '~/components/ui/ErrorDisplay';
 import { useRefetchOnCacheInvalidation } from '~/utils/cache/cacheInvalidation';
@@ -27,10 +30,22 @@ export default function OthersRoute() {
     const { t } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
+    const { showToast, ToastContainer } = useToast();
     const [selectedCategory, setSelectedCategory] = useState<FileCategory>('others');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [others, setOthers] = useState<FileItem[]>([]);
+
+    const handleFileDeleted = useCallback((fileId: string) => {
+        setOthers((prev) => prev.filter((f) => f.file_id !== fileId));
+    }, []);
+
+    useFileActions({
+        userId: user?.id || null,
+        onFileDeleted: handleFileDeleted,
+        onError: (err) => showToast(err, 'error'),
+        onSuccess: (msg) => showToast(msg, 'success'),
+    });
 
     // Synchroniser selectedCategory avec la route actuelle
     useEffect(() => {
@@ -184,71 +199,82 @@ export default function OthersRoute() {
                             gap: '16px'
                         }}>
                             {others.map((file) => (
-                                <div
+                                <DraggableItem
                                     key={file.file_id}
-                                    onClick={() => window.open(getFileUrl(file), '_blank')}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            window.open(getFileUrl(file), '_blank');
-                                        }
-                                    }}
-                                    tabIndex={0}
-                                    role="button"
-                                    aria-label={`Ouvrir ${file.filename || 'ce fichier'}`}
-                                    style={{
-                                        backgroundColor: darkTheme.background.secondary,
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        cursor: 'pointer',
-                                        transition: 'transform 0.2s, box-shadow 0.2s',
-                                        border: `1px solid ${darkTheme.border.primary}`
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = darkTheme.shadow.medium;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
+                                    item={{
+                                        file_id: file.file_id,
+                                        category: file.category,
+                                        filename: file.filename,
+                                        size: file.size,
+                                        mime_type: file.mime_type,
                                     }}
                                 >
-                                    <div style={{
-                                        fontSize: '48px',
-                                        textAlign: 'center',
-                                        marginBottom: '12px'
-                                    }}>
-                                        📎
+                                    <div
+                                        onClick={() => window.open(getFileUrl(file), '_blank')}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                window.open(getFileUrl(file), '_blank');
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label={`Ouvrir ${file.filename || 'ce fichier'}`}
+                                        style={{
+                                            backgroundColor: darkTheme.background.secondary,
+                                            borderRadius: '8px',
+                                            padding: '16px',
+                                            cursor: 'grab',
+                                            transition: 'transform 0.2s, box-shadow 0.2s',
+                                            border: `1px solid ${darkTheme.border.primary}`
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = darkTheme.shadow.medium;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        <div style={{
+                                            fontSize: '48px',
+                                            textAlign: 'center',
+                                            marginBottom: '12px'
+                                        }}>
+                                            📎
+                                        </div>
+                                        <div style={{
+                                            fontWeight: '600',
+                                            color: darkTheme.text.primary,
+                                            fontSize: '14px',
+                                            marginBottom: '8px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {file.filename || 'Sans nom'}
+                                        </div>
+                                        <div style={{
+                                            color: darkTheme.text.tertiary,
+                                            fontSize: '12px',
+                                            marginBottom: '4px'
+                                        }}>
+                                            {formatFileSize(file.size)}
+                                        </div>
+                                        <div style={{
+                                            color: darkTheme.text.tertiary,
+                                            fontSize: '12px'
+                                        }}>
+                                            {formatDate(file.uploaded_at)}
+                                        </div>
                                     </div>
-                                    <div style={{
-                                        fontWeight: '600',
-                                        color: darkTheme.text.primary,
-                                        fontSize: '14px',
-                                        marginBottom: '8px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                    }}>
-                                        {file.filename || 'Sans nom'}
-                                    </div>
-                                    <div style={{
-                                        color: darkTheme.text.tertiary,
-                                        fontSize: '12px',
-                                        marginBottom: '4px'
-                                    }}>
-                                        {formatFileSize(file.size)}
-                                    </div>
-                                    <div style={{
-                                        color: darkTheme.text.tertiary,
-                                        fontSize: '12px'
-                                    }}>
-                                        {formatDate(file.uploaded_at)}
-                                    </div>
-                                </div>
+                                </DraggableItem>
                             ))}
                         </div>
                     )}
                 </div>
+            <ToastContainer />
         </>
     );
 }
