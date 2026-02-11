@@ -16,8 +16,8 @@
     "publish": true
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.964.0",
-    "@aws-sdk/s3-request-presigner": "^3.940.0",
+    "@aws-sdk/client-s3": "^3.987.0",
+    "@aws-sdk/s3-request-presigner": "^3.987.0",
     "@cloudflare/workers-types": "^4.20251223.0",
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
